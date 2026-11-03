@@ -125,7 +125,7 @@ public partial class MainWindow
         notify.Unchecked+=NotificationChanged;
 
         var choice=new ComboBox{Name="NotificationSoundChoice",Width=160,Margin=new(0),DisplayMemberPath="Label",SelectedValuePath="Id",
-            ItemsSource=new[]{new AppearanceOption("none",T("Silent")),new AppearanceOption("default",T("Default sound")),new AppearanceOption("information",T("Information sound")),new AppearanceOption("warning",T("Warning sound")),new AppearanceOption("error",T("Error sound"))},SelectedValue=preferences.NotificationSound};
+            ItemsSource=new[]{new AppearanceOption("none",T("Silent")),new AppearanceOption("waterdrop",T("Water drop")),new AppearanceOption("soft-piano",T("Soft piano")),new AppearanceOption("warm-chord",T("Warm chord")),new AppearanceOption("error",T("Error sound"))},SelectedValue=preferences.NotificationSound};
         AutomationProperties.SetAutomationId(choice,choice.Name);
         choice.SelectionChanged+=async(_,_)=>
         {

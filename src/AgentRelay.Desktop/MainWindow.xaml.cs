@@ -81,6 +81,7 @@ public partial class MainWindow : Window
             Navigation.SelectedIndex = 0;
             WatchReceipts();
             InitializeNotificationDelivery();
+            StartRelocationMaintenance();
             await Run(() => Task.CompletedTask, "Ready");
         };
     }
@@ -121,8 +122,12 @@ public partial class MainWindow : Window
         if (reportStatus) StatusText.Text = T("Working…");
         try
         {
+            // Resolve a queued move before actions generate prompts containing the current relay paths.
+            if (CompletePendingRelayMove()) refresh = true;
             await action();
             var receipts=service.ImportManualReceipts();
+            if (CompletePendingRelayMove()) refresh = true;
+            service.CleanupRelocatedHomes();
             receiptImportErrors.Clear();
             foreach(var error in receipts.Errors)receiptImportErrors[error.TaskId]=error.Message;
             if(errorTaskId is { } failedTaskId && !IsCurrentDelivery(failedTaskId,errorTaskTurn))
@@ -136,6 +141,15 @@ public partial class MainWindow : Window
             if(notificationHint is not null)notificationSetupHint=notificationHint;UpdateChrome();
             if (reportStatus) StatusText.Text = ErrorBanner.Visibility == Visibility.Visible ? T("Action failed") :
                 reviewCancelled ? T("Action cancelled · No changes") : T(success);
+        }
+        catch (RelayException error) when (error.Code == "relocation_snapshot_failed")
+        {
+            var previousHome = service.Home;
+            var movedHome = RelayService.ResolveRelocatedHome(previousHome);
+            CompleteRelocation(new RelayService(movedHome), previousHome);
+            ErrorText.Text = error.Message; ErrorBanner.Visibility = Visibility.Visible; StatusText.Text = T("Action failed");
+            errorTaskId = null;
+            RenderPage();
         }
         // Expected external input, filesystem, host-command and clipboard failures stay visible at the UI boundary.
         catch (Exception error) when (error is RelayException or IOException or UnauthorizedAccessException or

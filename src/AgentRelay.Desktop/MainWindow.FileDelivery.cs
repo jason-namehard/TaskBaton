@@ -25,10 +25,11 @@ public partial class MainWindow
 
     private void AddFileDeliveryAction(Panel actions, TaskRecord task, HandoffProgress progress)
     {
-        if (progress.Delivery == "cli_blocked" || task.State == TaskState.Paused && progress.DeliveryMessage is not null)
+        var targetAgentId = task.AwaitingAgentId ?? task.RecipientId;
+        if (service.CliExtension(targetAgentId)?.Block is not null || task.CliFileTurn == task.ManualTurn && task.CliFileStatus == "failed")
         {
-            Add(actions,"Check Agent bridge",()=>{agentId=task.AwaitingAgentId??task.RecipientId;Go("Agents");return Task.CompletedTask;});
-            Add(actions,"Copy bridge diagnostic prompt",()=>CopyBridgeDiagnostic(task.AwaitingAgentId??task.RecipientId),false);
+            Add(actions,"Check Agent bridge",()=>{agentId=targetAgentId;Go("Agents");return Task.CompletedTask;});
+            Add(actions,"Copy bridge diagnostic prompt",()=>CopyBridgeDiagnostic(targetAgentId),false);
         }
         if(service.CliExtension(task.AwaitingAgentId??task.RecipientId) is not null)
             Add(actions,"Recheck and restore bridge",()=>RecheckBridge(task.AwaitingAgentId??task.RecipientId));

@@ -9,9 +9,9 @@ internal static class NotificationUiText
         Add("The in-app reminder was shown and Windows accepted a silent notification-center entry.","已显示应用内提醒，Windows 已接收静默通知中心记录。","已顯示應用程式內提醒，Windows 已接收靜默通知中心記錄。","アプリ内に表示し、Windows 通知センターへ静かに記録しました。","앱 내 알림을 표시하고 Windows 알림 센터에 조용히 기록했습니다.","Aviso mostrado en la aplicación y registrado sin banner en Windows.");
         Add("Native notifications are unavailable. In-app notifications remain enabled.","系统通知暂不可用，已启用应用内右下角提示。","系統通知暫不可用，已啟用應用程式內提示。","システム通知は利用不可。アプリ内通知を有効にしました。","시스템 알림을 사용할 수 없어 앱 내 알림을 활성화했습니다.","Avisos del sistema no disponibles; avisos internos activados.");
         Add("Silent","无声","無聲","無音","무음","Silencio");
-        Add("Default sound","清脆单音","清脆單音","標準音","기본 소리","Predeterminado");
-        Add("Information sound","上行双音","上行雙音","情報音","정보 소리","Información");
-        Add("Warning sound","低音三连","低音三連","警告音","경고 소리","Advertencia");
+        Add("Water drop","水滴声","水滴聲","水滴","물방울","Gota de agua");
+        Add("Soft piano","钢琴轻音","鋼琴輕音","やさしいピアノ","부드러운 피아노","Piano suave");
+        Add("Warm chord","温馨和弦","溫馨和弦","温かな和音","따뜻한 화음","Acorde cálido");
         Add("Error sound","错误提示","錯誤提示","エラー音","오류 소리","Error");
         Add("Preview sound","试听","試聽","試聴","미리 듣기","Escuchar");
         Add("Notification sound saved","提示声音已保存","提示聲音已儲存","通知音を保存しました","알림 소리 저장됨","Sonido guardado");

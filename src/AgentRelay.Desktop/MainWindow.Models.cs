@@ -14,13 +14,27 @@ public partial class MainWindow
     {
         if (service.CliExtension(agentId) is null) return;
         var group = Group(details, "Default model");
-        var panel = new StackPanel { Margin = new(18, 0, 18, 0) };
+        var panel = new StackPanel { Name = "AgentDefaultModelsPanel", Margin = new(18, 0, 18, 0), Visibility = Visibility.Collapsed };
+        AutomationProperties.SetAutomationId(panel, panel.Name);
         var row = SettingRow(group, "New conversations", "New conversations Relay starts for this Agent use the model below. Continued conversations keep their own model and reasoning level.");
-        RowAction(row, "Default model for new conversations", async () =>
+        Button toggle = null!;
+        toggle = RowAction(row, "Default model for new conversations", async () =>
         {
-            panel.Children.Clear();
-            ShowModelDefaults(panel, await service.AgentModelsAsync(agentId));
-        }, false).Content = T("Show models");
+            if (panel.Visibility == Visibility.Visible)
+            {
+                panel.Visibility = Visibility.Collapsed;
+                toggle.Content = T("Show models");
+                AutomationProperties.SetName(toggle, T("Show models"));
+                return;
+            }
+            var catalog = await service.AgentModelsAsync(agentId);
+            ShowModelDefaults(panel, catalog);
+            panel.Visibility = Visibility.Visible;
+            toggle.Content = T("Hide models");
+            AutomationProperties.SetName(toggle, T("Hide models"));
+        }, false);
+        toggle.Content = T("Show models");
+        AutomationProperties.SetName(toggle, T("Show models"));
         group.Children.Add(panel);
     }
 

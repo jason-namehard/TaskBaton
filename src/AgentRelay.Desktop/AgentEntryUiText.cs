@@ -8,6 +8,12 @@ internal static class AgentEntryUiText
         Add("New Agent", "新建 Agent", "新增 Agent", "Agent を作成", "Agent 만들기", "Nuevo agente");
         Add("Delete Agent", "删除 Agent", "刪除 Agent", "Agent を削除", "Agent 삭제", "Eliminar agente");
         Add("One-click setup", "一键配置", "一鍵設定", "ワンクリック設定", "원클릭 설정", "Configuración con un clic");
+        Add("Each new node has a unique ID. Copy a fresh setup prompt for each node; do not give the same prompt to two Agents.",
+            "每个新节点都有唯一 ID。每新增一个节点都要重新复制一次配置提示词，不要把同一段提示词交给两个 Agent。",
+            "每個新節點都有唯一 ID。每新增一個節點都要重新複製一次設定提示詞，不要把同一段提示詞交給兩個 Agent。",
+            "新しいノードにはそれぞれ固有の ID があります。ノードを追加するたびに設定プロンプトをコピーし、同じプロンプトを二つの Agent に渡さないでください。",
+            "새 노드마다 고유 ID가 있습니다. 노드를 추가할 때마다 설정 프롬프트를 다시 복사하고 같은 프롬프트를 두 Agent에게 주지 마세요.",
+            "Cada nodo nuevo tiene un ID único. Copia un prompt de configuración nuevo para cada nodo; no entregues el mismo prompt a dos agentes.");
         Add("Optional handoff rule: after adding an Agent, select it and choose Install handoff rule. Relay will show the one-line rule and ask before changing its instruction file. The detailed guidance is read only when the Agent follows the rule.",
             "可选交接规则：添加 Agent 后，选中它并点击“安装交接规则”。Relay 会先展示一行规则，确认后才修改其指令文件；Agent 遵循规则时才读取详细指引。",
             "可選交接規則：新增 Agent 後，選取它並點擊「安裝交接規則」。Relay 會先顯示一行規則，確認後才修改其指令檔；Agent 遵循規則時才讀取詳細指引。",

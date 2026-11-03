@@ -14,7 +14,7 @@ public static class NotificationSounds
         {
             case "none":return;
             case "error":SystemSounds.Hand.Play();return;
-            case "default":case "information":case "warning":Players.Value[sound].Play();return;
+            case "waterdrop":case "soft-piano":case "warm-chord":Players.Value[sound].Play();return;
             default:throw new ArgumentOutOfRangeException(nameof(sound),sound,"Unknown notification sound.");
         }
     }
@@ -22,7 +22,7 @@ public static class NotificationSounds
     private static IReadOnlyDictionary<string,SoundPlayer> CreatePlayers()
     {
         var players=new Dictionary<string,SoundPlayer>(StringComparer.Ordinal);
-        foreach(var sound in new[]{"default","information","warning"})
+        foreach(var sound in new[]{"waterdrop","soft-piano","warm-chord"})
         {
             using var resource=Application.GetResourceStream(new Uri("pack://application:,,,/AgentRelay.Desktop;component/Assets/Sounds/"+sound+".wav")).Stream;
             var audio=new MemoryStream();resource.CopyTo(audio);audio.Position=0;

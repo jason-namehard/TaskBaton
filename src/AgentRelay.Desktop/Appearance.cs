@@ -16,7 +16,7 @@ public sealed record DesktopPreferences(
     [property: JsonRequired] string Palette = "system",
     string? Accent = null,
     bool? CloseToTray = null,
-    string NotificationSound = "default",
+    string NotificationSound = "waterdrop",
     long? LastNotificationId = null);
 
 public sealed record AppearanceOption(string Id, string Label)
@@ -87,6 +87,11 @@ public static class Appearance
             throw new RelayException("invalid_desktop_preferences", $"Invalid desktop preferences in {path}: {error.Message}");
         }
         if (LegacyPalettes.TryGetValue(preferences.Palette, out var current)) preferences = preferences with { Palette = current };
+        preferences = preferences with { NotificationSound = preferences.NotificationSound switch
+        {
+            "default" => "waterdrop", "information" => "soft-piano", "warning" => "warm-chord",
+            _ => preferences.NotificationSound
+        } };
         Validate(preferences);
         return preferences;
     }
@@ -188,8 +193,8 @@ public static class Appearance
         if (!Palettes.Any(option => option.Id == preferences.Palette))
             throw new RelayException("invalid_desktop_palette", $"Unknown desktop palette: {preferences.Palette}. Supported: minimal, warm, fresh, night, system.");
         if (preferences.Accent is not null) ParseAccent(preferences.Accent);
-        if (preferences.NotificationSound is not ("none" or "default" or "information" or "warning" or "error"))
-            throw new RelayException("invalid_notification_sound","通知声音应为 none、default、information、warning 或 error。");
+        if (preferences.NotificationSound is not ("none" or "waterdrop" or "soft-piano" or "warm-chord" or "error"))
+            throw new RelayException("invalid_notification_sound","通知声音应为 none、waterdrop、soft-piano、warm-chord 或 error。");
         if (preferences.LastNotificationId is < 0) throw new RelayException("invalid_notification_cursor","通知记录位置不能为负数。");
     }
 

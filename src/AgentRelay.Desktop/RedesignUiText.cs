@@ -65,6 +65,7 @@ internal static class RedesignUiText
         Add("Default model", "默认模型", "預設模型", "既定のモデル", "기본 모델", "Modelo predeterminado");
         Add("New conversations", "新会话", "新對話", "新しい会話", "새 대화", "Conversaciones nuevas");
         Add("Show models", "查看模型", "查看模型", "モデルを表示", "모델 보기", "Ver modelos");
+        Add("Hide models", "收起模型", "收合模型", "モデルを閉じる", "모델 접기", "Ocultar modelos");
 
         Add("Choose how to add it. If you are not sure, let the Agent set itself up.", "选择添加方式。不确定的话，就让 Agent 自己配置。", "選擇新增方式。不確定的話，就讓 Agent 自行設定。",
             "追加方法を選んでください。迷ったら Agent 自身に設定させましょう。", "추가 방법을 고르세요. 잘 모르겠다면 Agent가 직접 설정하게 하세요.", "Elige cómo añadirlo. Si no estás seguro, deja que el Agente se configure solo.");

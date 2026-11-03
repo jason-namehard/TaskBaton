@@ -21,9 +21,12 @@ internal static class Program
             var defaultHome = options.Length == 0 && !demo && environmentHome is null && savedHome is null;
             var home = options.Length == 2 ? options[1] : demo ? NewDemoHome() : environmentHome ?? savedHome ??
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AgentRelay");
-            var service = demo ? DemoWorkspace.CreateAsync(home).GetAwaiter().GetResult() : new RelayService(home);
+            var resolvedHome = demo ? home : RelayService.ResolveRelocatedHome(home);
+            var service = demo ? DemoWorkspace.CreateAsync(resolvedHome).GetAwaiter().GetResult() : new RelayService(resolvedHome);
             service.Initialize();
-            if (defaultHome) RelayLocation.Save(service.Home);
+            if (resolvedHome != home) service.RefreshGuidance();
+            if (defaultHome || options.Length == 0 && !demo && environmentHome is null && resolvedHome != home)
+                RelayLocation.Save(service.Home);
             return app.Run(new MainWindow(service, demo));
         }
         catch (Exception error) when (error is RelayException or IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)

@@ -13,6 +13,9 @@ internal static class BridgePresentation
 {
     private static readonly Brush Pending = Frozen("#8C691F");
 
+    public static bool HasFailure(CliExtensionRecord? extension) => extension is
+        { Block: not null } or { CreateProbe.MachinePassed: false } or { ResumeProbe.MachinePassed: false };
+
     private static Brush Frozen(string color)
     {
         var brush = (Brush)new BrushConverter().ConvertFromString(color)!;

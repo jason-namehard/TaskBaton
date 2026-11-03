@@ -61,6 +61,7 @@ internal static class Program
         await CheckCliTaskEntry(window,root);
         await CheckReviewLoopPane(window,root);
         await CheckModelDefaults(window,root);
+        await CheckRelocationLifecycle(window,root);
         await CheckNotificationDelivery(window,root);
         await CheckBatchTasks(window,root);
         await CheckLongAgentNames(window,root);
@@ -80,7 +81,8 @@ internal static class Program
         var copiedHandoff=Clipboard.GetText();
         Check(copiedHandoff.Contains(task.TaskId)&&copiedHandoff.Contains(service.Status(task.TaskId).Task.ResultPath)&&copiedHandoff.Contains(service.Home),
             $"Copied completed handoff includes identity, reply path and relay location (identity={copiedHandoff.Contains(task.TaskId)}, path={copiedHandoff.Contains(service.Status(task.TaskId).Task.ResultPath)}, home={copiedHandoff.Contains(service.Home)}, length={copiedHandoff.Length}, status={((TextBlock)window.FindName("StatusText")).Text}, error={((TextBox)window.FindName("ErrorText")).Text})");
-        Check(Clipboard.GetText().Contains("自选节点甲")&&Clipboard.GetText().Contains("自选节点乙"),"Completed handoff prompt identifies both user-selected Agent names");
+        Check(copiedHandoff.Contains("自选节点甲")&&copiedHandoff.Contains("自选节点乙"),
+            $"Completed handoff prompt identifies both user-selected Agent names (sender={copiedHandoff.Contains("自选节点甲")}, recipient={copiedHandoff.Contains("自选节点乙")})");
         SelectTask(window,waiting.TaskId);
         await Click(window,"Copy prompt for 自选节点乙");
         Check(Clipboard.GetText().Contains("自选节点甲")&&Clipboard.GetText().Contains("自选节点乙")&&Clipboard.GetText().Contains("--sender agent-b"),"Receiver prompt uses friendly names while callback arguments retain exact node IDs");
@@ -97,7 +99,9 @@ internal static class Program
         Check(FindAll<Button>(window).Count(b=>Equals(b.Tag,"New Agent"))==1,"The Agent page has one New Agent action");
         Check(AutomationProperties.GetName(FindAll<Button>(window).Single(b=>Equals(b.Tag,"New Agent")))=="新建 Agent","Icon-labelled Agent action exposes a readable accessible name");
         var rowMenu=(Panel)FindAll<Button>(window).Single(b=>Equals(b.Tag,"Edit Agent")).Parent;
-        Check(rowMenu.Children.OfType<Button>().Select(b=>(string)b.Tag).SequenceEqual(new[]{"Edit Agent","Test bridge","Recheck and restore bridge","Delete Agent"}),"Each Agent's row menu holds editing, bridge testing, recovery and removal");
+        Check(rowMenu.Children.OfType<Button>().Select(b=>(string)b.Tag).SequenceEqual(new[]{"Edit Agent","Delete Agent"}),"Each Agent's row menu keeps editing and removal");
+        var bridgeActions=FindAll<Button>(window).Where(button=>button.Tag is "Test bridge" or "Recheck and restore bridge").ToArray();
+        Check(bridgeActions.Length==2&&bridgeActions.All(button=>!ReferenceEquals(button.Parent,rowMenu)),"Testing and recovery actions are in the selected Agent's bridge card");
         window.UpdateLayout();
         Check(FindAll<Button>(window).Any(b=>Equals(b.Tag,"AgentMore"))&&Find<DataGrid>(window,"AgentsTable").Columns.Last() is DataGridTemplateColumn,"Agent rows carry their own more-actions button");
         Check(FindAll<Button>(window).Single(b=>Equals(b.Tag,"Test bridge")).IsEnabled,"CLI test remains available to explain missing calling methods instead of silently disabling itself");
@@ -118,6 +122,9 @@ internal static class Program
             try
             {
                 Check(FindAll<TextBlock>(chooser).Any(t=>t.Text.Contains("可选交接规则",StringComparison.Ordinal)&&t.Text.Contains("确认后",StringComparison.Ordinal)),"Agent setup choice explains the optional handoff rule and confirmation");
+                var setupHelp=Find<Border>(chooser,"SetupPromptHelp");
+                Check(setupHelp.ToolTip is TextBlock setupAdvice&&setupAdvice.Text.Contains("ID",StringComparison.Ordinal)&&setupAdvice.Text.Contains("复制",StringComparison.Ordinal),
+                    "Agent setup explains fresh node IDs in an accessible hover hint");
                 Press(chooser,"ChooseOneClickSetup");
                 message=await Next<ThemedMessageBox>();
                 Check(FindAll<TextBlock>(message).Any(t=>t.Text.Contains("可选交接规则",StringComparison.Ordinal)&&t.Text.Contains("确认后",StringComparison.Ordinal)),"One-click setup confirmation explains the optional rule");
@@ -286,6 +293,7 @@ internal static class Program
         await Show(new CliProbeDialog(window,service,"agent-c","en"),async dialog=>
         {
             Check(!service.CliExtension("agent-c")!.CanCreate,"Passing machine receipt alone does not enable CLI");
+            Check(!FindAll<Button>(dialog).Any(button=>button.Name=="CopyBridgeDiagnostic"),"A successful probe awaiting visibility confirmation has no repair action");
             Check(!Find<CheckBox>(dialog,"ConfirmCreateVisible").IsChecked!.Value,"Visibility is never preconfirmed");
             Check(Find<TextBlock>(dialog,"CreateProbeTestedAt").Text.Contains("saved result"),"Probe results show their test time and remain separate from current connection health");
             Find<CheckBox>(dialog,"ConfirmCreateVisible").IsChecked=true;Press(dialog,"SaveCreateConfirmation");
@@ -311,15 +319,38 @@ internal static class Program
             SaveExtension(service,visibilityExtension with {Recipe=visibilityExtension.Recipe with {OutputFormat=format}});
             await Show(new CliProbeDialog(window,service,"agent-c","en"),async dialog=>
             {
-                var hint=Find<TextBlock>(dialog,"ProbeVisibilityHint").Text;
+                var hint=format=="zcode-json"?((TextBlock)Find<Border>(dialog,"ProbeVisibilityHint").ToolTip).Text:Find<TextBlock>(dialog,"ProbeVisibilityHint").Text;
                 Check(format=="zcode-json"?hint.Contains("restart Zcode"):hint.Contains("without restarting"),"Probe advice distinguishes Zcode display delays from the live DSH desktop bridge");
+                Check(!FindAll<Button>(dialog).Any(button=>button.Name=="CopyBridgeDiagnostic"),"Verified probes do not offer a misleading repair action");
+                Check(FindAll<Button>(dialog).Any(button=>button.Name=="CleanupCliProbe"),"Verified probes offer explicit session and file cleanup");
+                Press(dialog,"CloseCliProbe");
+            });
+        }
+        foreach(var failed in new[]{visibilityExtension with {Block=new("auth_required","Fixture authentication failure",DateTimeOffset.UtcNow)},
+            visibilityExtension with {CreateProbe=visibilityExtension.CreateProbe! with {MachinePassed=false,UserConfirmed=false}}})
+        {
+            SaveExtension(service,failed);
+            await Show(new CliProbeDialog(window,service,"agent-c","en"),async dialog=>
+            {
                 Press(dialog,"CopyBridgeDiagnostic");
                 await Wait(()=>Find<Button>(dialog,"CopyBridgeDiagnostic").IsEnabled);
-                Check(Clipboard.GetText().Contains("agent-c")&&Clipboard.GetText().Contains("cli-recipe doctor"),"The bridge test copies a targeted repair prompt without starting a probe");
+                Check(Clipboard.GetText().Contains("agent-c")&&Clipboard.GetText().Contains("cli-recipe doctor"),"A failed probe or blocked bridge offers a targeted repair prompt");
                 Press(dialog,"CloseCliProbe");
             });
         }
         SaveExtension(service,visibilityExtension);
+        await Show(new CliProbeDialog(window,service,"agent-c","en"),async dialog=>
+        {
+            var confirmation=AnswerMessage(dialog,true);
+            Press(dialog,"CleanupCliProbe");await confirmation;
+            var report=await Next<ThemedMessageBox>();
+            Check(FindAll<TextBlock>(report).Any(text=>text.Text.Contains("Ownership unverified",StringComparison.Ordinal)),
+                "Probe cleanup reports retained legacy sessions instead of claiming complete deletion");
+            Press(report,"MessageOk");
+            await Wait(()=>Find<Button>(dialog,"CleanupCliProbe").IsEnabled);
+            Check(service.CliExtension("agent-c")!.CanResume,"Probe cleanup preserves verified bridge capabilities");
+            Press(dialog,"CloseCliProbe");
+        });
 
         Navigate("Settings");
         Check(!FindAll<TextBox>(window).Any(box=>box.Name=="CliRecipeReply")&&!FindAll<ComboBox>(window).Any(box=>box.Name=="ExtensionAgent"),"Settings links to Agent configuration instead of duplicating CLI entry fields");
@@ -386,16 +417,27 @@ internal static class Program
         Check(frame.Background is SolidColorBrush brush&&brush.Color.A==0,"Disabled navigation retains its transparent background instead of a native white rectangle");
         await SaveImage(window,Path.Combine(root,"Navigation-disabled.png"));
         navigation.IsEnabled=true;
-        var frames=new List<int>();
-        foreach(var id in new[]{"default","information","warning"})
+        var recordings=new List<byte[]>();
+        foreach(var id in new[]{"waterdrop","soft-piano","warm-chord"})
         {
             using var stream=Application.GetResourceStream(new Uri($"pack://application:,,,/AgentRelay.Desktop;component/Assets/Sounds/{id}.wav")).Stream;
             using var reader=new BinaryReader(stream);
             Check(Encoding.ASCII.GetString(reader.ReadBytes(4))=="RIFF","Embedded notification sound has a WAV header: "+id);
-            stream.Position=24;Check(reader.ReadInt32()==22050,"Notification PCM sample rate: "+id);
-            stream.Position=40;frames.Add(reader.ReadInt32()/2);
+            stream.Position=22;Check(reader.ReadInt16()==1&&reader.ReadInt32()==44100,"Notification audio is mono at 44100 Hz: "+id);
+            stream.Position=40;var size=reader.ReadInt32();var pcm=reader.ReadBytes(size);recordings.Add(pcm);
+            var samples=new short[pcm.Length/2];Buffer.BlockCopy(pcm,0,samples,0,pcm.Length);
+            var peak=samples.Max(sample=>Math.Abs((int)sample));
+            Check(peak is >0 and <=7600&&Math.Abs((int)samples[0])<100&&Math.Abs((int)samples[^1])<100,
+                "Notification cue has a quiet peak and smooth endpoints: "+id);
         }
-        Check(frames.SequenceEqual(new[]{4410,8159,11466}),"Single chime, ascending pair and three low pulses have distinct embedded recordings");
+        Check(!recordings[0].AsSpan().SequenceEqual(recordings[1])&&!recordings[1].AsSpan().SequenceEqual(recordings[2]),
+            "Water drop, soft piano and warm chord have distinct recordings");
+        var legacy=Path.Combine(root,"legacy-sounds");Directory.CreateDirectory(legacy);
+        foreach(var (oldSound,newSound) in new[]{("default","waterdrop"),("information","soft-piano"),("warning","warm-chord")})
+        {
+            File.WriteAllText(Path.Combine(legacy,"desktop.preferences.json"),RelayJson.Write(new DesktopPreferences("en",NotificationSound:oldSound)));
+            Check(Appearance.Load(legacy).NotificationSound==newSound,"Saved sound preference upgrades to the new cue: "+oldSound);
+        }
         NotificationSounds.Play("none");
     }
 
@@ -570,6 +612,10 @@ internal static class Program
         foreach(var expander in FindAll<Expander>(window))expander.IsExpanded=true;
         await Click(window,"Default model for new conversations");
         await Wait(()=>FindAll<ComboBox>(window).Any(c=>c.Name=="AgentDefaultReasoning"));
+        await Click(window,"Default model for new conversations");
+        Check(Find<StackPanel>(window,"AgentDefaultModelsPanel").Visibility==Visibility.Collapsed,"The default-model card can collapse after loading");
+        await Click(window,"Default model for new conversations");
+        Check(Find<StackPanel>(window,"AgentDefaultModelsPanel").Visibility==Visibility.Visible,"The default-model card reopens after collapsing");
         var level=Find<ComboBox>(window,"AgentDefaultReasoning");
         Check((string?)level.SelectedItem=="high","Without a saved default the reasoning level starts at the middle of the model's scale");
         await Click(window,"Save default model");
@@ -578,6 +624,44 @@ internal static class Program
         Check(saved["modelId"]!.GetValue<string>()=="ds"&&saved["options"]!["reasoningLevel"]!.GetValue<string>()=="high","Saving writes the host's default model and reasoning level");
         Check(FindAll<TextBlock>(window).Any(t=>t.Text.Contains("Continued conversations keep their own model",StringComparison.Ordinal)),"The panel says continued conversations keep their own model");
         await SaveImage(window,Path.Combine(root,"Agent-default-model.png"));
+        window.RequestExit();
+    }
+
+    private sealed class RelocationClock : TimeProvider
+    {
+        private DateTimeOffset now=DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow()=>now;
+        public void Advance(TimeSpan duration)=>now+=duration;
+    }
+
+    private static async Task CheckRelocationLifecycle(MainWindow owner,string root)
+    {
+        var clock=new RelocationClock();
+        var source=Path.Combine(root,"relocation-ui-source");var target=Path.Combine(root,"relocation-ui-target");
+        var station=new RelayService(source,clock);station.Initialize();
+        station.RegisterManual("source","fixture","Source");station.RegisterManual("target","fixture","Target");
+        var file=Path.Combine(root,"relocation-ui-request.md");File.WriteAllText(file,"Isolated migration request.");
+        var task=station.CreateFileHandoff(new("source","target",file)).Task;
+        Appearance.Save(source,new DesktopPreferences("en",NotificationSound:"none"));
+        station.QueueRelocation(target);
+        // Demo keeps the test window from changing the installed program's saved relay location.
+        var window=new MainWindow(station,demo:true){Owner=owner};window.Show();
+        await Wait(()=>((TextBlock)window.FindName("StatusText")).Text!="Working…");
+        var navigation=(ListBox)window.FindName("Navigation");
+        navigation.SelectedItem=navigation.Items.Cast<ListBoxItem>().Single(item=>(string)item.Tag=="Settings");
+        await Wait(()=>FindAll<TextBlock>(window).Any(text=>text.Text=="Pending relay move"));
+        Check(!Directory.Exists(target),"A queued relay move waits while a handoff still needs its source files");
+        station.Cancel(task.TaskId,"Fixture handoff finished.");
+        await Click(window,"Refresh");
+        await Wait(()=>File.Exists(Path.Combine(target,"relay.db")));
+        Check(FindAll<TextBlock>(window).Any(text=>text.Text.Contains(source,StringComparison.Ordinal)&&text.Text.Contains("Scheduled cleanup",StringComparison.Ordinal)),
+            "A completed relay move shows its old folder and scheduled cleanup time");
+        var moved=new RelayService(target,clock);
+        Check(moved.FileHandoffPrompt(moved.Status(task.TaskId).Task).Contains(target,StringComparison.Ordinal),
+            "Prompts generated after relocation use the current relay folder");
+        clock.Advance(TimeSpan.FromHours(25));
+        await Click(window,"Refresh");
+        Check(!Directory.Exists(source)&&File.Exists(file),"The desktop maintenance path removes the expired old station and keeps external source files");
         window.RequestExit();
     }
 
@@ -640,8 +724,9 @@ internal static class Program
         navigation.SelectedItem=navigation.Items.Cast<ListBoxItem>().Single(i=>(string)i.Tag=="Settings");
         await Wait(()=>FindAll<ComboBox>(window).Any(c=>c.Name=="NotificationSoundChoice"));
         var sounds=Find<ComboBox>(window,"NotificationSoundChoice");
-        Check(sounds.Items.Count==5,"Notification settings offer silent, default, information, warning and error sounds");
-        sounds.SelectedValue="warning";await Wait(()=>Appearance.Load(service.Home).NotificationSound=="warning");
+        Check(sounds.Items.Count==5&&sounds.Items.Cast<AppearanceOption>().Select(option=>option.Id).SequenceEqual(new[]{"none","waterdrop","soft-piano","warm-chord","error"}),
+            "Notification settings offer silence, water drop, soft piano, warm chord and the retained error sound");
+        sounds.SelectedValue="warm-chord";await Wait(()=>Appearance.Load(service.Home).NotificationSound=="warm-chord");
         sounds.SelectedValue="none";await Wait(()=>Appearance.Load(service.Home).NotificationSound=="none");
         Check(FindAll<Button>(window).Any(b=>Equals(b.Tag,"Preview sound")),"Notification sound selection persists and has an explicit preview action");
         await Click(window,"Send test notification");

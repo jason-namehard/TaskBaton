@@ -81,8 +81,6 @@ public partial class MainWindow
         var rowMenu = Flyout(anchor, rowMenuHost);
         var popup = (Popup)rowMenuHost.Children.OfType<Popup>().Single();
         MenuItem(rowMenu, "Edit Agent", "Edit", () => Edit(Selected()));
-        MenuItem(rowMenu, "Test bridge", "Pulse", () => { agentId = Selected().AgentId; ShowCliProbe(agentId); return Task.CompletedTask; }, "Sends one short real call");
-        MenuItem(rowMenu, "Recheck and restore bridge", "Refresh", () => RecheckBridge(Selected().AgentId), "Read-only check, no model call");
         MenuSeparator(rowMenu);
         MenuItem(rowMenu, "Delete Agent", "Trash", () =>
         {
@@ -161,12 +159,20 @@ public partial class MainWindow
                     Add(blockActions, "I have resolved this · Allow automatic sends", () => { service.ClearCliBlock(id); return Task.CompletedTask; });
             }
             if (service.Bridge(id).HostNote is { } hostNote) { var note = new StackPanel { Margin = new(18, 0, 18, 14) }; bridge.Children.Add(note); Alert(note, "info", null, hostNote); }
+            var testRow = SettingRow(bridge, "Test bridge", "Sends one short real call");
+            RowAction(testRow, "Test bridge", () => { ShowCliProbe(id); return Task.CompletedTask; });
+            var recoveryRow = SettingRow(bridge, "Recheck and restore bridge", "Read-only check, no model call");
+            RowAction(recoveryRow, "Recheck and restore bridge", () => RecheckBridge(id));
             var health = new StackPanel { Margin = new(18, 0, 18, 6) };
             var checkRow = SettingRow(bridge, "Check bridge setup", "Reads the local configuration. No model is called.");
+            Button copy = null!;
             var check = RowAction(checkRow, "Check bridge setup (no model call)", async () =>
             {
                 health.Children.Clear();
-                foreach (var result in await Task.Run(() => service.CliHealthAsync(id)))
+                var results = await Task.Run(() => service.CliHealthAsync(id));
+                copy.Visibility = extension is not null && (BridgePresentation.HasFailure(extension) || results.Any(result => result.Status == "fail"))
+                    ? Visibility.Visible : Visibility.Collapsed;
+                foreach (var result in results)
                 {
                     var line = new DockPanel { Margin = new(0, 0, 0, 6) };
                     var mark = Icons.Create(result.Status == "pass" ? "Check" : "Alert", size: 15, brushKey: result.Status == "pass" ? "OkBrush" : result.Status == "warn" ? "WarnBrush" : "BadBrush");
@@ -176,8 +182,9 @@ public partial class MainWindow
                 }
             }, false);
             check.Content = T("Check");
-            var copy = RowAction(checkRow, "Copy bridge diagnostic prompt", () => CopyBridgeDiagnostic(id), false);
+            copy = RowAction(checkRow, "Copy bridge diagnostic prompt", () => CopyBridgeDiagnostic(id), false);
             Styled(copy, "GhostButtonStyle"); copy.Content = T("Copy diagnostic prompt");
+            copy.Visibility = BridgePresentation.HasFailure(extension) ? Visibility.Visible : Visibility.Collapsed;
             bridge.Children.Add(health);
             AddModelDefaults(details, id);
 

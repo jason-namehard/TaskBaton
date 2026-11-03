@@ -46,6 +46,12 @@ public sealed class AgentSetupChoiceDialog : Window
                 tag.SetResourceReference(Border.BackgroundProperty, "OkSoftBrush");
                 ((TextBlock)tag.Child).SetResourceReference(TextBlock.ForegroundProperty, "OkBrush");
                 heading.Children.Add(tag);
+                var advice = T("Each new node has a unique ID. Copy a fresh setup prompt for each node; do not give the same prompt to two Agents.");
+                var help = new Border { Name = "SetupPromptHelp", Margin = new(8, 0, 0, 0), Cursor = Cursors.Help,
+                    Child = Icons.Create("Help", size: 16, brushKey: "MutedBrush"),
+                    ToolTip = new TextBlock { Text = advice, TextWrapping = TextWrapping.Wrap, MaxWidth = 380 } };
+                AutomationProperties.SetAutomationId(help, help.Name); AutomationProperties.SetName(help, advice);
+                heading.Children.Add(help);
             }
             text.Children.Add(heading);
             var detail = new TextBlock { Text = T(description), TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Margin = new(0, 4, 0, 0) };

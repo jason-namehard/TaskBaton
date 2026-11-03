@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using AgentRelay.Core;
 
 namespace AgentRelay.Desktop;
@@ -37,7 +38,13 @@ public sealed class CliProbeDialog : Window
         System.Windows.Automation.AutomationProperties.SetAutomationId(button,name);
         button.Click+=async(_,_)=>
         {
-            var activity=name is "ProbeCreate" or "ProbeResume"?"Running CLI probe…":"Saving visibility confirmation…";
+            var activity=name switch
+            {
+                "ProbeCreate" or "ProbeResume" => "Running CLI probe…",
+                "CopyBridgeDiagnostic" => "Copy bridge diagnostic prompt",
+                "CleanupCliProbe" => "Cleaning up probe sessions…",
+                _ => "Saving visibility confirmation…"
+            };
             running=true;layout.Body.IsEnabled=false;layout.Actions.IsEnabled=false;layout.Status.Text=T(activity);
             reportActivity?.Invoke(activity);
             try
@@ -66,27 +73,52 @@ public sealed class CliProbeDialog : Window
         else
         {
             layout.Body.Children.Add(Note("This sends a real, short probe to the selected CLI. Model charges may apply, including host context. It does not run project work. Check the command before starting."));
-            var visibility=Note(VisibilityAdvice(extension.Recipe));
-            visibility.Name="ProbeVisibilityHint";
-            System.Windows.Automation.AutomationProperties.SetAutomationId(visibility,visibility.Name);
-            layout.Body.Children.Add(visibility);
-            Action(layout.Body,"Copy bridge diagnostic prompt","CopyBridgeDiagnostic",()=>
+            var zcode=CliRecipes.OutputFormatFor(extension.Recipe) is "zcode-json" or "zcode-jsonl";
+            if(!zcode)
             {
-                Clipboard.SetText(service.BridgeDiagnosticPrompt(agentId,AgentEntryDialog.ResolveRelayCommand()));
-                return Task.FromResult("Diagnostic prompt copied. Paste it into an Agent for local checks; do not start new probes or tasks.");
-            });
+                var visibility=Note(VisibilityAdvice(extension.Recipe));
+                visibility.Name="ProbeVisibilityHint";
+                System.Windows.Automation.AutomationProperties.SetAutomationId(visibility,visibility.Name);
+                layout.Body.Children.Add(visibility);
+            }
+            if(BridgePresentation.HasFailure(extension))
+                Action(layout.Body,"Copy bridge diagnostic prompt","CopyBridgeDiagnostic",()=>
+                {
+                    Clipboard.SetText(service.BridgeDiagnosticPrompt(agentId,AgentEntryDialog.ResolveRelayCommand()));
+                    return Task.FromResult("Diagnostic prompt copied. Paste it into an Agent for local checks; do not start new probes or tasks.");
+                });
             var plan=EntryDialogLayout.Input("ProbeRecipe",RelayJson.Write(extension.Recipe),true);plan.IsReadOnly=true;plan.Height=170;
             layout.Body.Children.Add(new Expander{Header=T("Calling recipe"),Content=plan});
             if(demo)layout.Body.Children.Add(Note("Demo mode does not run external CLI calls. Use a normal workspace to test a real Agent."));
-            var create=Action(layout.Body,"Run new-session probe","ProbeCreate",()=>RunProbe("create"));
+            var probeRow=new StackPanel{Orientation=Orientation.Horizontal};
+            layout.Body.Children.Add(probeRow);
+            var create=Action(probeRow,"Run new-session probe","ProbeCreate",()=>RunProbe("create"));
             create.IsEnabled=true;
             if(demo)create.ToolTip=T("Demo mode blocks real CLI calls. Keep this workspace and switch to normal use to test your registered Agents.");
+            if(zcode)
+            {
+                var advice=T(VisibilityAdvice(extension.Recipe));
+                var help=new Border{Name="ProbeVisibilityHint",Margin=new(8,0,0,0),Cursor=Cursors.Help,
+                    Child=Icons.Create("Help",size:16,brushKey:"MutedBrush"),
+                    ToolTip=new TextBlock{Text=advice,TextWrapping=TextWrapping.Wrap,MaxWidth=380}};
+                System.Windows.Automation.AutomationProperties.SetAutomationId(help,help.Name);
+                System.Windows.Automation.AutomationProperties.SetName(help,advice);
+                probeRow.Children.Add(help);
+            }
             if(extension.CreateProbe is {} probe)ProbeResult(probe);
             if(extension.CreateProbe is {MachinePassed:true,UserConfirmed:true} && CliRecipes.ResumeCommand(extension.Recipe) is not null)
             {
                 var resume=Action(layout.Body,"Run same-session probe","ProbeResume",()=>RunProbe("resume"));
-                resume.IsEnabled=!demo;
+                resume.IsEnabled=!demo && !extension.CreateProbe.SessionCleaned;
+                if(extension.CreateProbe.SessionCleaned)
+                    resume.ToolTip=T("The probe session was cleaned up. Run a new-session probe before testing resume again.");
                 if(extension.ResumeProbe is {} resumed)ProbeResult(resumed);
+            }
+            if(extension.CreateProbe is {MachinePassed:true,UserConfirmed:true})
+            {
+                var cleanup=Action(layout.Body,"Clean up probe sessions and files","CleanupCliProbe",CleanupProbe);
+                cleanup.IsEnabled=!demo;
+                if(demo)cleanup.ToolTip=T("Demo mode does not clean real host sessions.");
             }
             layout.Body.Children.Add(Note(extension.CanResume?"New session and resume verified":extension.CanCreate?"New session verified":"A probe or one real handoff whose Agent writes its receipt verifies the CLI. Only verified CLIs receive turns automatically; you can still send by hand."));
             layout.Body.Children.Add(Note("A probe does not choose the conversation for a task. Choose an existing conversation in the handoff; later turns reuse that exact ID."));
@@ -98,7 +130,7 @@ public sealed class CliProbeDialog : Window
 
     private static string VisibilityAdvice(CliRecipe recipe)=>CliRecipes.OutputFormatFor(recipe) switch
     {
-        "zcode-json" or "zcode-jsonl"=>"Zcode can keep an old conversation in memory after Relay writes to it. Switch to another conversation and reopen it after about 11 minutes, or save your work and restart Zcode. An old view does not mean the call failed; do not repeat the delivery just to refresh it.",
+        "zcode-json" or "zcode-jsonl"=>"Zcode's session index or cache may delay showing a new conversation or updated content. Switch conversations and reopen it after about 11 minutes, or save your work and restart Zcode. Do not repeat a paid probe just to refresh the view.",
         "dsh-desktop"=>"The DSH desktop bridge runs inside the open DSH client, so new sessions and continued turns normally appear without restarting. Check the returned session ID and refresh or reopen that conversation if needed. Do not restart DSH while a turn is running.",
         _=>"A successful machine receipt does not confirm that the host's desktop has refreshed. For new and continued sessions, refresh the session list or reopen the conversation; if needed, save your work and restart that client. A missing marker in a stale view is not a reason to run the probe again."
     };
@@ -110,6 +142,38 @@ public sealed class CliProbeDialog : Window
         return probe.MachinePassed?"CLI probe passed · Confirm session visibility":"CLI probe failed · See the test result";
     }
 
+    private async Task<string> CleanupProbe()
+    {
+        if(ThemedMessageBox.Show(this,T("Clean up this Agent's recorded probe sessions and files? Verification stays enabled. Sessions used by real tasks, items whose ownership cannot be confirmed, and unsupported items are kept and reported. Some hosts can archive a session but cannot delete it. Once a probe session is removed, a new-session probe is needed to test resume again."),
+            T("Clean up probe sessions and files"),MessageBoxButton.OKCancel,MessageBoxImage.Warning)!=MessageBoxResult.OK)
+            return "Probe cleanup cancelled";
+        var result=await Task.Run(()=>service.CleanupCliProbeAsync(agentId));
+        var summary=T(result.Complete?"Probe cleanup completed.":"Probe cleanup finished with retained or failed items.");
+        var items=result.Items.Select(item=>
+        {
+            var kind=T(item.Kind switch
+            {
+                "session"=>"Probe session", "file"=>"Probe file", "index"=>"Host session index",
+                _=>throw new InvalidOperationException("Unknown probe cleanup item kind: "+item.Kind)
+            });
+            var status=T(item.Status switch
+            {
+                "removed"=>"Removed", "absent"=>"Already absent", "synced"=>"Index updated",
+                "unsupported"=>"Not supported", "unverified"=>"Ownership unverified", "in_use"=>"Used by a task",
+                "failed"=>"Cleanup failed", "pending"=>"Cleanup pending",
+                _=>throw new InvalidOperationException("Unknown probe cleanup item status: "+item.Status)
+            });
+            var detail=kind+" · "+status+(item.SessionId is null?"":"\n"+T("Session")+": "+item.SessionId)+"\n"+item.Message;
+            if(item.Path is not null)detail+="\n"+T("Path")+": "+item.Path;
+            if(item.BackupPath is not null)detail+="\n"+T("Backup path")+": "+item.BackupPath;
+            return detail;
+        }).ToArray();
+        var message=summary+"\n\n"+(items.Length==0?T("No recorded probe items are eligible for cleanup."):string.Join("\n\n",items));
+        ThemedMessageBox.Show(this,message,T("Probe cleanup result"),MessageBoxButton.OK,
+            result.Complete?MessageBoxImage.Information:MessageBoxImage.Warning);
+        return result.Complete?"Probe cleanup completed.":"Probe cleanup finished with retained or failed items.";
+    }
+
     private void ProbeResult(CliProbe probe)
     {
         var stamp=Note(string.Format(System.Globalization.CultureInfo.CurrentUICulture,T("Probe tested at {0}. This is a saved result, separate from the current connection check."),probe.TestedAt.ToLocalTime().ToString("g")));
@@ -119,6 +183,7 @@ public sealed class CliProbeDialog : Window
             T("Marker")+": "+probe.Marker+"\n"+T("Session")+": "+probe.SessionId+"\n"+
             (probe.MachinePassed?T("Machine receipt passed"):probe.Error),true);
         text.IsReadOnly=true;text.Height=100;layout.Body.Children.Add(text);
+        if(probe.CleanupWarning is not null)layout.Body.Children.Add(Note(probe.CleanupWarning));
         if(probe.Diagnostic is not null)
         {
             var diagnostic=EntryDialogLayout.Input("ProbeDiagnostics",probe.Diagnostic,true);

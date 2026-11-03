@@ -17,8 +17,19 @@ public partial class MainWindow
 
     private void RecordMigration(string previousHome)
     {
-        var files=Directory.EnumerateFiles(Path.Combine(service.Home,"workspace"),"*",SearchOption.AllDirectories).Count();
-        migrationSummary=string.Format(CultureInfo.CurrentUICulture,T("Current relay: {0} handoffs and {1} workspace files. Folder: {2}. Previous folder kept as backup: {3}"),service.Tasks().Count,files,service.Home,previousHome);
+        var plan=service.RelocationCleanupPlans().Single(item=>string.Equals(item.Source,previousHome,StringComparison.OrdinalIgnoreCase));
+        migrationSummary=string.Format(CultureInfo.CurrentUICulture,T("Relay moved to {0}. Previous folder: {1}. Cleanup is scheduled for {2}; changed and new files will be kept."),
+            service.Home,previousHome,plan.DeleteAfter.ToLocalTime().ToString("f",CultureInfo.CurrentUICulture));
+        ShowApplicationNotification(new DesktopNotificationContent(T("Relay folder moved"),migrationSummary));
+    }
+
+    private void CompleteRelocation(RelayService next,string previousHome)
+    {
+        service=next;
+        if(!demo)RelayLocation.Save(service.Home);
+        WatchReceipts();
+        RecordMigration(previousHome);
+        service.RefreshGuidance();
     }
 
     private void WatchReceipts()

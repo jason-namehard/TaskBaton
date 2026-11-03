@@ -5,9 +5,11 @@ They are embedded in the desktop application and do not use Windows sound-scheme
 
 | File | Pattern | Duration |
 | --- | --- | --- |
-| `default.wav` | One bright 1046.5 Hz note | 200 ms |
-| `information.wav` | Two rising notes, 698.46 Hz then 1046.5 Hz | 370 ms |
-| `warning.wav` | Three low 330 Hz pulses | 520 ms |
+| `waterdrop.wav` | Short descending water resonance | 500 ms |
+| `soft-piano.wav` | Soft C5 and E5 piano tones with harmonic decay | 1200 ms |
+| `warm-chord.wav` | Gentle C major seventh chord with a smooth attack | 1500 ms |
 
-All files use mono, 22050 Hz, 16-bit PCM with short fade envelopes. Playback respects
+All files use mono, 44100 Hz, 16-bit PCM with smooth fade envelopes and a peak below -13 dBFS. Playback respects
 Windows volume controls. The error option retains the Windows critical-error sound.
+
+Run `python scripts/generate-notification-sounds.py` to reproduce the cues.

@@ -171,10 +171,12 @@ public sealed partial class RelayService
                 current.ManualReceiptJson is { } imported && RelayJson.Read<ManualReceipt>(imported).Turn == task.ManualTurn))
                 RecordCliDeliveryEvidence(s, current, recipient, task.ManualTurn, resume ? "resume" : "create", extension.Revision, session);
             // A receipt may have finished this turn while the CLI was returning its output.
-            if (current.ManualTurn == task.ManualTurn && !Terminal(current.State))
+            if (current.AttemptId == task.AttemptId && current.CliFileTurn == task.ManualTurn &&
+                (current.ManualTurn == task.ManualTurn || current.CliFileStatus == "submitting"))
             {
                 current.CliFileStatus = status; current.CliFileError = error; current.CliFileSessionId = session;
-                if (status == "submitted" && current.State is TaskState.AwaitingManual or TaskState.AwaitingReply)
+                if (!Terminal(current.State) && current.ManualTurn == task.ManualTurn && status == "submitted" &&
+                    current.State is TaskState.AwaitingManual or TaskState.AwaitingReply)
                     current.State = TaskState.Dispatched;
                 s.Save(current); s.Event(current, "file.cli_" + status, "operator", Now, error ?? session ?? "");
             }

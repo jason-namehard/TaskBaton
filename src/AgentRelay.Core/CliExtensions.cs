@@ -11,14 +11,17 @@ public sealed record CliRecipe(int Version, string Name, string Host, CliCommand
     string OutputFormat = "relay-json", string? Login = null);
 public sealed record CliProbe(string ProbeId, string Operation, string Marker, string? SessionId,
     bool MachinePassed, bool UserConfirmed, string? Error, DateTimeOffset TestedAt, string? Diagnostic = null,
-    bool? FileWritten = null);
+    bool? FileWritten = null, bool SessionCleaned = false, string? CleanupWarning = null);
+public sealed record ProbeArtifact(string ProbeId, string Operation, string Marker, string? SessionId,
+    SessionDiscoverySource? Source, bool OwnedSession, string? SessionDirectory = null, CliCommand? CreateCommand = null,
+    bool Completed = false, string? OwnershipWarning = null);
 /// <summary>A real handoff turn sent through this recipe whose Agent then wrote the turn's receipt.</summary>
 public sealed record CliDeliveryEvidence(string TaskId, int Turn, string? SessionId, DateTimeOffset VerifiedAt);
 /// <summary>A host condition that makes further unattended calls pointless until the user resolves it.</summary>
 public sealed record CliBlock(string Kind, string Message, DateTimeOffset At);
 public sealed record CliExtensionRecord(string AgentId, string Revision, CliRecipe Recipe,
     CliProbe? CreateProbe, CliProbe? ResumeProbe, CliDeliveryEvidence? CreateEvidence = null,
-    CliDeliveryEvidence? ResumeEvidence = null, CliBlock? Block = null)
+    CliDeliveryEvidence? ResumeEvidence = null, CliBlock? Block = null, ProbeArtifact[]? ProbeArtifacts = null)
 {
     [JsonIgnore] private bool CreateProbed => CreateProbe is { MachinePassed: true, UserConfirmed: true, FileWritten: true };
     [JsonIgnore] public bool CanCreate => CreateProbed || CreateEvidence is not null;
@@ -244,7 +247,8 @@ public sealed partial class RelayService
             var agent = Agent(s, agentId);
             if (!string.Equals(recipe.Host, agent.Host, StringComparison.OrdinalIgnoreCase))
                 throw new RelayException("cli_recipe_host_mismatch", "调用方案的 host 与选中的 Agent 宿主不一致。");
-            var record = new CliExtensionRecord(agentId, Guid.NewGuid().ToString(), recipe, null, null);
+            var record = new CliExtensionRecord(agentId, Guid.NewGuid().ToString(), recipe, null, null,
+                ProbeArtifacts: ReadCliExtension(s, agentId)?.ProbeArtifacts);
             SaveCliExtension(s, record);
             return record;
         });
@@ -282,9 +286,22 @@ public sealed partial class RelayService
         var record = CliExtension(agentId) ?? throw new RelayException("cli_recipe_missing", "请先导入 CLI 调用方案。");
         if (operation == "resume" && (record.CreateProbe is not { MachinePassed: true, UserConfirmed: true } || CliRecipes.ResumeCommand(record.Recipe) is null || string.IsNullOrWhiteSpace(record.CreateProbe.SessionId)))
             throw new RelayException("cli_probe_not_ready", "请先完成新会话探针并确认可见；续接还需要真实会话 ID 和续接命令。");
+        if (operation == "resume" && record.CreateProbe!.SessionCleaned)
+            throw new RelayException("cli_probe_cleaned", "探针会话已清理；如需重新测试，请先运行新会话探针。");
         var marker = "RELAY-" + Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
+        var probeId = Guid.NewGuid().ToString();
         var sessionId = operation == "resume" ? record.CreateProbe!.SessionId : null;
         var command = operation == "create" ? record.Recipe.Create : CliRecipes.ResumeCommand(record.Recipe)!;
+        var snapshot = CaptureProbeSessions(agentId);
+        var artifact = new ProbeArtifact(probeId, operation, marker, null, snapshot.Source, false, CreateCommand: command);
+        store.Write(s =>
+        {
+            var current = ReadCliExtension(s, agentId);
+            if (current is null || current.Revision != record.Revision || current.CreateProbe != record.CreateProbe || current.ResumeProbe != record.ResumeProbe)
+                throw new RelayException("cli_recipe_changed", "调用方案或探针已变化，请重新测试。");
+            SaveCliExtension(s, current with { ProbeArtifacts = [.. (current.ProbeArtifacts ?? []), artifact] });
+            return true;
+        });
         // Handoffs are completed by a receipt file, so a probe must show the unattended Agent can write one.
         var probes = Path.Combine(Home, ".cli-probes"); Directory.CreateDirectory(probes);
         var probeFile = Path.Combine(probes, marker + ".txt");
@@ -293,6 +310,7 @@ public sealed partial class RelayService
         bool? written = null;
         string? error;
         string? diagnostic = null;
+        string? fileCleanupWarning = null;
         CliFailure? failure = null;
         try
         {
@@ -313,15 +331,32 @@ public sealed partial class RelayService
             passed = false;
             error = "无法启动 CLI：" + ex.Message;
         }
-        finally { File.Delete(probeFile); }
-        var probe = new CliProbe(Guid.NewGuid().ToString(), operation, marker, sessionId, passed, false, error, Now, diagnostic, written);
+        finally
+        {
+            try { File.Delete(probeFile); }
+            catch (Exception cleanupError) when (cleanupError is IOException or UnauthorizedAccessException)
+            { fileCleanupWarning = "探针文件未能自动清理，可稍后重试：" + cleanupError.Message; }
+        }
+        var createdSession = operation == "create" || sessionId != record.CreateProbe!.SessionId ? sessionId : null;
+        var ownership = createdSession is not null ? IdentifyProbeSession(snapshot, createdSession) : null;
+        artifact = artifact with { SessionId = createdSession,
+            OwnedSession = ownership?.Owned == true, SessionDirectory = ownership?.Directory, Completed = true,
+            OwnershipWarning = ownership?.Warning };
+        var cleanupWarning = ownership?.Warning;
+        if (fileCleanupWarning is not null)
+            cleanupWarning = cleanupWarning is null ? fileCleanupWarning : cleanupWarning + "\n" + fileCleanupWarning;
+        var probe = new CliProbe(probeId, operation, marker, sessionId, passed, false, error, Now, diagnostic, written,
+            CleanupWarning: cleanupWarning);
         return store.Write(s =>
         {
             var current = ReadCliExtension(s, agentId);
             if (current is null || current.Revision != record.Revision || current.CreateProbe != record.CreateProbe || current.ResumeProbe != record.ResumeProbe)
                 throw new RelayException("cli_recipe_changed", "调用方案或探针已变化，本次结果不能用于启用。请重新测试。");
             var block = passed ? null : failure is { Blocking: true } ? new CliBlock(failure.Kind, failure.Message, Now) : current.Block;
-            SaveCliExtension(s, (operation == "create" ? current with { CreateProbe = probe, ResumeProbe = null } : current with { ResumeProbe = probe }) with { Block = block });
+            SaveCliExtension(s, (operation == "create" ? current with { CreateProbe = probe, ResumeProbe = null } : current with { ResumeProbe = probe }) with
+            {
+                Block = block, ProbeArtifacts = [.. (current.ProbeArtifacts ?? []).Select(p => p.ProbeId == probeId ? artifact : p)]
+            });
             return probe;
         });
     }

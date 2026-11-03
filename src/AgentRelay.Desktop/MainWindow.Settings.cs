@@ -103,16 +103,28 @@ public partial class MainWindow
         {
             var picker = new OpenFolderDialog { Title = T("Choose relay folder") };
             if (picker.ShowDialog(this) != true) { reviewCancelled = true; return Task.CompletedTask; }
-            var previousHome = service.Home; var next = service.Relocate(picker.FolderName);
-            service = next;
-            service.RefreshGuidance(); WatchReceipts();
-            RecordMigration(previousHome);
-            if (!demo) RelayLocation.Save(service.Home);
+            var previousHome = service.Home;
+            service.QueueRelocation(picker.FolderName);
+            if (sendingTasks.Count == 0 && service.TryCompletePendingRelocation() is { } next) CompleteRelocation(next, previousHome);
             return Task.CompletedTask;
         }), "GhostButtonStyle");
         if (migrationSummary is not null) { var note = new StackPanel { Margin = new(18, 0, 18, 12) }; storage.Children.Add(note); Alert(note, "info", null, migrationSummary); }
-        RowAction(SettingRow(storage, "Check migration", "Migration copies all current relay files before switching. The old folder remains a backup; retention cleanup only manages the current relay folder. Migration check retries an unfinished migration; it does not move files by itself."),
-            "Check migration", () => { var previousHome = service.Home; service = service.VerifyRelocation(); service.RefreshGuidance(); WatchReceipts(); RecordMigration(previousHome); if (!demo) RelayLocation.Save(service.Home); return Task.CompletedTask; }).Content = T("Check");
+        if (service.PendingRelocation() is { } pendingMove)
+        {
+            var pendingRow = SettingRow(storage, "Pending relay move", "Relay will move when active handoffs and notifications finish. Check migration retries a move interrupted during copying.");
+            ((Panel)pendingRow.Children[0]).Children.Add(Muted(string.Format(CultureInfo.CurrentUICulture,T("Destination: {0}"),pendingMove.Target),12.5,new(0,6,0,0)));
+            RowAction(pendingRow,"Check migration",() => { var previousHome=service.Home; CompleteRelocation(service.VerifyRelocation(),previousHome); return Task.CompletedTask; }).Content=T("Check");
+            RowAction(pendingRow,"Cancel pending move",() => { service.CancelPendingRelocation(); return Task.CompletedTask; });
+        }
+        foreach (var plan in service.RelocationCleanupPlans())
+        {
+            var detail=string.Format(CultureInfo.CurrentUICulture,T("Previous folder: {0}\nScheduled cleanup: {1}"),plan.Source,plan.DeleteAfter.ToLocalTime().ToString("f",CultureInfo.CurrentUICulture));
+            if(plan.Attempted && (plan.ModifiedFiles.Length>0 || plan.AddedEntries.Length>0))
+                detail+="\n"+T("Changed or new files kept:")+"\n"+string.Join("\n",plan.ModifiedFiles.Concat(plan.AddedEntries));
+            var cleanupRow=SettingRow(storage,"Previous relay folder", "Unchanged migrated files are deleted after 24 hours while Relay is running or the next time it starts. Changed or new files are kept.");
+            ((Panel)cleanupRow.Children[0]).Children.Add(Muted(detail,12.5,new(0,6,0,0)));
+            if(plan.Attempted)RowAction(cleanupRow,"Retry cleanup",() => { service.CleanupRelocatedHomes(); return Task.CompletedTask; });
+        }
         var settings = service.Settings();
         var ttl = NumberBox("TtlDays", settings.ArtifactTtlDays);
         var retention = SettingRow(storage, "Keep handoff files", "Expired temporary files can be cleaned. Registered results are kept.", ttl, Muted("days", 12.5, new(8, 0, 0, 0)));
