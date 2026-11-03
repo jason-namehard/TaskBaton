@@ -1,6 +1,6 @@
 # Agent Relay — 第一次任务
 
-版本：`0.1.4`。Windows 安装版通过开始菜单启动；便携版请解压后运行 `gui/AgentRelay.Desktop.exe`。`TryDemo.cmd` 提供隔离演示，不会调用真实 Agent。中转站的数据独立于安装目录；卸载时默认保留，可选择清除配置与任务记录。
+版本：`0.2.0`。Windows 安装版通过开始菜单启动；便携版请解压后运行 `gui/AgentRelay.Desktop.exe`。`TryDemo.cmd` 提供隔离演示，不会调用真实 Agent。中转站的数据独立于安装目录；卸载时默认保留，可选择清除配置与任务记录。
 
 ## 创建自动传递任务
 
