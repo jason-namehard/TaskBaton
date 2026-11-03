@@ -199,6 +199,52 @@ public partial class MainWindow
                 if (provider.SelectedItem is not string selected) throw new RelayException("session_provider_required", T("Select a session provider."));
                 service.ConfigureSessionDiscovery(id, selected, storage.Text.Trim()); return Task.CompletedTask;
             }).Content = T("Save");
+
+            if (extension is not null && CliRecipes.IsZcode(extension.Recipe))
+            {
+                var visibility = Group(details, "Host visibility");
+                var options = extension.SidebarSync ?? new CliSidebarSync();
+                var sync = new CheckBox { Name = "EnableHostSidebarSync", IsChecked = options.Enabled };
+                var activate = new CheckBox { Name = "ActivateHostAfterSidebarSync", IsChecked = options.ActivateWindow, IsEnabled = options.Enabled };
+                foreach (var (control, label) in new[]
+                {
+                    (sync, "Sync new conversations to the host sidebar"),
+                    (activate, "Bring the host window to the front after syncing")
+                })
+                {
+                    control.SetResourceReference(StyleProperty, "SwitchStyle");
+                    AutomationProperties.SetAutomationId(control, control.Name);
+                    AutomationProperties.SetName(control, T(label));
+                }
+                ToolTipService.SetShowOnDisabled(activate, true);
+                activate.ToolTip = options.Enabled ? null : T("Host visibility sync is off for this Agent.");
+                SettingRow(visibility, "Sync new conversations to the host sidebar",
+                    "Relay syncs eligible CLI conversations to Zcode's sidebar index after each turn. Bring Zcode to the foreground to refresh the sidebar.", sync);
+                SettingRow(visibility, "Bring the host window to the front after syncing",
+                    "Only needed when you are already watching Zcode. It interrupts whatever window you are using.", activate);
+
+                var restoring = false;
+                async void SaveSidebarSync(object sender, RoutedEventArgs args)
+                {
+                    if (restoring) return;
+                    var enabled = sync.IsChecked == true;
+                    var activateWindow = enabled && activate.IsChecked == true;
+                    await Run(() => { service.SetCliSidebarSync(id, enabled, activateWindow); return Task.CompletedTask; },
+                        "Host visibility settings saved", refresh: false);
+                    var saved = service.CliExtension(id)!.SidebarSync ?? new CliSidebarSync();
+                    restoring = true;
+                    try
+                    {
+                        sync.IsChecked = saved.Enabled;
+                        activate.IsChecked = saved.ActivateWindow;
+                        activate.IsEnabled = saved.Enabled;
+                        activate.ToolTip = saved.Enabled ? null : T("Host visibility sync is off for this Agent.");
+                    }
+                    finally { restoring = false; }
+                }
+                sync.Checked += SaveSidebarSync; sync.Unchecked += SaveSidebarSync;
+                activate.Checked += SaveSidebarSync; activate.Unchecked += SaveSidebarSync;
+            }
         }
         table.SelectionChanged += (_, _) => ShowDetails();
         table.SelectedItem = rows.SingleOrDefault(row => row.Source.AgentId == agentId) ?? rows.FirstOrDefault();

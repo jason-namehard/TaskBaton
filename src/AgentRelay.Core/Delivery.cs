@@ -166,7 +166,7 @@ public sealed partial class RelayService
             IDeliveryAdapter adapter;
             if (adapters.TryGetValue(claimed.AdapterId, out var injected)) adapter = injected;
             else if (claimed.AdapterId.StartsWith("cli:", StringComparison.Ordinal))
-                adapter = new CliRecipeDeliveryAdapter(CliExtension(claimed.RecipientId)!);
+                adapter = new CliRecipeDeliveryAdapter(CliExtension(claimed.RecipientId)!, ZcodeUserDirectory);
             else
             {
                 var record = store.Read(s => s.Json<AdapterRecord>("SELECT json FROM adapters WHERE id=$id", ("$id", claimed.AdapterId)))!;
@@ -185,6 +185,9 @@ public sealed partial class RelayService
             var retry = store.Write(s =>
             {
                 var task = s.Task(taskId);
+                if (task.AttemptId == claimed.AttemptId && result.SidebarSync is { } sidebar &&
+                    (sidebar.Status == "failed" || sidebar.WindowActivated == false))
+                    s.Event(task, "zcode.sidebar_sync_failed", "relay", Now, sidebar.Message ?? sidebar.Status);
                 if (task.AttemptId != claimed.AttemptId || task.State != TaskState.Dispatching) return false;
                 var box = Outbox(s, taskId)!;
                 var next = result.Status switch

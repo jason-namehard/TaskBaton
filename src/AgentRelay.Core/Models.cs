@@ -105,7 +105,8 @@ public sealed record InboxItem(long NotificationId, string TaskId, string Event,
     DateTimeOffset CreatedAt, bool IsRead);
 public sealed record OutboxItem(string TaskId, string AttemptId, string State, int Submissions,
     DateTimeOffset? LeaseUntil, string? Receipt);
-public sealed record DeliveryResult(string Status, string? Receipt, string? Error, bool Retryable = false);
+public sealed record DeliveryResult(string Status, string? Receipt, string? Error, bool Retryable = false,
+    CliSidebarSyncResult? SidebarSync = null);
 public sealed record CleanupResult(int Eligible, int Deleted, string[] Paths);
 
 public sealed record ExecutorRecord(string AgentId, string Kind, string Executable, string Version,

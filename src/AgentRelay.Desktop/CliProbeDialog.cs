@@ -73,7 +73,7 @@ public sealed class CliProbeDialog : Window
         else
         {
             layout.Body.Children.Add(Note("This sends a real, short probe to the selected CLI. Model charges may apply, including host context. It does not run project work. Check the command before starting."));
-            var zcode=CliRecipes.OutputFormatFor(extension.Recipe) is "zcode-json" or "zcode-jsonl";
+            var zcode=CliRecipes.IsZcode(extension.Recipe);
             if(!zcode)
             {
                 var visibility=Note(VisibilityAdvice(extension.Recipe));
@@ -128,9 +128,10 @@ public sealed class CliProbeDialog : Window
         layout.Actions.Children.Add(close);
     }
 
-    private static string VisibilityAdvice(CliRecipe recipe)=>CliRecipes.OutputFormatFor(recipe) switch
+    private static string VisibilityAdvice(CliRecipe recipe)=>CliRecipes.IsZcode(recipe)
+        ? "Relay syncs eligible Zcode CLI conversations to the sidebar index after each turn. Bring Zcode to the foreground to refresh the sidebar. If syncing is off or fails, save your work and fully quit and restart Zcode if needed. If a conversation shows old content, switch conversations and reopen it. Do not repeat a paid probe just to refresh the view."
+        : CliRecipes.OutputFormatFor(recipe) switch
     {
-        "zcode-json" or "zcode-jsonl"=>"Zcode's session index or cache may delay showing a new conversation or updated content. Switch conversations and reopen it after about 11 minutes, or save your work and restart Zcode. Do not repeat a paid probe just to refresh the view.",
         "dsh-desktop"=>"The DSH desktop bridge runs inside the open DSH client, so new sessions and continued turns normally appear without restarting. Check the returned session ID and refresh or reopen that conversation if needed. Do not restart DSH while a turn is running.",
         _=>"A successful machine receipt does not confirm that the host's desktop has refreshed. For new and continued sessions, refresh the session list or reopen the conversation; if needed, save your work and restart that client. A missing marker in a stale view is not a reason to run the probe again."
     };
@@ -183,6 +184,24 @@ public sealed class CliProbeDialog : Window
             T("Marker")+": "+probe.Marker+"\n"+T("Session")+": "+probe.SessionId+"\n"+
             (probe.MachinePassed?T("Machine receipt passed"):probe.Error),true);
         text.IsReadOnly=true;text.Height=100;layout.Body.Children.Add(text);
+        if(probe.SidebarSync is { } sync)
+        {
+            var status=sync.Status switch
+            {
+                "synced"=>"The sidebar index was synced for this probe. Bring Zcode to the foreground to refresh the sidebar.",
+                "disabled"=>"Sidebar sync was off for this probe. The session may not appear in Zcode's sidebar.",
+                "skipped"=>"The sidebar index was not updated for this probe. The session may already be managed by Zcode or may not be eligible for sync.",
+                "failed"=>"Sidebar sync failed for this probe. The CLI call result is unchanged.",
+                _=>throw new InvalidOperationException("Unknown sidebar sync status: "+sync.Status)
+            };
+            var detail=sync.Status=="failed" && sync.Message is not null ? "\n"+sync.Message : "";
+            if(sync.Status=="failed" && sync.IndexPath is not null)detail+="\n"+T("Path")+": "+sync.IndexPath;
+            if(sync.WindowActivated==false)detail+="\n"+T("Zcode could not be brought to the foreground. Switch to Zcode to refresh the sidebar.");
+            var note=Note(status);note.Text+=detail;
+            note.Name=probe.Operation=="create"?"CreateProbeSidebarSync":"ResumeProbeSidebarSync";
+            System.Windows.Automation.AutomationProperties.SetAutomationId(note,note.Name);
+            layout.Body.Children.Add(note);
+        }
         if(probe.CleanupWarning is not null)layout.Body.Children.Add(Note(probe.CleanupWarning));
         if(probe.Diagnostic is not null)
         {

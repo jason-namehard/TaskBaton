@@ -130,12 +130,14 @@ public sealed partial class RelayService
         });
         // Print-mode hosts return only after the Agent finishes its turn, so the call may run until the turn deadline.
         var budget = task.DeadlineAt - Now;
-        string status; string? session = null; string? error; CliFailure? failure = null;
+        string status; string? session = null; string? error; CliFailure? failure = null; CliSidebarSyncResult? sidebarSync = null;
         try
         {
             var process = await CliRecipes.InvokeAsync(command, CliRecipes.OutputFormatFor(extension.Recipe), prompt, binding?.SessionId, Home,
                 budget > MinimumCliTurn ? budget : MinimumCliTurn, cancellationToken);
             var receipt = CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe));
+            if (receipt is { } received && CliExtension(recipient) is { } current && current.Revision == extension.Revision)
+                sidebarSync = ZcodeTaskIndexVisibility.Sync(current, received.SessionId, ZcodeUserDirectory, Home);
             var matching = receipt is not null && (!resume || receipt.Value.SessionId == binding!.SessionId);
             status = matching ? "submitted" : "unknown";
             session = receipt?.SessionId;
@@ -152,6 +154,9 @@ public sealed partial class RelayService
         store.Write(s =>
         {
             var current = s.Task(taskId);
+            if (current.AttemptId == task.AttemptId && sidebarSync is { } sidebar &&
+                (sidebar.Status == "failed" || sidebar.WindowActivated == false))
+                s.Event(current, "zcode.sidebar_sync_failed", "relay", Now, sidebar.Message ?? sidebar.Status);
             if (current.AttemptId == task.AttemptId && status == "submitted")
             {
                 var agent = Agent(s, recipient);

@@ -61,6 +61,7 @@ internal static class Program
         await CheckCliTaskEntry(window,root);
         await CheckReviewLoopPane(window,root);
         await CheckModelDefaults(window,root);
+        await CheckHostVisibilitySettings(window,root);
         await CheckRelocationLifecycle(window,root);
         await CheckNotificationDelivery(window,root);
         await CheckBatchTasks(window,root);
@@ -317,11 +318,13 @@ internal static class Program
         var visibilityExtension=service.CliExtension("agent-c")!;
         foreach(var format in new[]{"zcode-json","dsh-desktop"})
         {
-            SaveExtension(service,visibilityExtension with {Recipe=visibilityExtension.Recipe with {OutputFormat=format}});
+            var command=visibilityExtension.Recipe.Create;
+            if(format=="zcode-json")command=command with {Executable=Path.Combine(root,"zcode.exe")};
+            SaveExtension(service,visibilityExtension with {Recipe=visibilityExtension.Recipe with {Create=command,OutputFormat=format}});
             await Show(new CliProbeDialog(window,service,"agent-c","en"),async dialog=>
             {
                 var hint=format=="zcode-json"?((TextBlock)Find<Border>(dialog,"ProbeVisibilityHint").ToolTip).Text:Find<TextBlock>(dialog,"ProbeVisibilityHint").Text;
-                Check(format=="zcode-json"?hint.Contains("restart Zcode"):hint.Contains("without restarting"),"Probe advice distinguishes Zcode display delays from the live DSH desktop bridge");
+                Check(format=="zcode-json"?hint.Contains("foreground")&&hint.Contains("syncing is off or fails")&&!hint.Contains("11 minutes"):hint.Contains("without restarting"),"Probe advice distinguishes sidebar sync and foreground refresh from the live DSH desktop bridge");
                 Check(!FindAll<Button>(dialog).Any(button=>button.Name=="CopyBridgeDiagnostic"),"Verified probes do not offer a misleading repair action");
                 Check(FindAll<Button>(dialog).Any(button=>button.Name=="CleanupCliProbe"),"Verified probes offer explicit session and file cleanup");
                 Press(dialog,"CloseCliProbe");
@@ -627,6 +630,93 @@ internal static class Program
         Check(saved["modelId"]!.GetValue<string>()=="ds"&&saved["options"]!["reasoningLevel"]!.GetValue<string>()=="high","Saving writes the host's default model and reasoning level");
         Check(FindAll<TextBlock>(window).Any(t=>t.Text.Contains("Continued conversations keep their own model",StringComparison.Ordinal)),"The panel says continued conversations keep their own model");
         await SaveImage(window,Path.Combine(root,"Agent-default-model.png"));
+        window.RequestExit();
+    }
+
+    private static async Task CheckHostVisibilitySettings(MainWindow owner,string root)
+    {
+        var station=new RelayService(Path.Combine(root,"sidebar-ui"));station.Initialize();
+        station.RegisterManual("zcode-ui","fixture","Zcode UI");
+        station.RegisterManual("format-only","fixture","Format only");
+        station.RegisterManual("manual-ui","fixture","Manual UI");
+        var command=new CliCommand(Path.Combine(root,"zcode.exe"),["{prompt}"],null,null);
+        var recipe=new CliRecipe(1,"Sidebar fixture","fixture",command,null,[],"","","","","text");
+        var probe=new CliProbe("sidebar-fixture","create","SIDEBAR-FIXTURE","fixture-session",true,false,null,DateTimeOffset.UtcNow,FileWritten:true);
+        SaveExtension(station,new("zcode-ui","fixture-revision",recipe,probe,null));
+        var other=recipe with {Create=command with {Executable=Path.Combine(root,"never-run.exe")},OutputFormat="zcode-json"};
+        SaveExtension(station,new("format-only","fixture-revision",other,null,null));
+        Appearance.Save(station.Home,new DesktopPreferences("en",NotificationSound:"none"));
+        var window=new MainWindow(station){Owner=owner};window.Show();
+        await Wait(()=>((TextBlock)window.FindName("StatusText")).Text!="Working…");
+        var navigation=(ListBox)window.FindName("Navigation");
+        navigation.SelectedItem=navigation.Items.Cast<ListBoxItem>().Single(i=>(string)i.Tag=="Agents");
+        var table=Find<DataGrid>(window,"AgentsTable");
+        void Select(string name)=>table.SelectedItem=table.Items.Cast<object>().Single(r=>(string)r.GetType().GetProperty("Name")!.GetValue(r)! == name);
+        Select("Zcode UI");
+        var sync=Find<CheckBox>(window,"EnableHostSidebarSync");
+        var activate=Find<CheckBox>(window,"ActivateHostAfterSidebarSync");
+        Check(sync.IsChecked==true&&activate.IsChecked==false&&activate.IsEnabled&&station.CliExtension("zcode-ui")!.SidebarSync is null,
+            "A Zcode recipe with no saved options defaults to sidebar sync on and window activation off");
+        Check(AutomationProperties.GetName(sync)=="Sync new conversations to the host sidebar"&&
+            AutomationProperties.GetName(activate)=="Bring the host window to the front after syncing",
+            "Both host visibility switches have accessible names");
+        activate.IsChecked=true;
+        await Wait(()=>station.CliExtension("zcode-ui")!.SidebarSync is {Enabled:true,ActivateWindow:true}&&((FrameworkElement)window.FindName("PageContent")).IsEnabled);
+        Check(station.CliExtension("zcode-ui")!.SidebarSync!.ActivateWindow,"Window activation is saved immediately for this Agent");
+        sync.IsChecked=false;
+        await Wait(()=>station.CliExtension("zcode-ui")!.SidebarSync is {Enabled:false,ActivateWindow:false}&&((FrameworkElement)window.FindName("PageContent")).IsEnabled);
+        Check(activate.IsChecked==false&&!activate.IsEnabled&&ToolTipService.GetShowOnDisabled(activate)&&Equals(activate.ToolTip,"Host visibility sync is off for this Agent."),
+            "Disabling sidebar sync also disables window activation with an accessible explanation");
+        sync.IsChecked=true;
+        await Wait(()=>station.CliExtension("zcode-ui")!.SidebarSync is {Enabled:true,ActivateWindow:false}&&((FrameworkElement)window.FindName("PageContent")).IsEnabled);
+        Check(activate.IsEnabled&&activate.IsChecked==false,"Re-enabling sync does not unexpectedly activate the host window");
+        activate.IsChecked=true;
+        await Wait(()=>station.CliExtension("zcode-ui")!.SidebarSync is {Enabled:true,ActivateWindow:true}&&((FrameworkElement)window.FindName("PageContent")).IsEnabled);
+        Select("Format only");
+        Check(!FindAll<CheckBox>(window).Any(c=>c.Name=="EnableHostSidebarSync"),"A Zcode output format alone does not expose host visibility settings");
+        Select("Manual UI");
+        Check(!FindAll<CheckBox>(window).Any(c=>c.Name=="EnableHostSidebarSync"),"An Agent without a CLI recipe has no host visibility settings");
+        Select("Zcode UI");
+        Check(Find<CheckBox>(window,"ActivateHostAfterSidebarSync").IsChecked==true&&
+            new RelayService(station.Home).CliExtension("zcode-ui")!.SidebarSync is {Enabled:true,ActivateWindow:true},
+            "Host visibility options persist when returning to the Agent and reopening the ledger");
+
+        var cases=new[]
+        {
+            ("synced","The sidebar index was synced for this probe.", (bool?)false),
+            ("disabled","Sidebar sync was off for this probe.", null),
+            ("skipped","The sidebar index was not updated for this probe.", null),
+            ("failed","Sidebar sync failed for this probe.", null)
+        };
+        foreach(var (status,expected,activated) in cases)
+        {
+            var outcome=new CliSidebarSyncResult(status,Path.Combine(root,"fixture-index.sqlite"),status=="failed"?"Fixture index failure":null,WindowActivated:activated);
+            SaveExtension(station,station.CliExtension("zcode-ui")! with {CreateProbe=probe with {SidebarSync=outcome}});
+            await Show(new CliProbeDialog(window,station,"zcode-ui","en"),dialog=>
+            {
+                var result=Find<TextBlock>(dialog,"CreateProbeSidebarSync").Text;
+                Check(result.Contains(expected,StringComparison.Ordinal),"Probe presents the saved sidebar sync outcome: "+status);
+                if(status=="failed")Check(result.Contains("Fixture index failure")&&!FindAll<Button>(dialog).Any(b=>b.Name=="CopyBridgeDiagnostic"),
+                    "An index error exposes its cause without presenting a successful CLI call as a bridge failure");
+                if(activated==false)Check(result.Contains("could not be brought to the foreground"),"A failed focus attempt tells the user to switch to Zcode");
+                Press(dialog,"CloseCliProbe");return Task.CompletedTask;
+            });
+        }
+        var translated=new[]
+        {
+            "Host visibility", "Sync new conversations to the host sidebar", "Bring the host window to the front after syncing",
+            "Host visibility sync is off for this Agent.", "Host visibility settings saved",
+            "Relay syncs eligible CLI conversations to Zcode's sidebar index after each turn. Bring Zcode to the foreground to refresh the sidebar.",
+            "Only needed when you are already watching Zcode. It interrupts whatever window you are using.",
+            "Relay syncs eligible Zcode CLI conversations to the sidebar index after each turn. Bring Zcode to the foreground to refresh the sidebar. If syncing is off or fails, save your work and fully quit and restart Zcode if needed. If a conversation shows old content, switch conversations and reopen it. Do not repeat a paid probe just to refresh the view.",
+            "The sidebar index was synced for this probe. Bring Zcode to the foreground to refresh the sidebar.",
+            "Sidebar sync was off for this probe. The session may not appear in Zcode's sidebar.",
+            "The sidebar index was not updated for this probe. The session may already be managed by Zcode or may not be eligible for sync.",
+            "Sidebar sync failed for this probe. The CLI call result is unchanged.",
+            "Zcode could not be brought to the foreground. Switch to Zcode to refresh the sidebar."
+        };
+        foreach(var language in new[]{"zh-CN","zh-TW","ja","ko","es"})
+            Check(translated.All(key=>UiText.Translate(key,language)!=key),"Host visibility settings and outcomes are translated: "+language);
         window.RequestExit();
     }
 

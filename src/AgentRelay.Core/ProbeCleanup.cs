@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 
@@ -144,11 +145,22 @@ public sealed partial class RelayService
             }
 
             results.AddRange(ZcodeProbeCleanup.DeleteFiles(source.StorageRoot, id));
-            var indexes = new[] { Path.Combine(source.StorageRoot, "v2", "tasks-index.sqlite"),
+            var indexes = new List<string?> { Path.Combine(source.StorageRoot, "v2", "tasks-index.sqlite"),
                 Path.Combine(ZcodeUserDirectory, "v2", "tasks-index.sqlite"),
-                directory is null ? null : Path.Combine(directory, ".zcode", "v2", "tasks-index.sqlite") }
-                .Where(path => path is not null).Distinct(StringComparer.OrdinalIgnoreCase);
-            foreach (var index in indexes)
+                directory is null ? null : Path.Combine(directory, ".zcode", "v2", "tasks-index.sqlite") };
+            try
+            {
+                if (CliRecipes.ZcodeDesktopDataDirectory(ZcodeUserDirectory, strict: true) is { } data)
+                {
+                    if (!Path.IsPathFullyQualified(data)) throw new InvalidDataException("Zcode 桌面数据目录必须是绝对路径。");
+                    indexes.Add(Path.Combine(data, "tasks-index.sqlite"));
+                }
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+            {
+                results.Add(new(id, "index", "failed", "无法定位 Zcode 桌面侧栏索引：" + error.Message));
+            }
+            foreach (var index in indexes.Where(path => path is not null).Distinct(StringComparer.OrdinalIgnoreCase))
                 results.Add(ZcodeProbeCleanup.SyncIndex(index!, id, Path.Combine(Home, ".cli-probes", "backups", artifact.ProbeId)));
             return results;
         }

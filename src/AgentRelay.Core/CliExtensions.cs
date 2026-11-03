@@ -11,7 +11,8 @@ public sealed record CliRecipe(int Version, string Name, string Host, CliCommand
     string OutputFormat = "relay-json", string? Login = null);
 public sealed record CliProbe(string ProbeId, string Operation, string Marker, string? SessionId,
     bool MachinePassed, bool UserConfirmed, string? Error, DateTimeOffset TestedAt, string? Diagnostic = null,
-    bool? FileWritten = null, bool SessionCleaned = false, string? CleanupWarning = null);
+    bool? FileWritten = null, bool SessionCleaned = false, string? CleanupWarning = null,
+    CliSidebarSyncResult? SidebarSync = null);
 public sealed record ProbeArtifact(string ProbeId, string Operation, string Marker, string? SessionId,
     SessionDiscoverySource? Source, bool OwnedSession, string? SessionDirectory = null, CliCommand? CreateCommand = null,
     bool Completed = false, string? OwnershipWarning = null);
@@ -19,9 +20,13 @@ public sealed record ProbeArtifact(string ProbeId, string Operation, string Mark
 public sealed record CliDeliveryEvidence(string TaskId, int Turn, string? SessionId, DateTimeOffset VerifiedAt);
 /// <summary>A host condition that makes further unattended calls pointless until the user resolves it.</summary>
 public sealed record CliBlock(string Kind, string Message, DateTimeOffset At);
+public sealed record CliSidebarSync(bool Enabled = true, bool ActivateWindow = false);
+public sealed record CliSidebarSyncResult(string Status, string? IndexPath = null, string? Message = null,
+    string? BackupPath = null, bool? WindowActivated = null);
 public sealed record CliExtensionRecord(string AgentId, string Revision, CliRecipe Recipe,
     CliProbe? CreateProbe, CliProbe? ResumeProbe, CliDeliveryEvidence? CreateEvidence = null,
-    CliDeliveryEvidence? ResumeEvidence = null, CliBlock? Block = null, ProbeArtifact[]? ProbeArtifacts = null)
+    CliDeliveryEvidence? ResumeEvidence = null, CliBlock? Block = null, ProbeArtifact[]? ProbeArtifacts = null,
+    CliSidebarSync? SidebarSync = null)
 {
     [JsonIgnore] private bool CreateProbed => CreateProbe is { MachinePassed: true, UserConfirmed: true, FileWritten: true };
     [JsonIgnore] public bool CanCreate => CreateProbed || CreateEvidence is not null;
@@ -86,8 +91,8 @@ public static class CliRecipes
     /// The desktop's data folder: &lt;dataBaseDir&gt;/.zcode/v2 when the user moved it, else ~/.zcode/v2. Its provider file and
     /// its generated UI (visualizations) live there; its settings always stay in ~/.zcode/v2.
     /// </summary>
-    public static string? ZcodeDesktopDataDirectory(string zcodeUserDirectory) =>
-        ZcodeDesktopSetting(zcodeUserDirectory, "dataBaseDir") is { Length: > 0 } moved ? Path.Combine(moved, ".zcode", "v2")
+    public static string? ZcodeDesktopDataDirectory(string zcodeUserDirectory, bool strict = false) =>
+        ZcodeDesktopSetting(zcodeUserDirectory, "dataBaseDir", strict) is { Length: > 0 } moved ? Path.Combine(moved, ".zcode", "v2")
         : File.Exists(Path.Combine(zcodeUserDirectory, "v2", "setting.json")) ? Path.Combine(zcodeUserDirectory, "v2") : null;
 
     public static string ZcodeVisualizationsDirectory(CliCommand command, string zcodeUserDirectory) => Path.Combine(
@@ -95,18 +100,21 @@ public static class CliRecipes
             ?? Path.Combine(zcodeUserDirectory, "v2", "provider_config.json"))!, "visualizations");
 
     /// <summary>Reads one top-level value from the desktop's settings (~/.zcode/v2/setting.json); null when absent or unreadable.</summary>
-    public static string? ZcodeDesktopSetting(string zcodeUserDirectory, string name)
+    public static string? ZcodeDesktopSetting(string zcodeUserDirectory, string name, bool strict = false)
     {
         var path = Path.Combine(zcodeUserDirectory, "v2", "setting.json");
         if (!File.Exists(path)) return null;
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
-            return document.RootElement.ValueKind == JsonValueKind.Object && document.RootElement.TryGetProperty(name, out var value)
-                ? value.ValueKind switch { JsonValueKind.String => value.GetString(), JsonValueKind.True => "true", JsonValueKind.False => "false", _ => null }
-                : null;
+            if (strict && document.RootElement.ValueKind != JsonValueKind.Object)
+                throw new JsonException("Zcode desktop settings must be an object.");
+            if (document.RootElement.ValueKind != JsonValueKind.Object || !document.RootElement.TryGetProperty(name, out var value)) return null;
+            if (strict && value.ValueKind is not (JsonValueKind.String or JsonValueKind.Null))
+                throw new JsonException($"Zcode desktop setting {name} must be a string or null.");
+            return value.ValueKind switch { JsonValueKind.String => value.GetString(), JsonValueKind.True => "true", JsonValueKind.False => "false", _ => null };
         }
-        catch (Exception exception) when (exception is JsonException or IOException) { return null; }
+        catch (Exception exception) when (!strict && exception is (JsonException or IOException)) { return null; }
     }
 
     public static string OutputFormatFor(CliRecipe recipe)
@@ -247,8 +255,9 @@ public sealed partial class RelayService
             var agent = Agent(s, agentId);
             if (!string.Equals(recipe.Host, agent.Host, StringComparison.OrdinalIgnoreCase))
                 throw new RelayException("cli_recipe_host_mismatch", "调用方案的 host 与选中的 Agent 宿主不一致。");
+            var previous = ReadCliExtension(s, agentId);
             var record = new CliExtensionRecord(agentId, Guid.NewGuid().ToString(), recipe, null, null,
-                ProbeArtifacts: ReadCliExtension(s, agentId)?.ProbeArtifacts);
+                ProbeArtifacts: previous?.ProbeArtifacts, SidebarSync: previous?.SidebarSync);
             SaveCliExtension(s, record);
             return record;
         });
@@ -275,6 +284,14 @@ public sealed partial class RelayService
         var record = ReadCliExtension(s, agentId) ?? throw new RelayException("cli_recipe_missing", "未找到调用方案。");
         SaveCliExtension(s, record with { Block = null });
         return record with { Block = null };
+    });
+
+    public CliExtensionRecord SetCliSidebarSync(string agentId, bool enabled, bool activateWindow) => store.Write(s =>
+    {
+        var record = ReadCliExtension(s, agentId) ?? throw new RelayException("cli_recipe_missing", "未找到调用方案。");
+        var next = record with { SidebarSync = new CliSidebarSync(enabled, activateWindow) };
+        SaveCliExtension(s, next);
+        return next;
     });
 
     // A probe starts the host, makes one tool call and replies; the 30-second transport timeout is far too short for that.
@@ -311,6 +328,7 @@ public sealed partial class RelayService
         string? error;
         string? diagnostic = null;
         string? fileCleanupWarning = null;
+        CliSidebarSyncResult? sidebarSync = null;
         CliFailure? failure = null;
         try
         {
@@ -322,7 +340,13 @@ public sealed partial class RelayService
             written = File.Exists(probeFile) && File.ReadAllText(probeFile).Trim() == marker;
             var replied = receipt is { } r && r.Reply.Trim() == marker && (operation == "create" || r.SessionId == sessionId);
             passed = replied && written == true;
-            if (receipt is { } received) sessionId = received.SessionId;
+            if (receipt is { } received)
+            {
+                sessionId = received.SessionId;
+                var current = CliExtension(agentId);
+                if (current is not null && current.Revision == record.Revision)
+                    sidebarSync = ZcodeTaskIndexVisibility.Sync(current, sessionId, ZcodeUserDirectory, Home);
+            }
             failure = passed ? null : replied ? CliFailureDiagnostics.PermissionRequired(record.Recipe) : CliFailureDiagnostics.Classify(process, record.Recipe);
             error = failure?.Message;
         }
@@ -346,7 +370,7 @@ public sealed partial class RelayService
         if (fileCleanupWarning is not null)
             cleanupWarning = cleanupWarning is null ? fileCleanupWarning : cleanupWarning + "\n" + fileCleanupWarning;
         var probe = new CliProbe(probeId, operation, marker, sessionId, passed, false, error, Now, diagnostic, written,
-            CleanupWarning: cleanupWarning);
+            CleanupWarning: cleanupWarning, SidebarSync: sidebarSync);
         return store.Write(s =>
         {
             var current = ReadCliExtension(s, agentId);
@@ -380,7 +404,7 @@ public sealed partial class RelayService
         ("$id", record.AgentId), ("$json", RelayJson.Write(record)));
 }
 
-public sealed class CliRecipeDeliveryAdapter(CliExtensionRecord extension) : IDeliveryAdapter
+public sealed class CliRecipeDeliveryAdapter(CliExtensionRecord extension, string? zcodeUserDirectory = null) : IDeliveryAdapter
 {
     public string Id => "cli:" + extension.AgentId;
 
@@ -388,7 +412,8 @@ public sealed class CliRecipeDeliveryAdapter(CliExtensionRecord extension) : IDe
     {
         if (!extension.CanCreate || task.RecipientId != extension.AgentId)
             return new("rejected", null, "接收 Agent 的 CLI 新会话能力未验证。");
-        var agents = new RelayService(home).Agents();
+        var relay = new RelayService(home);
+        var agents = relay.Agents();
         string Name(string id) => agents.SingleOrDefault(a => a.AgentId == id)?.DisplayName ?? id;
         var prompt = $"""
             Agent Relay handoff from {Name(task.RequesterId)} ({task.RequesterId}) to {Name(task.RecipientId)} ({task.RecipientId}).
@@ -404,8 +429,12 @@ public sealed class CliRecipeDeliveryAdapter(CliExtensionRecord extension) : IDe
             If Relay CLI/MCP is unavailable, return the reply path to the operator for manual confirmation. Save permanent deliverables in the project, not the relay directory.
             """;
         var process = await CliRecipes.InvokeAsync(extension.Recipe.Create, CliRecipes.OutputFormatFor(extension.Recipe), prompt, null, home, timeout, cancellationToken);
-        return CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe)) is not null
-            ? new("accepted", process.Output, null)
-            : new("unknown", null, CliFailureDiagnostics.Classify(process, extension.Recipe).Message);
+        var receipt = CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe));
+        if (receipt is null) return new("unknown", null, CliFailureDiagnostics.Classify(process, extension.Recipe).Message);
+        var directory = zcodeUserDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".zcode");
+        var current = relay.CliExtension(extension.AgentId);
+        var sidebar = current is not null && current.Revision == extension.Revision
+            ? ZcodeTaskIndexVisibility.Sync(current, receipt.Value.SessionId, directory, home) : null;
+        return new("accepted", process.Output, null, SidebarSync: sidebar);
     }
 }

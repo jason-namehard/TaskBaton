@@ -33,18 +33,45 @@ internal static class ProbeVisibilityUiText
         Add("Cleanup pending","等待清理","等待清理","整理待ち","정리 대기 중","Limpieza pendiente");
         Add("Path","路径","路徑","パス","경로","Ruta");
         Add("Backup path","备份路径","備份路徑","バックアップ先","백업 경로","Ruta de copia");
-        Add("Zcode's session index or cache may delay showing a new conversation or updated content. Switch conversations and reopen it after about 11 minutes, or save your work and restart Zcode. Do not repeat a paid probe just to refresh the view.",
-            "Zcode 的会话索引或缓存可能让新会话或更新内容延迟显示。请切换会话，约 11 分钟后再打开，或保存工作后重启 Zcode。不要为了刷新界面而重复运行付费探针。",
-            "Zcode 的會話索引或快取可能讓新會話或更新內容延遲顯示。請切換會話，約 11 分鐘後再開啟，或儲存工作後重啟 Zcode。請勿為了更新畫面而重複執行付費探針。",
-            "Zcode のセッション索引やキャッシュにより、新しい会話や更新内容の表示が遅れることがあります。別の会話に切り替えて約 11 分後に開き直すか、作業を保存して Zcode を再起動してください。表示更新のために有料のテストを繰り返さないでください。",
-            "Zcode의 세션 인덱스나 캐시 때문에 새 대화나 갱신된 내용이 늦게 표시될 수 있습니다. 다른 대화로 전환하고 약 11분 후 다시 열거나 작업을 저장한 후 Zcode를 재시작하세요. 화면을 갱신하려고 유료 프로브를 반복하지 마세요.",
-            "El índice o la caché de Zcode pueden retrasar la aparición de una conversación nueva o de contenido actualizado. Cambia de conversación y vuelve a abrirla tras unos 11 minutos, o guarda tu trabajo y reinicia Zcode. No repitas una prueba de pago solo para actualizar la vista.");
-        Add("Zcode can keep an old conversation in memory after Relay writes to it. Switch to another conversation and reopen it after about 11 minutes, or save your work and restart Zcode. An old view does not mean the call failed; do not repeat the delivery just to refresh it.",
-            "Relay 写入后，Zcode 可能仍显示会话的旧内容。请切换到其他会话，约 11 分钟后再切回来；或者保存工作后重启 Zcode。界面未更新不代表调用失败，不要为了刷新而重复发送。",
-            "Relay 寫入後，Zcode 可能仍顯示會話的舊內容。請切換到其他會話，約 11 分鐘後再切回來；或者儲存工作後重啟 Zcode。介面未更新不代表呼叫失敗，請勿為了更新而重複傳送。",
-            "Relay の書き込み後も Zcode に古い会話が表示されることがあります。別の会話に切り替え、約 11 分後に戻るか、作業を保存して Zcode を再起動してください。表示が古くても呼び出し失敗とは限りません。更新のために再送しないでください。",
-            "Relay가 기록한 후에도 Zcode에 이전 대화가 표시될 수 있습니다. 다른 대화로 전환한 뒤 약 11분 후 돌아오거나 작업을 저장하고 Zcode를 재시작하세요. 이전 화면이 호출 실패를 뜻하지는 않으므로 갱신을 위해 다시 보내지 마세요.",
-            "Zcode puede conservar una conversación antigua en memoria después de que Relay escriba en ella. Cambia a otra conversación y vuelve tras unos 11 minutos, o guarda el trabajo y reinicia Zcode. Una vista antigua no significa que falló la llamada; no repitas el envío para actualizarla.");
+        Add("Host visibility", "宿主可见性", "宿主可見性", "ホストでの表示", "호스트 표시", "Visibilidad en el host");
+        Add("Sync new conversations to the host sidebar", "把新会话同步到宿主侧栏", "將新會話同步至宿主側欄", "新しい会話をホストのサイドバーに同期", "새 대화를 호스트 사이드바에 동기화", "Sincronizar conversaciones nuevas con la barra lateral del host");
+        Add("Relay syncs eligible CLI conversations to Zcode's sidebar index after each turn. Bring Zcode to the foreground to refresh the sidebar.",
+            "Relay 在每轮结束后把符合条件的 CLI 会话同步到 Zcode 的侧栏索引。切到 Zcode 前台可刷新侧栏。",
+            "Relay 在每輪結束後將符合條件的 CLI 會話同步到 Zcode 的側欄索引。切到 Zcode 前景可重新整理側欄。",
+            "Relay は各ターンの後、対象の CLI 会話を Zcode のサイドバー索引に同期します。Zcode を前面にするとサイドバーが更新されます。",
+            "Relay는 각 턴 후 대상 CLI 대화를 Zcode 사이드바 인덱스에 동기화합니다. Zcode를 앞으로 가져오면 사이드바가 새로 고쳐집니다.",
+            "Relay sincroniza las conversaciones CLI aptas con el índice lateral de Zcode después de cada turno. Pon Zcode en primer plano para actualizar la barra lateral.");
+        Add("Bring the host window to the front after syncing", "同步后把宿主窗口拉到前台", "同步後將宿主視窗帶到前景", "同期後にホストのウィンドウを前面に表示", "동기화 후 호스트 창을 앞으로 가져오기", "Traer la ventana del host al frente tras sincronizar");
+        Add("Only needed when you are already watching Zcode. It interrupts whatever window you are using.",
+            "只有你正盯着 Zcode 时才需要。会打断你当前正在用的窗口。", "只有你正在查看 Zcode 時才需要。這會打斷你目前使用的視窗。",
+            "Zcode を見ているときにのみ必要です。現在使用中のウィンドウからフォーカスが移ります。", "Zcode를 보고 있을 때만 필요합니다. 현재 사용 중인 창의 작업을 방해합니다.",
+            "Solo es necesario si estás pendiente de Zcode. Interrumpe la ventana que estés usando.");
+        Add("Host visibility sync is off for this Agent.", "此 Agent 的宿主可见性同步已关闭。", "此 Agent 的宿主可見性同步已關閉。", "この Agent のホスト表示の同期はオフです。", "이 Agent의 호스트 표시 동기화가 꺼져 있습니다.", "La sincronización de visibilidad está desactivada para este agente.");
+        Add("Host visibility settings saved", "宿主可见性设置已保存", "宿主可見性設定已儲存", "ホスト表示の設定を保存しました", "호스트 표시 설정이 저장되었습니다", "Configuración de visibilidad guardada");
+        Add("Relay syncs eligible Zcode CLI conversations to the sidebar index after each turn. Bring Zcode to the foreground to refresh the sidebar. If syncing is off or fails, save your work and fully quit and restart Zcode if needed. If a conversation shows old content, switch conversations and reopen it. Do not repeat a paid probe just to refresh the view.",
+            "Relay 在每轮结束后把符合条件的 Zcode CLI 会话同步到侧栏索引。切到 Zcode 前台可刷新侧栏。如果同步关闭或失败，必要时请保存工作并完全退出后重启 Zcode。如果会话显示旧内容，请切换会话后重新打开。不要为了刷新界面而重复运行付费探针。",
+            "Relay 在每輪結束後將符合條件的 Zcode CLI 會話同步到側欄索引。切到 Zcode 前景可重新整理側欄。如果同步關閉或失敗，必要時請儲存工作並完全結束後重啟 Zcode。如果會話顯示舊內容，請切換會話後重新開啟。請勿為了更新畫面而重複執行付費探針。",
+            "Relay は各ターンの後、対象の Zcode CLI 会話をサイドバー索引に同期します。Zcode を前面にするとサイドバーが更新されます。同期がオフまたは失敗した場合は、必要に応じて作業を保存し、Zcode を完全に終了して再起動してください。会話に古い内容が表示される場合は、別の会話に切り替えてから開き直してください。表示更新のために有料テストを繰り返さないでください。",
+            "Relay는 각 턴 후 대상 Zcode CLI 대화를 사이드바 인덱스에 동기화합니다. Zcode를 앞으로 가져오면 사이드바가 새로 고쳐집니다. 동기화가 꺼져 있거나 실패하면 필요에 따라 작업을 저장하고 Zcode를 완전히 종료한 후 다시 시작하세요. 대화에 이전 내용이 표시되면 다른 대화로 전환한 후 다시 여세요. 화면을 갱신하려고 유료 프로브를 반복하지 마세요.",
+            "Relay sincroniza las conversaciones CLI aptas de Zcode con el índice lateral después de cada turno. Pon Zcode en primer plano para actualizar la barra lateral. Si la sincronización está desactivada o falla, guarda tu trabajo y cierra Zcode por completo antes de reiniciarlo si hace falta. Si una conversación muestra contenido antiguo, cambia de conversación y vuelve a abrirla. No repitas una prueba de pago solo para actualizar la vista.");
+        Add("The sidebar index was synced for this probe. Bring Zcode to the foreground to refresh the sidebar.",
+            "此探针的侧栏索引已同步。切到 Zcode 前台可刷新侧栏。", "此探針的側欄索引已同步。切到 Zcode 前景可重新整理側欄。",
+            "このテストのサイドバー索引を同期しました。Zcode を前面にするとサイドバーが更新されます。", "이 프로브의 사이드바 인덱스가 동기화되었습니다. Zcode를 앞으로 가져오면 사이드바가 새로 고쳐집니다.",
+            "El índice lateral se sincronizó para esta prueba. Pon Zcode en primer plano para actualizar la barra lateral.");
+        Add("Sidebar sync was off for this probe. The session may not appear in Zcode's sidebar.",
+            "此探针运行时侧栏同步已关闭，会话可能不会显示在 Zcode 侧栏中。", "此探針執行時側欄同步已關閉，會話可能不會顯示在 Zcode 側欄中。",
+            "このテストではサイドバー同期がオフでした。会話が Zcode のサイドバーに表示されない場合があります。", "이 프로브에서는 사이드바 동기화가 꺼져 있었습니다. 대화가 Zcode 사이드바에 표시되지 않을 수 있습니다.",
+            "La sincronización lateral estaba desactivada para esta prueba. Es posible que la conversación no aparezca en la barra lateral de Zcode.");
+        Add("The sidebar index was not updated for this probe. The session may already be managed by Zcode or may not be eligible for sync.",
+            "此探针没有更新侧栏索引。该会话可能已由 Zcode 管理，或不符合侧栏同步条件。", "此探針沒有更新側欄索引。該會話可能已由 Zcode 管理，或不符合側欄同步條件。",
+            "このテストではサイドバー索引を更新しませんでした。会話がすでに Zcode で管理されているか、同期対象外の可能性があります。", "이 프로브는 사이드바 인덱스를 갱신하지 않았습니다. 대화가 이미 Zcode에서 관리되거나 동기화 대상이 아닐 수 있습니다.",
+            "No se actualizó el índice lateral para esta prueba. Puede que Zcode ya gestione la conversación o que no sea apta para sincronizarse.");
+        Add("Sidebar sync failed for this probe. The CLI call result is unchanged.",
+            "此探针的侧栏同步失败，CLI 调用结果不受影响。", "此探針的側欄同步失敗，CLI 呼叫結果不受影響。", "このテストのサイドバー同期に失敗しました。CLI 呼び出しの結果には影響しません。", "이 프로브의 사이드바 동기화에 실패했습니다. CLI 호출 결과는 변경되지 않습니다.",
+            "Falló la sincronización lateral de esta prueba. El resultado de la llamada CLI no cambia.");
+        Add("Zcode could not be brought to the foreground. Switch to Zcode to refresh the sidebar.",
+            "无法将 Zcode 窗口拉到前台。请切到 Zcode 以刷新侧栏。", "無法將 Zcode 視窗帶到前景。請切到 Zcode 以重新整理側欄。", "Zcode を前面に表示できませんでした。Zcode に切り替えてサイドバーを更新してください。", "Zcode를 앞으로 가져오지 못했습니다. Zcode로 전환하여 사이드바를 새로 고치세요.",
+            "No se pudo traer Zcode al frente. Cambia a Zcode para actualizar la barra lateral.");
         Add("The DSH desktop bridge runs inside the open DSH client, so new sessions and continued turns normally appear without restarting. Check the returned session ID and refresh or reopen that conversation if needed. Do not restart DSH while a turn is running.",
             "DSH 桌面桥接由已打开的 DSH 执行，新建会话和续接内容通常无需重启即可显示。请核对返回的会话 ID，必要时刷新或重新打开该会话。执行期间不要重启 DSH。",
             "DSH 桌面橋接由已開啟的 DSH 執行，新建會話及續接內容通常無需重啟即可顯示。請核對傳回的會話 ID，必要時重新整理或開啟該會話。執行期間請勿重啟 DSH。",
