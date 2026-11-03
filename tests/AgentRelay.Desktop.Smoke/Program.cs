@@ -200,7 +200,8 @@ internal static class Program
         await Click(window,"Copy prompt for 自选节点丙");
         var receiverPrompt=Clipboard.GetText();
         var contextPath=Path.Combine(Path.GetDirectoryName(service.ManualReceiptPath(created))!,"context.json");
-        Check(receiverPrompt.Contains(contextPath)&&receiverPrompt.Length-contextPath.Length<180,"Receiver prompt is a short pointer to task context instead of a long protocol transcript: "+receiverPrompt);
+        Check(receiverPrompt.Contains(contextPath)&&receiverPrompt.Length-contextPath.Length<180,
+            $"Receiver prompt is a short pointer to task context (length={receiverPrompt.Length}, status={((TextBlock)window.FindName("StatusText")).Text}, error={((TextBox)window.FindName("ErrorText")).Text})");
         var context=RelayJson.Read<System.Text.Json.JsonElement>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(service.ManualReceiptPath(created))!,"context.json")));
         Check(context.GetProperty("current_file").GetString()==created.RequestPath && context.GetProperty("receipt_template").GetProperty("sender").GetString()=="agent-c","Task context agrees with the installed rule and exact receipt identity");
         File.WriteAllText(service.ManualReceiptPath(created),RelayJson.Write(new ManualReceipt(created.TaskId,created.AttemptId,"agent-c",0,"working",false)));
@@ -334,7 +335,9 @@ internal static class Program
             {
                 Press(dialog,"CopyBridgeDiagnostic");
                 await Wait(()=>Find<Button>(dialog,"CopyBridgeDiagnostic").IsEnabled);
-                Check(Clipboard.GetText().Contains("agent-c")&&Clipboard.GetText().Contains("cli-recipe doctor"),"A failed probe or blocked bridge offers a targeted repair prompt");
+                var diagnosticPrompt=Clipboard.GetText();
+                Check(diagnosticPrompt.Contains("agent-c")&&diagnosticPrompt.Contains("cli-recipe doctor"),
+                    $"A failed probe or blocked bridge offers a targeted repair prompt (length={diagnosticPrompt.Length}, status={Find<TextBlock>(dialog,"CliProbeStatus").Text})");
                 Press(dialog,"CloseCliProbe");
             });
         }
@@ -1242,7 +1245,7 @@ internal static class Program
     {
         var box=Find<TextBox>(window,name);box.Text=text;
         box.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent));
-        await Task.Delay(30);
+        await window.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);
         await Wait(()=>((FrameworkElement)window.FindName("PageContent")).IsEnabled);
     }
     /// <summary>Language lives in Settings; switch there and come back to the page the check was on.</summary>
