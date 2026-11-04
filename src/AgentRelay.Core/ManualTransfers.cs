@@ -78,6 +78,9 @@ public sealed partial class RelayService
     public string ManualReceiptPath(TaskRecord task) => Path.Combine(workspace.AttemptDirectory(task.TaskId, task.AttemptId), ".relay", "receipt.json");
 
     public TaskView CreateFileHandoff(ManualTransferDraft draft, OriginSession? origin = null, bool reuseExisting = true)
+        => CreateFileHandoff(draft, origin, reuseExisting, null);
+
+    private TaskView CreateFileHandoff(ManualTransferDraft draft, OriginSession? origin, bool reuseExisting, ImageInput[]? images)
     {
         if (origin is not null) RequireOriginContext(origin);
         var normalized = ManualTransfers.Parse(RelayJson.Write(draft), Agents());
@@ -104,19 +107,32 @@ public sealed partial class RelayService
                 State = TaskState.AwaitingManual, IsFileHandoff = true, AwaitingAgentId = normalized.To,
                 ManualSourceFile = normalized.File, ManualNextAction = normalized.Message
             };
-            var artifact = KeepManualFile(s, task, normalized.File, "request", now, settings.ArtifactTtlDays);
-            task.RequestPath = artifact.Path; task.ManualCurrentFile = artifact.Path;
-            task.ResultPath = Path.Combine(workspace.AttemptDirectory(task.TaskId, task.AttemptId), "reply.md");
-            var control = Path.GetDirectoryName(ManualReceiptPath(task))!;
-            Directory.CreateDirectory(control);
-            if (OperatingSystem.IsWindows()) File.SetAttributes(control, File.GetAttributes(control) | FileAttributes.Hidden);
-            var input = new DispatchRequest(task.RequesterId, task.RecipientId, normalized.Message, "manual", "manual-file", task.TaskId);
-            s.Execute("INSERT INTO tasks VALUES($id,$from,$key,$input,$json)", ("$id", task.TaskId), ("$from", task.RequesterId),
-                ("$key", task.TaskId), ("$input", RelayJson.Write(input)), ("$json", RelayJson.Write(task)));
-            if (origin is not null) RegisterOriginSession(s, task, origin);
-            s.Event(task, "task.created", task.RequesterId, now);
-            s.Notify(task, "waiting", "请复制交接提示词给接收方，等待读取并回报。", now);
-            return ManualView(task);
+            try
+            {
+                var artifact = KeepManualFile(s, task, normalized.File, "request", now, settings.ArtifactTtlDays);
+                task.RequestPath = artifact.Path; task.ManualCurrentFile = artifact.Path;
+                if (images is { Length: > 0 }) task.Images = KeepTaskImages(s, task, images, now, settings.ArtifactTtlDays);
+                task.ResultPath = Path.Combine(workspace.AttemptDirectory(task.TaskId, task.AttemptId), "reply.md");
+                var control = Path.GetDirectoryName(ManualReceiptPath(task))!;
+                Directory.CreateDirectory(control);
+                if (OperatingSystem.IsWindows()) File.SetAttributes(control, File.GetAttributes(control) | FileAttributes.Hidden);
+                var input = new DispatchRequest(task.RequesterId, task.RecipientId, normalized.Message, "manual", "manual-file", task.TaskId);
+                s.Execute("INSERT INTO tasks VALUES($id,$from,$key,$input,$json)", ("$id", task.TaskId), ("$from", task.RequesterId),
+                    ("$key", task.TaskId), ("$input", RelayJson.Write(input)), ("$json", RelayJson.Write(task)));
+                if (origin is not null) RegisterOriginSession(s, task, origin);
+                s.Event(task, "task.created", task.RequesterId, now);
+                s.Notify(task, "waiting", "请复制交接提示词给接收方，等待读取并回报。", now);
+                return ManualView(task);
+            }
+            catch
+            {
+                if (images is { Length: > 0 })
+                {
+                    var directory = workspace.AttemptDirectory(task.TaskId, task.AttemptId);
+                    if (Directory.Exists(directory)) Directory.Delete(directory, true);
+                }
+                throw;
+            }
         });
     }
 

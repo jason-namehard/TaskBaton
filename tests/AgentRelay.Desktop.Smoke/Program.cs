@@ -16,7 +16,7 @@ using AgentRelay.Desktop;
 
 namespace AgentRelay.Desktop.Smoke;
 
-internal static class Program
+internal static partial class Program
 {
     private static readonly List<string> checks=[];
     [STAThread]
@@ -59,6 +59,7 @@ internal static class Program
         await CheckCloseBehavior(window,root);
         await CheckSessionDialogs(window,root);
         await CheckCliTaskEntry(window,root);
+        await CheckTaskImageInput(window,root);
         await CheckReviewLoopPane(window,root);
         await CheckModelDefaults(window,root);
         await CheckHostVisibilitySettings(window,root);

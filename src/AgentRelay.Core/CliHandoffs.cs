@@ -4,14 +4,15 @@ namespace AgentRelay.Core;
 
 public sealed record CliHandoffRequest(string From,string To,string Prompt,string? OriginSessionId=null,
     string? TargetSessionId=null,bool EnableDirection=false,string? OriginCwd=null,string? TargetCwd=null,
-    CollaborationOptions? Collaboration=null,bool AutoDeliver=false,int? TurnTimeoutMinutes=null);
+    CollaborationOptions? Collaboration=null,bool AutoDeliver=false,int? TurnTimeoutMinutes=null,ImageInput[]? Images=null);
 
 public sealed partial class RelayService
 {
     public TaskView CreateCliHandoff(CliHandoffRequest request)
     {
-        if(string.IsNullOrWhiteSpace(request.Prompt))
+        if(string.IsNullOrWhiteSpace(request.Prompt)&&request.Images is not {Length:>0})
             throw new RelayException("cli_work_required","请填写要交给接收 Agent 执行的工作要求。");
+        ValidateTaskImages(request.Images);
         if(request.From==request.To)throw new RelayException("manual_same_agent","发送方与接收方不能相同。");
         if(request.OriginSessionId is not null&&string.IsNullOrWhiteSpace(request.OriginSessionId)||
             request.TargetSessionId is not null&&string.IsNullOrWhiteSpace(request.TargetSessionId))
@@ -41,8 +42,11 @@ public sealed partial class RelayService
         var drafts=Path.Combine(Home,".cli-drafts");Directory.CreateDirectory(drafts);
         var source=Path.Combine(drafts,"work-"+Guid.NewGuid().ToString("N")+".md");
         TaskView created;
-        File.WriteAllText(source,request.Prompt.Trim(),new UTF8Encoding(false));
-        try{created=CreateFileHandoff(new(request.From,request.To,source,"请执行工作要求文件中的任务，并按任务上下文写回执。"));}
+        try
+        {
+            File.WriteAllText(source,string.IsNullOrWhiteSpace(request.Prompt)?"请查看附带的图片。":request.Prompt,new UTF8Encoding(false));
+            created=CreateFileHandoff(new(request.From,request.To,source,"请执行工作要求文件中的任务，并按任务上下文写回执。"),null,true,request.Images);
+        }
         finally{File.Delete(source);}
         var taskId=created.Task.TaskId;
         if(request.OriginSessionId is not null)BindManualTaskSession(taskId,request.From,request.OriginSessionId,request.OriginCwd);
@@ -68,6 +72,7 @@ public sealed partial class RelayService
     public string FileHandoffPrompt(TaskRecord task)
     {
         if(!task.IsFileHandoff)throw new RelayException("file_handoff_required","此接口只用于文件或 CLI 工作交接。");
+        RequireTaskImages(task);
         string Name(string id)=>Agents().SingleOrDefault(a=>a.AgentId==id)?.DisplayName??id;
         var receipt=ManualReceiptPath(task);
         var context=Path.Combine(Path.GetDirectoryName(receipt)!,"context.json");
@@ -97,7 +102,7 @@ public sealed partial class RelayService
             document=new
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
-                common.reply_file,common.receipt_file,
+                common.reply_file,common.receipt_file,images=task.Images,
                 collaboration=new
                 {
                     role,phase=c.Phase,review_round=c.ReviewRound,max_review_rounds=c.MaxReviewRounds,
@@ -107,7 +112,7 @@ public sealed partial class RelayService
                 receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",null,
                     c.Phase is "implement" or "revise"?reply:null,null,allowed[0],c.Phase=="review"?Array.Empty<string>():null,null,
                     AcceptanceCriteria:c.Phase=="criteria"?"Write the actual acceptance criteria here":null),
-                instructions=duty+(c.ReviewerFinal?" The task finishes only when the chosen reviewer approves with no unresolved items. ":" The task finishes only after the reviewer approves and the author accepts; finishing your part hands it on. ")+
+                instructions=ImageInstructions(task)+duty+(c.ReviewerFinal?" The task finishes only when the chosen reviewer approves with no unresolved items. ":" The task finishes only after the reviewer approves and the author accepts; finishing your part hands it on. ")+
                     "Use outcome, open_items and deliverable for the decision; needs_reply may be omitted. If you cannot do the work, write status=failed and explain in next_action. "+ReceiptRules
             };
         }
@@ -118,11 +123,11 @@ public sealed partial class RelayService
             document=new
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
-                common.reply_file,common.receipt_file,
+                common.reply_file,common.receipt_file,images=task.Images,
                 receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",requiredNext,TaskComplete:task.ManualContinuous?false:null),
                 handoff_plan=task.HandoffPlan,required_next_agent=requiredNext?task.HandoffPlan![task.ManualTurn+1]:null,
                 remaining_handoffs=remaining,
-                instructions="Read current_file and perform the request. "+
+                instructions=ImageInstructions(task)+"Read current_file and perform the request. "+
                     (requiredNext?"handoff_plan still requires required_next_agent: this task is not finished; save a real result_file, set needs_reply=true and provide concrete next_action for that Agent. ":"")+
                     "Set needs_reply=true only when the other Agent must do concrete further work; then provide result_file and next_action. Set needs_reply=false when no required work remains, and never ask for further work in next_action at the same time. "+
                     (task.ManualContinuous?"This is a manual continuous transfer with no preset round limit. A done receipt completes only this turn. Set task_complete=true and needs_reply=false only after the whole original task has no work left for either Agent. Intermediate turns use needs_reply=true, task_complete=false, result_file and concrete next_action. ":$"At most {remaining} more handoffs are allowed before Relay pauses for the user. ")+ReceiptRules

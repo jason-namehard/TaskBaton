@@ -136,6 +136,20 @@ public sealed class CliHandoffCreationTests
     }
 
     [TestMethod]
+    public async Task CopyableImagePromptPublishesItsContextWithoutSending()
+    {
+        var image = new ImageInput("diagram.png", "image/png", [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]);
+        var task = service.CreateCliHandoff(Request() with { Images = [image] }).Task;
+        var result = await Invoke("prompt", "show", "--task", task.TaskId);
+        Assert.AreEqual(0, result.Code);
+        var context = Path.Combine(Path.GetDirectoryName(service.ManualReceiptPath(task))!, "context.json");
+        StringAssert.Contains(result.Json.GetProperty("data").GetProperty("text").GetString()!, context);
+        using var document = JsonDocument.Parse(File.ReadAllText(context));
+        Assert.AreEqual(task.Images![0].Path, document.RootElement.GetProperty("images")[0].GetProperty("path").GetString());
+        Assert.IsFalse(File.Exists(Log("agent-b")));
+    }
+
+    [TestMethod]
     public void CreationRequiresAnEnabledDirectionAndExactSessionInput()
     {
         Assert.ThrowsExactly<RelayException>(()=>service.CreateCliHandoff(Request() with{EnableDirection=false}));

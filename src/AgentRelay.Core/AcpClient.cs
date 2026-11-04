@@ -15,7 +15,7 @@ internal static class AcpClient
 
     /// <summary>Returns the turn as relay-json on stdout so the regular output reader and diagnostics apply unchanged.</summary>
     public static async Task<ProcessResult> RunAsync(CliCommand command, string prompt, string? sessionId, string cwd,
-        TimeSpan timeout, CancellationToken cancellationToken)
+        TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images)
     {
         var start = new ProcessStartInfo(command.Executable)
         {
@@ -36,12 +36,17 @@ internal static class AcpClient
         var session = new Session(process.StandardInput, process.StandardOutput, cwd);
         try
         {
-            var reply = await session.RunTurnAsync(prompt, sessionId, deadline.Token);
+            var reply = await session.RunTurnAsync(prompt, sessionId, images, deadline.Token);
             return new ProcessResult(0, reply, await Finish(process, stderr), false);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
             return new ProcessResult(-1, "", await Finish(process, stderr) + session.Transcript, true);
+        }
+        catch (AcpImageUnsupportedException)
+        {
+            await Finish(process, stderr);
+            throw new RelayException("cli_image_unsupported", "该 ACP Agent 未声明支持图片，任务未发送。请改用支持图片的 Agent 和模型。");
         }
         catch (AcpException error)
         {
@@ -59,6 +64,7 @@ internal static class AcpClient
     }
 
     private sealed class AcpException(string message) : Exception(message);
+    private sealed class AcpImageUnsupportedException : Exception;
 
     private sealed class Session(StreamWriter input, StreamReader output, string cwd)
     {
@@ -67,7 +73,7 @@ internal static class AcpClient
         private readonly StringBuilder transcript = new();
         public string Transcript => transcript.Length <= 8 * 1024 ? transcript.ToString() : transcript.ToString()[^(8 * 1024)..];
 
-        public async Task<string> RunTurnAsync(string prompt, string? sessionId, CancellationToken token)
+        public async Task<string> RunTurnAsync(string prompt, string? sessionId, IReadOnlyList<PreparedTaskImage> images, CancellationToken token)
         {
             var init = await Request("initialize", new JsonObject
             {
@@ -78,6 +84,9 @@ internal static class AcpClient
                     ["terminal"] = false
                 }
             }, token);
+            if (images.Count > 0 && !(init?["agentCapabilities"]?["promptCapabilities"]?["image"] is JsonValue capability &&
+                capability.TryGetValue<bool>(out var supported) && supported))
+                throw new AcpImageUnsupportedException();
             var mcp = new JsonArray();
             if (sessionId is null)
             {
@@ -94,10 +103,13 @@ internal static class AcpClient
                 await Request(method, new JsonObject { ["sessionId"] = sessionId, ["cwd"] = cwd, ["mcpServers"] = mcp }, token);
                 reply.Clear();
             }
+            var content = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = prompt });
+            foreach (var image in images)
+                content.Add(new JsonObject { ["type"] = "image", ["mimeType"] = image.Image.MediaType, ["data"] = Convert.ToBase64String(image.Data) });
             var result = await Request("session/prompt", new JsonObject
             {
                 ["sessionId"] = sessionId,
-                ["prompt"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = prompt })
+                ["prompt"] = content
             }, token);
             var stop = result?["stopReason"]?.GetValue<string>();
             if (stop != "end_turn") throw new AcpException("ACP turn ended with stopReason " + (stop ?? "missing") + ".");

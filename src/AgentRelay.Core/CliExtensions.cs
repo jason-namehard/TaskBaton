@@ -134,6 +134,13 @@ public static class CliRecipes
             command.Arguments.Contains("--output-format") && command.Arguments.Contains("json")) return "claude-json";
         return "relay-json";
     }
+
+    public static string ImageDeliveryMode(CliRecipe recipe) => OutputFormatFor(recipe) switch
+    {
+        "acp" => "acp",
+        "dsh-desktop" => "dsh-desktop",
+        _ => "file-path"
+    };
     public const string Notice = "CLI 接口扩充用于接入经验证的第三方命令行或桥接方案。可用性取决于目标软件开放的接口、版本、运行环境及会话管理能力，并非所有 Agent 均支持自动调用或原会话续接。扩充方案须完成检查与测试后方可启用；未接通时仍可使用手动交接。";
 
     public static CliRecipe Parse(string json)
@@ -215,13 +222,19 @@ public static class CliRecipes
         }
         """;
 
-    internal static Task<ProcessResult> InvokeAsync(CliCommand command, string format, string prompt, string? sessionId,
-        string home, TimeSpan timeout, CancellationToken cancellationToken)
+    internal static async Task<ProcessResult> InvokeAsync(CliCommand command, string format, string prompt, string? sessionId,
+        string home, TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<TaskImage>? images = null) =>
+        await InvokePreparedAsync(command, format, prompt, sessionId, home, timeout, cancellationToken,
+            await ImageDelivery.PrepareAsync(images, cancellationToken));
+
+    internal static Task<ProcessResult> InvokePreparedAsync(CliCommand command, string format, string prompt, string? sessionId,
+        string home, TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images)
     {
         if (format == "acp")
-            return AcpClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken);
+            return AcpClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken, images);
         if (format == "dsh-desktop")
-            return DshDesktopClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken);
+            return DshDesktopClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken, images);
+        prompt = ImageDelivery.AddFileInstructions(prompt, images);
         string Expand(string template) => template.Replace("{session_id}", sessionId ?? "", StringComparison.Ordinal)
             .Replace("{relay_home}", home, StringComparison.Ordinal).Replace("{prompt}", prompt, StringComparison.Ordinal);
         return RelayProcess.RunAsync(command.Executable, command.Arguments.Select(Expand),
@@ -428,7 +441,16 @@ public sealed class CliRecipeDeliveryAdapter(CliExtensionRecord extension, strin
             relay --home "{home}" task complete --task {task.TaskId} --attempt {task.AttemptId} --sender {task.RecipientId} --idempotency-key completed --status succeeded --result "{task.ResultPath}"
             If Relay CLI/MCP is unavailable, return the reply path to the operator for manual confirmation. Save permanent deliverables in the project, not the relay directory.
             """;
-        var process = await CliRecipes.InvokeAsync(extension.Recipe.Create, CliRecipes.OutputFormatFor(extension.Recipe), prompt, null, home, timeout, cancellationToken);
+        ProcessResult process;
+        try
+        {
+            relay.RequireTaskImages(task);
+            process = await CliRecipes.InvokeAsync(extension.Recipe.Create, CliRecipes.OutputFormatFor(extension.Recipe), prompt, null, home, timeout, cancellationToken, task.Images);
+        }
+        catch (RelayException error) when (error.Code is "task_image_unavailable" or "cli_image_unsupported")
+        {
+            return new("rejected", null, error.Message);
+        }
         var receipt = CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe));
         if (receipt is null) return new("unknown", null, CliFailureDiagnostics.Classify(process, extension.Recipe).Message);
         var directory = zcodeUserDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".zcode");

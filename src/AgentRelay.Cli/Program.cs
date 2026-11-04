@@ -335,7 +335,12 @@ public static class RelayCli
         var audit = Group("audit", "事件历史");
         Sync(audit, "list", "按提交顺序显示事件", ["task"], (s, v) => s.Audit(v.Optional("task")));
         var prompt = Group("prompt", "手工交接和继续提示词");
-        Sync(prompt, "show", "返回可复制提示词", ["task!"], (s, v) => new { text = s.Status(v.Get("task")).Prompt });
+        Sync(prompt, "show", "返回可复制提示词", ["task!"], (s, v) =>
+        {
+            var view = s.Status(v.Get("task"));
+            return new { text = view.Task.IsFileHandoff && view.NextAction == "copy_file_handoff"
+                ? s.FileHandoffPrompt(view.Task) : view.Prompt };
+        });
         foreach (var operation in new[] { "copy", "open" })
         {
             var op = operation;

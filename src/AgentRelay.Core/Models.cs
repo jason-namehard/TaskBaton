@@ -47,6 +47,8 @@ public sealed record DispatchRequest(string From, string To, string Content, str
     string IdempotencyKey, DateTimeOffset? DeadlineAt = null, OriginSession? OriginSession = null);
 public sealed record RelaySettings(int ArtifactTtlDays = 3, int TaskTimeoutMinutes = 30,
     int DeliveryTimeoutSeconds = 30, int MaxDeliveryAttempts = 3);
+public sealed record ImageInput(string FileName, string MediaType, byte[] Data);
+public sealed record TaskImage(string ImageId, string FileName, string MediaType, string Path);
 
 public sealed class TaskRecord
 {
@@ -78,6 +80,7 @@ public sealed class TaskRecord
     public string? ManualNextAction { get; set; }
     public string? ManualReceiptJson { get; set; }
     public string? ManualSourceFile { get; set; }
+    public TaskImage[]? Images { get; set; }
     public int? CliFileTurn { get; set; }
     public string? CliFileStatus { get; set; }
     public string? CliFileSessionId { get; set; }

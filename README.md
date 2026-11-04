@@ -12,16 +12,16 @@ A local handoff desk for people who work with several AI agents. Pass a file or 
 
 If you use more than one agent, the work usually moves by copy and paste: you paste a request into one session, wait, copy the answer into another, and lose track of which session received what, whether it was picked up, and whether a changed file means the work is finished. Agent Relay keeps each handoff as a task in a local relay folder with a SQLite ledger, shows its progress in a Windows desktop app, and separates "the message was submitted" from "the task was completed with a receipt". You decide the agents and their roles; Relay only needs to know who sends and who receives.
 
-Current release: `0.2.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
+Current release: `0.3.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
 
 ## Quick start
 
 ### Windows installer
 
-Download [Agent Relay 0.2.0 for Windows x64](https://github.com/jason-namehard/agent-relay/releases/tag/v0.2.0), or run in PowerShell:
+Download [Agent Relay 0.3.0 for Windows x64](https://github.com/jason-namehard/agent-relay/releases/tag/v0.3.0), or run in PowerShell:
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.2.0/AgentRelay-v0.2.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
+Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.3.0/AgentRelay-v0.3.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
 Start-Process '.\AgentRelay-setup.exe' -Wait
 ```
 

@@ -16,6 +16,23 @@ internal static class CliTaskUiText
         Add("Allow enabling the connection directions required by this task","启用本任务需要的已暂停或未授权方向（此后也生效）","啟用本任務需要的已暫停或未授權方向（此後也生效）","必要な方向を今後も有効化する","필요한 연결 방향을 이후에도 활성화","Permitir activar las direcciones necesarias también para futuras tareas");
         Add("Sender and recipient must be different.","发送方与接收方不能相同。","發送方與接收方不能相同。","送信者と受信者は別にしてください。","발신자와 수신자가 같을 수 없습니다.","Emisor y receptor deben ser distintos.");
         Add("Enter the work request.","请填写工作要求。","請填寫工作要求。","作業指示を入力。","작업 요청을 입력하세요.","Escribe la solicitud.");
+        Add("Paste or drop images into the work request.","可在工作要求中粘贴或拖入图片。","可在工作要求中貼上或拖入圖片。","作業指示に画像を貼り付けるかドラッグできます。","작업 요청에 이미지를 붙여 넣거나 끌어다 놓을 수 있습니다.","Pega o arrastra imágenes a la solicitud de trabajo.");
+        Add("Only images can be attached here. For PDF, video, audio, or other files, paste the full file path into your work request.","此处只能附加图片。PDF、视频、音频或其他文件，请将完整文件路径粘贴到工作要求中。","此處只能附加圖片。PDF、影片、音訊或其他檔案，請將完整檔案路徑貼到工作要求中。","ここには画像のみ添付できます。PDF、動画、音声などのファイルは、完全なファイルパスを作業指示に貼り付けてください。","여기에는 이미지만 첨부할 수 있습니다. PDF, 동영상, 오디오 및 기타 파일은 전체 파일 경로를 작업 요청에 붙여 넣으세요.","Aquí solo se pueden adjuntar imágenes. Para PDF, vídeo, audio u otros archivos, pega la ruta completa en la solicitud de trabajo.");
+        Add("The image could not be opened. Check the file and try again.","无法打开图片，请检查文件后重试。","無法開啟圖片，請檢查檔案後重試。","画像を開けませんでした。ファイルを確認して再試行してください。","이미지를 열 수 없습니다. 파일을 확인한 후 다시 시도하세요.","No se pudo abrir la imagen. Comprueba el archivo e inténtalo de nuevo.");
+        Add("Cannot attach file","无法附加文件","無法附加檔案","ファイルを添付できません","파일을 첨부할 수 없음","No se puede adjuntar el archivo");
+        Add("Attached images","附加图片","附加圖片","添付画像","첨부 이미지","Imágenes adjuntas");
+        Add("Image preview unavailable. The task image may have expired or been removed.","无法预览图片，任务图片可能已过期或被移除。","無法預覽圖片，任務圖片可能已過期或遭移除。","画像をプレビューできません。タスクの画像が期限切れか削除された可能性があります。","이미지를 미리 볼 수 없습니다. 작업 이미지가 만료되었거나 삭제되었을 수 있습니다.","La vista previa no está disponible. La imagen de la tarea puede haber caducado o haberse eliminado.");
+        Add("Preview image: {0}","预览图片：{0}","預覽圖片：{0}","画像をプレビュー：{0}","이미지 미리 보기: {0}","Vista previa de la imagen: {0}");
+        Add("Remove image: {0}","移除图片：{0}","移除圖片：{0}","画像を削除：{0}","이미지 삭제: {0}","Quitar imagen: {0}");
+        Add("Image preview","图片预览","圖片預覽","画像プレビュー","이미지 미리 보기","Vista previa de la imagen");
+        Add("Close image preview","关闭图片预览","關閉圖片預覽","画像プレビューを閉じる","이미지 미리 보기 닫기","Cerrar la vista previa");
+        Add("Scroll to zoom · Drag to pan","滚轮缩放 · 按住拖动图片","滾輪縮放 · 按住拖曳圖片","スクロールで拡大・縮小 · ドラッグで移動","휠로 확대·축소 · 끌어서 이동","Rueda para ampliar · Arrastra para mover");
+        Add("Zoom in","放大","放大","拡大","확대","Ampliar");
+        Add("Zoom out","缩小","縮小","縮小","축소","Reducir");
+        Add("Images are saved with the task. The recipient Agent needs image-reading support.","图片随任务保存，接收 Agent 需要具备读取图片的能力。","圖片隨任務儲存，接收 Agent 需要具備讀取圖片的能力。","画像はタスクと共に保存されます。受信 Agent には画像を読み取る機能が必要です。","이미지는 작업과 함께 저장됩니다. 수신 Agent에 이미지 읽기 기능이 필요합니다.","Las imágenes se guardan con la tarea. El Agent receptor debe poder leer imágenes.");
+        Add("Images are saved with the task. This Agent receives image paths and must be able to open images.","图片随任务保存。此 Agent 会收到图片路径，需要能够打开图片。","圖片隨任務儲存。此 Agent 會收到圖片路徑，需要能夠開啟圖片。","画像はタスクと共に保存されます。この Agent は画像のパスを受け取り、画像を開ける必要があります。","이미지는 작업과 함께 저장됩니다. 이 Agent는 이미지 경로를 받으며 이미지를 열 수 있어야 합니다.","Las imágenes se guardan con la tarea. Este Agent recibe sus rutas y debe poder abrirlas.");
+        Add("Images are saved with the task. This Agent must report image support and the model must be able to read images.","图片随任务保存。此 Agent 必须声明支持图片，模型也需要具备读图能力。","圖片隨任務儲存。此 Agent 必須宣告支援圖片，模型也需要具備讀圖能力。","画像はタスクと共に保存されます。この Agent が画像対応を報告し、モデルも画像を読み取れる必要があります。","이미지는 작업과 함께 저장됩니다. 이 Agent가 이미지 지원을 알리고 모델도 이미지를 읽을 수 있어야 합니다.","Las imágenes se guardan con la tarea. Este Agent debe indicar que admite imágenes y el modelo debe poder leerlas.");
+        Add("Images are saved with the task. Images are sent directly; the model must be able to read them.","图片随任务保存并直接发送；模型需要具备读图能力。","圖片隨任務儲存並直接傳送；模型需要具備讀圖能力。","画像はタスクと共に保存され、直接送信されます。モデルには画像を読み取る機能が必要です。","이미지는 작업과 함께 저장되어 직접 전송됩니다. 모델이 이미지를 읽을 수 있어야 합니다.","Las imágenes se guardan con la tarea y se envían directamente; el modelo debe poder leerlas.");
         Add("The recipient has no CLI calling method. Configure it in Agents first.","接收方尚未配置 CLI 调用方案，请先到 Agent 管理配置。","接收方尚未設定 CLI，請先到 Agent 管理設定。","受信者の CLI を Agent 管理で設定してください。","Agent 관리에서 수신자의 CLI를 설정하세요.","Configura el CLI del receptor en Agentes.");
     }
 }

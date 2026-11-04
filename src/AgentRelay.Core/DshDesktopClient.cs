@@ -44,7 +44,7 @@ public static partial class DshDesktopClient
 
     /// <summary>Returns the turn as relay-json on stdout, like the ACP client.</summary>
     internal static async Task<ProcessResult> RunAsync(CliCommand command, string prompt, string? sessionId, string cwd,
-        TimeSpan timeout, CancellationToken cancellationToken)
+        TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
@@ -53,7 +53,7 @@ public static partial class DshDesktopClient
             var dshHome = command.Environment?.GetValueOrDefault("DSH_HOME")
                 ?? throw new DshDesktopException("调用方案缺少 DSH_HOME 环境变量，找不到 DSH 的数据目录。");
             using var host = await Connect(command.Executable, dshHome, deadline.Token);
-            return await RunTurnAsync(host, prompt, sessionId, cwd, deadline.Token);
+            return await RunTurnAsync(host, prompt, sessionId, cwd, deadline.Token, images);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -65,15 +65,22 @@ public static partial class DshDesktopClient
         }
     }
 
-    internal static async Task<ProcessResult> RunTurnAsync(Host host, string prompt, string? sessionId, string cwd, CancellationToken token)
+    internal static async Task<ProcessResult> RunTurnAsync(Host host, string prompt, string? sessionId, string cwd, CancellationToken token,
+        IReadOnlyList<PreparedTaskImage>? images = null)
     {
         sessionId ??= (await host.Call("session/create", new JsonObject { ["cwd"] = cwd, ["agentPreset"] = "standard" }, token))
             ?["sessionId"]?.GetValue<string>() ?? throw new DshDesktopException("DSH 没有返回新会话 ID。");
         var baseline = await host.LatestSeq(sessionId, token);
+        var content = new JsonArray();
+        if (images is not null)
+            foreach (var image in images)
+                content.Add(new JsonObject { ["type"] = "image", ["mediaType"] = image.Image.MediaType,
+                    ["data"] = Convert.ToBase64String(image.Data), ["name"] = image.Image.FileName });
+        content.Add(new JsonObject { ["type"] = "text", ["text"] = prompt });
         await host.Call("session/prompt", new JsonObject
         {
             ["requestId"] = Guid.NewGuid().ToString(), ["sessionId"] = sessionId, ["mode"] = "queue",
-            ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = prompt }),
+            ["content"] = content,
             // The desktop UI sends the browser's IANA zone; the same value keeps its time-context message identical.
             ["clientTimeZone"] = TimeZoneInfo.TryConvertWindowsIdToIanaId(TimeZoneInfo.Local.Id, out var zone) ? zone : TimeZoneInfo.Local.Id
         }, token);
@@ -268,6 +275,9 @@ public static partial class DshDesktopClient
             var envelope = JsonNode.Parse(await response.Content.ReadAsStringAsync(token)) as JsonObject;
             if (envelope?["result"] is not JsonObject result)
                 throw new DshDesktopException($"DSH {method} 返回了无法识别的 RPC 结构。" + Diagnostic);
+            if (result["ok"]?.GetValue<bool>() != true && method == "session/prompt" &&
+                result["error"]?["details"]?["reason"]?.GetValue<string>() == "MODEL_DOES_NOT_SUPPORT_IMAGES")
+                throw new RelayException("cli_image_unsupported", "DSH 当前模型不支持图片，任务未发送。请在 DSH 中选择支持图片的模型。");
             if (result["ok"]?.GetValue<bool>() != true)
                 throw new DshDesktopException($"DSH {method} 失败：{result["error"]?["code"]} {result["error"]?["message"]}" + Diagnostic);
             return result["value"];

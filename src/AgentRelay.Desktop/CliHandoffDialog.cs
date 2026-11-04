@@ -35,9 +35,23 @@ public sealed class CliHandoffDialog : Window
         });
         var to=AgentChoice("Recipient","CliTaskTo",Math.Min(1,agents.Length-1));
         var bridgeCard=BridgePresentation.Card(this,"CliTaskBridgeCard");ui.Body.Children.Add(bridgeCard);
+        var imageDelivery=ui.Note("Images are saved with the task. The recipient Agent needs image-reading support.");
+        imageDelivery.Name="CliTaskImageDelivery";AutomationProperties.SetAutomationId(imageDelivery,imageDelivery.Name);
+        ui.Body.Children.Add(imageDelivery);
         void ShowBridge()
         {
-            if(to.SelectedItem is HandoffAgentOption recipient)BridgePresentation.Show(bridgeCard,service.Bridge(recipient.Id),recipient.Name,ui.T);
+            if(to.SelectedItem is not HandoffAgentOption recipient)return;
+            var bridge=service.Bridge(recipient.Id);
+            BridgePresentation.Show(bridgeCard,bridge,recipient.Name,ui.T);
+            var extension=service.CliExtension(recipient.Id);
+            var message=extension is null||bridge.State=="blocked"?"Images are saved with the task. This Agent receives image paths and must be able to open images.":
+                CliRecipes.ImageDeliveryMode(extension.Recipe) switch
+                {
+                    "acp"=>"Images are saved with the task. This Agent must report image support and the model must be able to read images.",
+                    "dsh-desktop"=>"Images are saved with the task. Images are sent directly; the model must be able to read them.",
+                    _=>"Images are saved with the task. This Agent receives image paths and must be able to open images."
+                };
+            imageDelivery.Text=ui.T(message);
         }
         ShowBridge();
         var create=new RadioButton{Name="CliTaskNewSession",Content=ui.T("New conversation"),IsChecked=true,Margin=new(0,8,0,8)};
@@ -55,7 +69,16 @@ public sealed class CliHandoffDialog : Window
         create.Checked+=(_,_)=>{choose.IsEnabled=false;newCwd.IsEnabled=true;};existing.Checked+=(_,_)=>{choose.IsEnabled=true;newCwd.IsEnabled=false;};
         from.SelectionChanged+=(_,_)=>{Origin=null;originLabel.Text=ui.T("Choose the source conversation for exact replies.");};
         to.SelectionChanged+=(_,_)=>{Target=null;targetLabel.Text=ui.T("New conversation");create.IsChecked=true;ShowBridge();};
-        var prompt=ui.Field(ui.Body,"Work request","CliTaskPrompt",multiline:true);prompt.Height=160;
+        var composer=new ImageComposer(this,language,message=>
+        {
+            ui.Status.Text=message;
+            ThemedMessageBox.Show(this,message,ui.T("Cannot attach file"),MessageBoxButton.OK,MessageBoxImage.Warning);
+        });
+        var prompt=composer.PromptTextBox;
+        ui.Body.Children.Add(new Label{Content=ui.T("Work request"),Target=prompt,Padding=new(0,0,0,2)});
+        ui.Body.Children.Add(composer);
+        ui.Body.Children.Add(ui.Note("Paste or drop images into the work request."));
+        composer.AttachmentsChanged+=(_,_)=>ui.Status.Text="";
         var options=new CollaborationOptionsPanel(ui,ui.Body,"CliTask",service.Settings().TaskTimeoutMinutes,true);
         var permission=new CheckBox{Name="CliTaskEnableDirections",Content=ui.T("Allow enabling the connection directions required by this task"),Margin=new(0,4,0,10)};
         ui.Body.Children.Add(permission);
@@ -66,11 +89,12 @@ public sealed class CliHandoffDialog : Window
             if(from.SelectedValue is not string sender||to.SelectedValue is not string recipient)throw new RelayException("agent_required",ui.T("Select an Agent."));
             if(sender==recipient)throw new RelayException("manual_same_agent",ui.T("Sender and recipient must be different."));
             if(existing.IsChecked==true&&Target is null)throw new RelayException("session_selection_required",ui.T("Select a conversation first."));
-            if(string.IsNullOrWhiteSpace(prompt.Text))throw new RelayException("cli_work_required",ui.T("Enter the work request."));
+            var images=composer.Images;
+            if(string.IsNullOrWhiteSpace(prompt.Text)&&images.Length==0)throw new RelayException("cli_work_required",ui.T("Enter the work request."));
             var choice=options.Build(sender,recipient);
             Result=new(sender,recipient,prompt.Text,Origin?.SessionId,existing.IsChecked==true?Target!.SessionId:null,
                 permission.IsChecked==true,Origin?.Cwd,existing.IsChecked==true?Target?.Cwd:string.IsNullOrWhiteSpace(newCwd.Text)?null:newCwd.Text.Trim(),
-                choice.Collaboration,choice.AutoDeliver,choice.TurnTimeoutMinutes);
+                choice.Collaboration,choice.AutoDeliver,choice.TurnTimeoutMinutes,images.Length>0?images:null);
             DialogResult=true;
         },true);
         var cancel=ui.Button(ui.Actions,"Cancel","CancelCliTask",()=>DialogResult=false);cancel.IsCancel=true;

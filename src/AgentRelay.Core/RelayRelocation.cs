@@ -178,6 +178,7 @@ public sealed partial class RelayService
             task.ResultPath = Move(task.ResultPath);
             task.ManualCurrentFile = task.ManualCurrentFile is null ? null : Move(task.ManualCurrentFile);
             task.ManualSourceFile = task.ManualSourceFile is null ? null : Move(task.ManualSourceFile);
+            task.Images = task.Images?.Select(image => image with { Path = Move(image.Path) }).ToArray();
             task.CliNewSessionCwd = task.CliNewSessionCwd is null ? null : Move(task.CliNewSessionCwd);
             if (task.OriginSession is { } origin) task.OriginSession = origin with { Cwd = Move(origin.Cwd) };
             if (task.ResumeAdapter is { } resumer) task.ResumeAdapter = resumer with
@@ -293,6 +294,8 @@ public sealed partial class RelayService
                     else if (Within(path, source, comparison)) value[name] = target + path[source.Length..];
                 }
                 foreach (var name in new[] { "current_file", "original_request_file", "reply_file", "receipt_file" }) MoveField(context, name);
+                if (context["images"] is JsonArray images)
+                    foreach (var image in images) MoveField(image?.AsObject(), "path");
                 MoveField(context["collaboration"]?.AsObject(), "submission_file");
                 MoveField(context["receipt_template"]?.AsObject(), "result_file");
                 File.WriteAllText(contextPath, context.ToJsonString(RelayJson.Options));

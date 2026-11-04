@@ -144,6 +144,7 @@ public partial class MainWindow
             next.Name="HandoffNextRecipient";steps.Children.Add(next);
         }
         AddSessionBindings(DetailSection(card),task);
+        AddTaskImages(card,task);
 
         var details=DetailSection(card);
         var current=task.ManualCurrentFile??task.RequestPath;

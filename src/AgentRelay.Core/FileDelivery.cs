@@ -111,6 +111,8 @@ public sealed partial class RelayService
             if (bound.Profile is not null) context["AGENT_RELAY_CALLER_PROFILE"] = bound.Profile;
             command = command with { Environment = context };
         }
+        RequireTaskImages(task);
+        var images = await ImageDelivery.PrepareAsync(task.Images, cancellationToken);
         store.Write(s =>
         {
             var current = s.Task(taskId);
@@ -133,8 +135,8 @@ public sealed partial class RelayService
         string status; string? session = null; string? error; CliFailure? failure = null; CliSidebarSyncResult? sidebarSync = null;
         try
         {
-            var process = await CliRecipes.InvokeAsync(command, CliRecipes.OutputFormatFor(extension.Recipe), prompt, binding?.SessionId, Home,
-                budget > MinimumCliTurn ? budget : MinimumCliTurn, cancellationToken);
+            var process = await CliRecipes.InvokePreparedAsync(command, CliRecipes.OutputFormatFor(extension.Recipe), prompt, binding?.SessionId, Home,
+                budget > MinimumCliTurn ? budget : MinimumCliTurn, cancellationToken, images);
             var receipt = CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe));
             if (receipt is { } received && CliExtension(recipient) is { } current && current.Revision == extension.Revision)
                 sidebarSync = ZcodeTaskIndexVisibility.Sync(current, received.SessionId, ZcodeUserDirectory, Home);
@@ -150,6 +152,10 @@ public sealed partial class RelayService
         catch (Win32Exception launch)
         {
             status = "failed"; error = "无法启动 CLI：" + launch.Message;
+        }
+        catch (RelayException rejected) when (rejected.Code == "cli_image_unsupported")
+        {
+            status = "failed"; error = rejected.Message;
         }
         store.Write(s =>
         {
