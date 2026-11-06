@@ -4,7 +4,8 @@ namespace AgentRelay.Core;
 
 public sealed record CliHandoffRequest(string From,string To,string Prompt,string? OriginSessionId=null,
     string? TargetSessionId=null,bool EnableDirection=false,string? OriginCwd=null,string? TargetCwd=null,
-    CollaborationOptions? Collaboration=null,bool AutoDeliver=false,int? TurnTimeoutMinutes=null,ImageInput[]? Images=null);
+    CollaborationOptions? Collaboration=null,bool AutoDeliver=false,int? TurnTimeoutMinutes=null,ImageInput[]? Images=null,
+    RelayPlanOptions? RelayPlan=null);
 
 public sealed partial class RelayService
 {
@@ -20,7 +21,7 @@ public sealed partial class RelayService
         var agents=Agents();
         _=agents.SingleOrDefault(a=>a.AgentId==request.From)??throw new RelayException("agent_not_found","未找到发送 Agent。");
         _=agents.SingleOrDefault(a=>a.AgentId==request.To)??throw new RelayException("agent_not_found","未找到接收 Agent。");
-        var options=new FileHandoffOptions(request.Collaboration,request.AutoDeliver,request.TurnTimeoutMinutes);
+        var options=new FileHandoffOptions(request.Collaboration,request.AutoDeliver,request.TurnTimeoutMinutes,RelayPlan:request.RelayPlan);
         ValidateFileHandoffOptions(options,request.From,request.To);
         // A recipient without a bridge still gets the task; its turns are copied manually.
         var target=CliExtension(request.To);
@@ -75,13 +76,16 @@ public sealed partial class RelayService
         RequireTaskImages(task);
         string Name(string id)=>Agents().SingleOrDefault(a=>a.AgentId==id)?.DisplayName??id;
         var receipt=ManualReceiptPath(task);
-        var context=Path.Combine(Path.GetDirectoryName(receipt)!,"context.json");
+        var context=ManualContextPath(task);
         var current=task.AwaitingAgentId??task.RecipientId;
         var other=current==task.RequesterId?task.RecipientId:task.RequesterId;
         var reply=TurnReplyPath(task);
+        var images=ImagesForTurn(task);
+        // When the initiating Agent performs the first step itself, the original work came from the user.
+        var firstStepIsRequester=task.RelaySteps is {Length:>0} firstPlan&&firstPlan[0].AgentId==task.RequesterId;
         var common=new
         {
-            sender_name=Name(task.ManualTurn==0?task.RequesterId:other),recipient_name=Name(current),
+            sender_name=task.ManualTurn==0?(firstStepIsRequester?"user":Name(task.RequesterId)):Name(other),recipient_name=Name(current),
             current_file=task.ManualCurrentFile??task.RequestPath,original_request_file=task.RequestPath,request=task.ManualNextAction,
             reply_file=reply,receipt_file=receipt
         };
@@ -102,7 +106,7 @@ public sealed partial class RelayService
             document=new
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
-                common.reply_file,common.receipt_file,images=task.Images,
+                common.reply_file,common.receipt_file,images,
                 collaboration=new
                 {
                     role,phase=c.Phase,review_round=c.ReviewRound,max_review_rounds=c.MaxReviewRounds,
@@ -112,27 +116,45 @@ public sealed partial class RelayService
                 receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",null,
                     c.Phase is "implement" or "revise"?reply:null,null,allowed[0],c.Phase=="review"?Array.Empty<string>():null,null,
                     AcceptanceCriteria:c.Phase=="criteria"?"Write the actual acceptance criteria here":null),
-                instructions=ImageInstructions(task)+duty+(c.ReviewerFinal?" The task finishes only when the chosen reviewer approves with no unresolved items. ":" The task finishes only after the reviewer approves and the author accepts; finishing your part hands it on. ")+
+                instructions=ImageInstructions(task,images)+duty+(c.ReviewerFinal?" The task finishes only when the chosen reviewer approves with no unresolved items. ":" The task finishes only after the reviewer approves and the author accepts; finishing your part hands it on. ")+
+                    (c.IndependentAcceptance&&c.Phase=="review"?"This review uses a session that was not used for the work it checks. A new session does not isolate the host's global rules or memory. ":"")+
                     "Use outcome, open_items and deliverable for the decision; needs_reply may be omitted. If you cannot do the work, write status=failed and explain in next_action. "+ReceiptRules
             };
         }
         else
         {
-            var requiredNext=task.HandoffPlan is {} plan&&task.ManualTurn+1<plan.Length;
-            int? remaining=task.ManualContinuous?null:Math.Max(0,(task.MaxTurns??MaxManualTurns)-task.ManualTurn-1);
+            var steps=Steps(task);
+            var planned=steps.Length>0;
+            var lastStep=planned&&task.ManualTurn+1>=steps.Length;
+            var requiredNext=planned?lastStep?null:steps[task.ManualTurn+1].AgentId:task.HandoffPlan is {} plan&&task.ManualTurn+1<plan.Length?plan[task.ManualTurn+1]:null;
+            var duty=planned?StepDuty(task,task.ManualTurn):"";
+            int? remaining=task.ManualContinuous?null:planned?Math.Max(0,HandoffCount(steps.Length)-task.ManualTurn-1)
+                :Math.Max(0,(task.MaxTurns??MaxManualTurns)-task.ManualTurn-1);
+            var stepText=planned
+                ? $"This is step {task.ManualTurn+1} of {steps.Length} in the user's relay plan ({HandoffCount(steps.Length)} handoffs). "
+                : "";
             document=new
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
-                common.reply_file,common.receipt_file,images=task.Images,
-                receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",requiredNext,TaskComplete:task.ManualContinuous?false:null),
-                handoff_plan=task.HandoffPlan,required_next_agent=requiredNext?task.HandoffPlan![task.ManualTurn+1]:null,
+                common.reply_file,common.receipt_file,images,
+                receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",requiredNext is not null?true:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
+                relay_plan=planned?new
+                {
+                    steps=steps.Select((step,index)=>new{step=index+1,agent_id=step.AgentId,name=Name(step.AgentId),role=step.Role.ToString().ToLowerInvariant(),duty=step.Duty}),
+                    handoff_count=HandoffCount(steps.Length),current_step=task.ManualTurn+1,last_step=lastStep
+                }:null,
+                handoff_plan=task.HandoffPlan,required_next_agent=requiredNext,
                 remaining_handoffs=remaining,
-                instructions=ImageInstructions(task)+"Read current_file and perform the request. "+
-                    (requiredNext?"handoff_plan still requires required_next_agent: this task is not finished; save a real result_file, set needs_reply=true and provide concrete next_action for that Agent. ":"")+
+                instructions=ImageInstructions(task,images)+stepText+
+                    (string.IsNullOrWhiteSpace(duty)?"":"This step's declared duty: "+duty+" ")+
+                    "Read current_file and perform the request. "+
+                    (requiredNext is not null?"The plan still requires required_next_agent: this task is not finished; save a real result_file, set needs_reply=true and give a concrete next_action for that Agent. ":"")+
+                    (lastStep?"This is the last step of the plan: finish the work, set needs_reply=false and stop. Do not add an acceptance or delivery role that the plan did not give you. ":"")+
                     "Set needs_reply=true only when the other Agent must do concrete further work; then provide result_file and next_action. Set needs_reply=false when no required work remains, and never ask for further work in next_action at the same time. "+
                     (task.ManualContinuous?"This is a manual continuous transfer with no preset round limit. A done receipt completes only this turn. Set task_complete=true and needs_reply=false only after the whole original task has no work left for either Agent. Intermediate turns use needs_reply=true, task_complete=false, result_file and concrete next_action. ":$"At most {remaining} more handoffs are allowed before Relay pauses for the user. ")+ReceiptRules
             };
         }
+        EnsureTurnControl(task);
         File.WriteAllText(context,RelayJson.Write(document));
         return "A file is waiting for you. Read "+context+", perform the request and write its receipt. No extra acknowledgement message is needed.";
     }

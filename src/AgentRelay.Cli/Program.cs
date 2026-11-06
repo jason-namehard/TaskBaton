@@ -165,6 +165,17 @@ public static class RelayCli
             (s,v) => s.ConfigureFileHandoff(v.Get("task"), new(v.Optional("author") is { } author
                 ? new CollaborationOptions(author, v.Optional("criteria"), v.Number("max-rounds", 5)) : null,
                 v.Flag("auto-deliver"), v.Optional("turn-timeout-minutes") is null ? null : v.Number("turn-timeout-minutes", 0))));
+        Sync(handoff, "relay-plan", "设置轻量定次接力：--steps \"b=实现;a:test=测试;b:modify=按报告修改\"", 
+            ["task!", "steps!", "turn-timeout-minutes", "independent-acceptance?", "new-session-each-turn?", "auto-deliver?"],
+            (s,v) => s.ConfigureRelayPlan(v.Get("task"), new RelayPlanOptions(RelayService.ParseSteps(v.Get("steps")),
+                v.Flag("independent-acceptance"), v.Optional("turn-timeout-minutes") is null ? null : v.Number("turn-timeout-minutes", 0),
+                v.Flag("auto-deliver"), v.Flag("new-session-each-turn"))));
+        Sync(handoff, "status", "由当前 Agent 轻量登记 received 或 working；不必手写回执 JSON", ["task!", "status!", "note"],
+            (s,v) => s.RegisterTurnStatus(v.Get("task"), v.Get("status"), v.Optional("note")));
+        Sync(handoff, "allow-images", "只为指定后续轮次补带所选图片（省略 --image 表示全部原图）", ["task!", "turn", "image"],
+            (s,v) => s.AllowTurnImages(v.Get("task"),
+                v.Optional("turn") is { } turn && int.TryParse(turn, out var number) ? number : s.Status(v.Get("task")).Task.ManualTurn,
+                v.Optional("image")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
         Add(handoff, "sync", "导入回执；加 --deliver 时发送已选择自动投递且能力已验证的轮次", ["deliver?", "approve?"], async (s,v) =>
         {
             if(v.Flag("deliver")&&!v.Flag("approve"))throw new RelayException("approval_required","自动投递会启动目标 CLI，可能产生模型费用，确认后加 --approve。");

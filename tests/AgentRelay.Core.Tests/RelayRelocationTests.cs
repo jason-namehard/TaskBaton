@@ -144,6 +144,8 @@ public sealed class RelayRelocationTests
         Assert.IsEmpty(service.ImportManualReceipts().Errors);
         Assert.AreEqual(TaskState.AwaitingReply, service.Status(task.TaskId).Task.State);
         Assert.AreEqual("relocation_active_tasks", Assert.ThrowsExactly<RelayException>(() => service.Relocate(target)).Code);
+        // Each turn has its own receipt path, so the next turn's file is written where that turn's context says.
+        task = service.Status(task.TaskId).Task;
         File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId, task.AttemptId, "a", 1, "done", false)));
         Assert.IsEmpty(service.ImportManualReceipts().Errors);
 

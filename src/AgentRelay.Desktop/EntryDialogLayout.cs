@@ -83,7 +83,10 @@ internal sealed class EntryDialogLayout
         {
             Status.Text = error.Code.StartsWith("setup_", StringComparison.Ordinal)
                 ? T("The reply could not be parsed. Check the requested JSON format.") + " (" + error.Code + ")"
-                : T(error.Message);
+                // Translate each line: the generic guidance follows the UI language, a field detail stays as written.
+                : string.Join(Environment.NewLine, error.Message
+                    .Split([Environment.NewLine, "\n"], StringSplitOptions.None)
+                    .Select(line => T(line)));
         }
         catch (ExternalException) { Status.Text = T("Clipboard is unavailable. Try again."); }
     }

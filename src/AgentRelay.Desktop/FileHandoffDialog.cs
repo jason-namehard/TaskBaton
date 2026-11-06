@@ -9,7 +9,13 @@ public sealed class FileHandoffDialog : Window
 {
     public ManualTransferDraft? Result { get; private set; }
     public bool ReuseExisting { get; private set; }
-    public FileHandoffOptions Options(ManualTransferDraft draft) => new(ManualContinuous:true);
+    private TextBox? relaySteps;
+    private CheckBox? relayNewSession;
+    /// <summary>An empty step list keeps the continuous single handoff; steps make this a fixed-count relay.</summary>
+    public FileHandoffOptions Options(ManualTransferDraft draft) => string.IsNullOrWhiteSpace(relaySteps?.Text)
+        ? new(ManualContinuous: true)
+        : new(RelayPlan: new RelayPlanOptions(RelayService.ParseSteps(relaySteps!.Text),
+            NewSessionEachTurn: relayNewSession?.IsChecked == true));
 
     public FileHandoffDialog(Window owner,RelayService service,string language)
     {
@@ -50,6 +56,13 @@ public sealed class FileHandoffDialog : Window
         var file=ui.Field(manual,"Handoff file","FileHandoffFile");
         ui.Button(manual,"Choose file","ChooseHandoffFile",()=>{var picker=new OpenFileDialog();if(picker.ShowDialog(this)==true)file.Text=picker.FileName;});
         var message=ui.Field(manual,"Short work request","FileHandoffMessage",multiline:true);message.Height=75;
+        var relayPanel=new StackPanel{Margin=new(10)};
+        ui.Body.Children.Add(new Expander{Header=ui.T("Fixed relay with a set number of handoffs"),Content=relayPanel,Margin=new(0,4,0,8)});
+        relayPanel.Children.Add(ui.Note("Optional. One step per line: agent=work, agent:test=check, agent:modify=apply the test report. Steps are turns, so A→B is 2 steps and 1 handoff. Leave empty for a continuous handoff. The last step only ends the flow; it is not an automatic acceptance role."));
+        relaySteps=ui.Field(relayPanel,"Steps","FileHandoffRelaySteps",multiline:true);relaySteps.Height=75;
+        relayNewSession=new CheckBox{Name="FileHandoffRelayNewSession",Margin=new(0,6,0,6),
+            Content=new TextBlock{Text=ui.T("Start a new conversation for every turn instead of reusing this task's first-turn conversation"),TextWrapping=TextWrapping.Wrap}};
+        relayPanel.Children.Add(relayNewSession);
         ui.Button(manual,"Create handoff","CreateFileHandoff",()=>
         {
             Accept(ManualTransfers.Parse(RelayJson.Write(new ManualTransferDraft(from.SelectedValue as string??"",to.SelectedValue as string??"",file.Text,message.Text)),agents),false);

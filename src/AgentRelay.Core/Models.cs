@@ -96,6 +96,23 @@ public sealed class TaskRecord
     public string? PauseReason { get; set; }
     public string? PauseMessage { get; set; }
     public TaskState? PausedFrom { get; set; }
+    // Every applied receipt status is kept, so quick received → working → done updates and restarts do not lose steps.
+    public List<TurnStatusEntry> TurnStatuses { get; set; } = [];
+    // Lightweight fixed-count relay chosen by the user; null keeps the single-handoff or review-loop behaviour.
+    public RelayStep[]? RelaySteps { get; set; }
+    public bool IndependentAcceptance { get; set; }
+    public bool NewSessionEachTurn { get; set; }
+    // Images travel with the first turn by default; a later turn only receives the images the user selected for it.
+    public int? ImageTurn { get; set; }
+    public string[]? ImageTurnIds { get; set; }
+    // Delivery, acknowledgement and work start are separate facts; the turn deadline only bounds the agent's own work.
+    public DateTimeOffset? SendStartedAt { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
+    public DateTimeOffset? AcknowledgedAt { get; set; }
+    public DateTimeOffset? WorkingAt { get; set; }
+    public int HostWaitSeconds { get; set; }
+    public bool? HostTurnEnded { get; set; }
+    public string? CompletionNote { get; set; }
 }
 
 public sealed record TaskView(TaskRecord Task, bool DeadlineExceeded, string NextAction, string Prompt,

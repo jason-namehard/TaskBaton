@@ -284,21 +284,27 @@ public sealed partial class RelayService
             if (!Directory.Exists(taskDirectory)) continue;
             foreach (var attempt in Directory.EnumerateDirectories(taskDirectory))
             {
-                var contextPath = Path.Combine(attempt, ".relay", "context.json");
-                if (!File.Exists(contextPath)) continue;
-                var context = JsonNode.Parse(File.ReadAllText(contextPath))!.AsObject();
-                void MoveField(JsonObject? value, string name)
+                var control = Path.Combine(attempt, ".relay");
+                if (!Directory.Exists(control)) continue;
+                // 0.3.0 kept one context per attempt; newer attempts keep one per turn.
+                var contexts = new List<string> { Path.Combine(control, "context.json") };
+                contexts.AddRange(Directory.GetDirectories(control, "turn-*").Select(turn => Path.Combine(turn, "context.json")));
+                foreach (var contextPath in contexts.Where(File.Exists))
                 {
-                    if (value?[name] is not JsonValue field || !field.TryGetValue<string>(out var path)) return;
-                    if (string.Equals(path, source, comparison)) value[name] = target;
-                    else if (Within(path, source, comparison)) value[name] = target + path[source.Length..];
+                    var context = JsonNode.Parse(File.ReadAllText(contextPath))!.AsObject();
+                    void MoveField(JsonObject? value, string name)
+                    {
+                        if (value?[name] is not JsonValue field || !field.TryGetValue<string>(out var path)) return;
+                        if (string.Equals(path, source, comparison)) value[name] = target;
+                        else if (Within(path, source, comparison)) value[name] = target + path[source.Length..];
+                    }
+                    foreach (var name in new[] { "current_file", "original_request_file", "reply_file", "receipt_file" }) MoveField(context, name);
+                    if (context["images"] is JsonArray images)
+                        foreach (var image in images) MoveField(image?.AsObject(), "path");
+                    MoveField(context["collaboration"]?.AsObject(), "submission_file");
+                    MoveField(context["receipt_template"]?.AsObject(), "result_file");
+                    File.WriteAllText(contextPath, context.ToJsonString(RelayJson.Options));
                 }
-                foreach (var name in new[] { "current_file", "original_request_file", "reply_file", "receipt_file" }) MoveField(context, name);
-                if (context["images"] is JsonArray images)
-                    foreach (var image in images) MoveField(image?.AsObject(), "path");
-                MoveField(context["collaboration"]?.AsObject(), "submission_file");
-                MoveField(context["receipt_template"]?.AsObject(), "result_file");
-                File.WriteAllText(contextPath, context.ToJsonString(RelayJson.Options));
             }
         }
     }

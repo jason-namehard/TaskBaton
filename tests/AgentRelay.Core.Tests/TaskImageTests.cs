@@ -99,7 +99,7 @@ public sealed class TaskImageTests
     }
 
     [TestMethod]
-    public void EveryCollaborationTurnKeepsOriginalImagesAndInstruction()
+    public void OnlyTheFirstTurnCarriesTheOriginalImagesAndInstruction()
     {
         var task = service.CreateCliHandoff(Request(images: [Image()],
             collaboration: new("b", GenerateCriteria: true))).Task;
@@ -171,6 +171,10 @@ public sealed class TaskImageTests
         Assert.IsEmpty(service.ImportManualReceipts().Errors);
     }
 
+    /// <summary>
+    /// The first turn carries every original image and tells the Agent to inspect them. Later turns carry none unless
+    /// the user selected images for that exact turn, and must not ask the Agent to pretend it saw them.
+    /// </summary>
     private static void AssertContext(RelayService relay, TaskRecord task, string phase)
     {
         relay.FileHandoffPrompt(task);
@@ -178,16 +182,26 @@ public sealed class TaskImageTests
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var root = document.RootElement;
         var images = root.GetProperty("images").EnumerateArray().ToArray();
-        var expected = task.Images!;
-        Assert.HasCount(expected.Length, images);
-        for (var i = 0; i < images.Length; i++)
+        var instructions = root.GetProperty("instructions").GetString()!;
+        if (task.ManualTurn == 0)
         {
-            Assert.AreEqual(expected[i].ImageId, images[i].GetProperty("image_id").GetString());
-            Assert.AreEqual(expected[i].FileName, images[i].GetProperty("file_name").GetString());
-            Assert.AreEqual(expected[i].MediaType, images[i].GetProperty("media_type").GetString());
-            Assert.AreEqual(expected[i].Path, images[i].GetProperty("path").GetString());
+            var expected = task.Images!;
+            Assert.HasCount(expected.Length, images);
+            for (var i = 0; i < images.Length; i++)
+            {
+                Assert.AreEqual(expected[i].ImageId, images[i].GetProperty("image_id").GetString());
+                Assert.AreEqual(expected[i].FileName, images[i].GetProperty("file_name").GetString());
+                Assert.AreEqual(expected[i].MediaType, images[i].GetProperty("media_type").GetString());
+                Assert.AreEqual(expected[i].Path, images[i].GetProperty("path").GetString());
+            }
+            StringAssert.Contains(instructions, "Inspect every attached image");
         }
-        StringAssert.Contains(root.GetProperty("instructions").GetString()!, "Inspect every attached image");
+        else
+        {
+            Assert.IsEmpty(images);
+            Assert.DoesNotContain("Inspect every attached image", instructions, StringComparison.Ordinal);
+            StringAssert.Contains(instructions, "No images are attached to this turn");
+        }
         if (phase != "single") Assert.AreEqual(phase, root.GetProperty("collaboration").GetProperty("phase").GetString());
     }
 

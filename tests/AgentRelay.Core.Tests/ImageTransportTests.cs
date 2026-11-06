@@ -159,7 +159,7 @@ public sealed class ImageTransportTests
     }
 
     [TestMethod]
-    public async Task CollaborationResendsTheImagesWhenTheAuthorRevisesInTheSameSession()
+    public async Task LaterTurnsDoNotReattachTheOriginalImages()
     {
         var capture = Path.Combine(root, "collaboration.txt");
         var create = TextCommand(capture);
@@ -197,7 +197,8 @@ public sealed class ImageTransportTests
         Assert.AreEqual("submitted", second.Task.CliFileStatus);
         var prompt = File.ReadAllText(capture);
         StringAssert.Contains(prompt, "返工轮");
-        StringAssert.Contains(prompt, task.Images[0].Path);
+        // The original image belongs to the first turn only; the user can attach it to a chosen later turn.
+        Assert.DoesNotContain(task.Images[0].Path, prompt, StringComparison.Ordinal);
     }
 
     [TestMethod]

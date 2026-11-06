@@ -19,6 +19,8 @@ namespace AgentRelay.Desktop.Smoke;
 internal static partial class Program
 {
     private static readonly List<string> checks=[];
+    private static readonly List<string> skipped=[];
+    private static bool? clipboardReady;
     [STAThread]
     private static int Main(string[] args)
     {
@@ -39,11 +41,11 @@ internal static partial class Program
             try
             {
                 await Task.Delay(100);await Exercise(window,service,task,waiting,config,root,args[1]);
-                File.WriteAllText(Path.Combine(root,"report.json"),RelayJson.Write(new{status="passed",checks}));app.Shutdown(0);
+                File.WriteAllText(Path.Combine(root,"report.json"),RelayJson.Write(new{status="passed",checks,skipped}));app.Shutdown(0);
             }
             catch(Exception error)
             {
-                File.WriteAllText(Path.Combine(root,"report.json"),RelayJson.Write(new{status="failed",error=error.ToString(),checks}));app.Shutdown(1);
+                File.WriteAllText(Path.Combine(root,"report.json"),RelayJson.Write(new{status="failed",error=error.ToString(),checks,skipped}));app.Shutdown(1);
             }
         };
         return app.Run(window);
@@ -80,14 +82,14 @@ internal static partial class Program
         Check(Find<DataGrid>(window,"TasksTable").Items.Cast<object>().All(r=>System.Text.RegularExpressions.Regex.IsMatch((string)r.GetType().GetProperty("When")!.GetValue(r)!,@"^(\d{2}:\d{2}|\d{2}-\d{2} \d{2}:\d{2}|\d{4}-\d{2}-\d{2})$")),"Task times use local 24-hour time without an offset");
         SelectTask(window,task.TaskId);
         await Click(window,"Copy prompt for 自选节点甲");
-        var copiedHandoff=Clipboard.GetText();
-        Check(copiedHandoff.Contains(task.TaskId)&&copiedHandoff.Contains(service.Status(task.TaskId).Task.ResultPath)&&copiedHandoff.Contains(service.Home),
+        var copiedHandoff=CopiedText();
+        CheckClipboard(_ => copiedHandoff.Contains(task.TaskId)&&copiedHandoff.Contains(service.Status(task.TaskId).Task.ResultPath)&&copiedHandoff.Contains(service.Home),
             $"Copied completed handoff includes identity, reply path and relay location (identity={copiedHandoff.Contains(task.TaskId)}, path={copiedHandoff.Contains(service.Status(task.TaskId).Task.ResultPath)}, home={copiedHandoff.Contains(service.Home)}, length={copiedHandoff.Length}, status={((TextBlock)window.FindName("StatusText")).Text}, error={((TextBox)window.FindName("ErrorText")).Text})");
-        Check(copiedHandoff.Contains("自选节点甲")&&copiedHandoff.Contains("自选节点乙"),
+        CheckClipboard(_ => copiedHandoff.Contains("自选节点甲")&&copiedHandoff.Contains("自选节点乙"),
             $"Completed handoff prompt identifies both user-selected Agent names (sender={copiedHandoff.Contains("自选节点甲")}, recipient={copiedHandoff.Contains("自选节点乙")})");
         SelectTask(window,waiting.TaskId);
         await Click(window,"Copy prompt for 自选节点乙");
-        Check(Clipboard.GetText().Contains("自选节点甲")&&Clipboard.GetText().Contains("自选节点乙")&&Clipboard.GetText().Contains("--sender agent-b"),"Receiver prompt uses friendly names while callback arguments retain exact node IDs");
+        CheckClipboard(t => t.Contains("自选节点甲")&&t.Contains("自选节点乙")&&t.Contains("--sender agent-b"),"Receiver prompt uses friendly names while callback arguments retain exact node IDs");
         await SaveImage(window,Path.Combine(root,"Board.png"));
 
         await SetLanguage(window,"zh-CN");
@@ -128,9 +130,16 @@ internal static partial class Program
                 Check(setupHelp.ToolTip is TextBlock setupAdvice&&setupAdvice.Text.Contains("ID",StringComparison.Ordinal)&&setupAdvice.Text.Contains("复制",StringComparison.Ordinal),
                     "Agent setup explains fresh node IDs in an accessible hover hint");
                 Press(chooser,"ChooseOneClickSetup");
+                if(!ClipboardReady())
+                {
+                    // The one-click setup copies a prompt first; without a clipboard it stops before its confirmation.
+                    Skip("One-click setup confirmation checks skipped: the desktop clipboard is locked.");
+                    Check(service.GuidanceRegistrations().Count==0,"Copying the Agent setup prompt does not install a rule or modify instruction files");
+                    chooser.Close();oneClickDone.SetResult();return;
+                }
                 message=await Next<ThemedMessageBox>();
                 Check(FindAll<TextBlock>(message).Any(t=>t.Text.Contains("可选交接规则",StringComparison.Ordinal)&&t.Text.Contains("确认后",StringComparison.Ordinal)),"One-click setup confirmation explains the optional rule");
-                Check(Clipboard.GetText().Contains("agent setup --manifest",StringComparison.Ordinal),"One-click setup copies an Agent registration prompt");
+                CheckClipboard(t => t.Contains("agent setup --manifest",StringComparison.Ordinal),"One-click setup copies an Agent registration prompt");
                 Press(message,"MessageOk");
                 Check(service.GuidanceRegistrations().Count==0&&File.ReadAllText(hostInstruction)=="Existing host instructions.\n","Copying the Agent setup prompt does not install a rule or modify instruction files");
                 oneClickDone.SetResult();
@@ -178,8 +187,9 @@ internal static partial class Program
             Expand(dialog);
             Find<TextBox>(dialog,"ManualWorkRequest").Text="Write a proposal, exchange three useful rounds, then deliver the agreed result.";
             Press(dialog,"CopyFileHandoffFormat");
-            Check(Clipboard.GetText().Contains("Write a proposal")&&Clipboard.GetText().Contains("JSON")&&Clipboard.GetText().Contains("agent-a"),"Manual prompt includes the work request, exact nodes and output rules");
+            CheckClipboard(t => t.Contains("Write a proposal")&&t.Contains("JSON")&&t.Contains("agent-a"),"Manual prompt includes the work request, exact nodes and output rules");
             Check(!FindAll<RadioButton>(dialog).Any()&&!FindAll<TextBox>(dialog).Any(b=>b.Name.EndsWith("Rounds")),"Manual creation has no automatic collaboration or round-budget controls");
+            Check(Find<TextBox>(dialog,"FileHandoffRelaySteps").Text.Length==0,"Manual creation offers an optional fixed relay that stays empty by default");
             Find<TextBox>(dialog,"FileHandoffReply").Text="{bad";Press(dialog,"ParseFileHandoff");
             Check(dialog.Result is null&&service.Tasks().Count==taskCount,"Malformed handoff JSON cannot create a task");
             Check(FindAll<TextBlock>(dialog).Any(t=>t.Text.Contains("complete JSON",StringComparison.Ordinal))&&!FindAll<TextBlock>(dialog).Any(t=>t.Text.Contains("BytePositionInLine",StringComparison.Ordinal)),"Malformed JSON explains how to recover without displaying a runtime exception transcript");
@@ -200,9 +210,9 @@ internal static partial class Program
         Check(Directory.GetFiles(Path.GetDirectoryName(created.RequestPath)!).Length==1,"Binary handoff creates one visible managed file without wrapper snapshots");
         Check(!FindAll<Button>(window).Any(b=>Equals(b.Tag,"Import completed reply")||Equals(b.Tag,"Retry")),"New file handoff does not require manual result import or retry controls");
         await Click(window,"Copy prompt for 自选节点丙");
-        var receiverPrompt=Clipboard.GetText();
+        var receiverPrompt=CopiedText();
         var contextPath=Path.Combine(Path.GetDirectoryName(service.ManualReceiptPath(created))!,"context.json");
-        Check(receiverPrompt.Contains(contextPath)&&receiverPrompt.Length-contextPath.Length<180,
+        CheckClipboard(t => t.Contains(contextPath)&&t.Length-contextPath.Length<180,
             $"Receiver prompt is a short pointer to task context (length={receiverPrompt.Length}, status={((TextBlock)window.FindName("StatusText")).Text}, error={((TextBox)window.FindName("ErrorText")).Text})");
         var context=RelayJson.Read<System.Text.Json.JsonElement>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(service.ManualReceiptPath(created))!,"context.json")));
         Check(context.GetProperty("current_file").GetString()==created.RequestPath && context.GetProperty("receipt_template").GetProperty("sender").GetString()=="agent-c","Task context agrees with the installed rule and exact receipt identity");
@@ -216,9 +226,11 @@ internal static partial class Program
         Check(service.Status(created.TaskId).Task.AwaitingAgentId==manual.AgentId,"Agent receipt automatically keeps the task ongoing and selects the requester for necessary followup");
         await Wait(()=>FindAll<Button>(window).Any(b=>Equals(b.Tag,"Copy prompt for 任意节点甲")));
         await Click(window,"Copy prompt for 任意节点甲");
-        Check(Clipboard.GetText().Length<500,"Followup prompt remains short and changes its target Agent");
+        CheckClipboard(t => t.Length<500,"Followup prompt remains short and changes its target Agent");
         Check(Directory.GetFiles(Path.GetDirectoryName(created.RequestPath)!).Length==2,"Reply adds one file without creating duplicate result snapshots");
-        File.WriteAllText(service.ManualReceiptPath(created),RelayJson.Write(new ManualReceipt(created.TaskId,created.AttemptId,manual.AgentId,1,"done",false,TaskComplete:true)));
+        // Each turn owns its receipt path, so the follow-up file goes where the follow-up turn's context says.
+        var followup=service.Status(created.TaskId).Task;
+        File.WriteAllText(service.ManualReceiptPath(followup),RelayJson.Write(new ManualReceipt(created.TaskId,created.AttemptId,manual.AgentId,followup.ManualTurn,"done",false,TaskComplete:true)));
         await Wait(()=>service.Status(created.TaskId).Task.State==TaskState.Succeeded);
         Check(service.Status(created.TaskId).Task.State==TaskState.Succeeded,"Requester final receipt automatically completes the existing task without another paste or import");
         await SaveImage(window,Path.Combine(root,"Manual-completed.png"));
@@ -342,8 +354,8 @@ internal static partial class Program
             {
                 Press(dialog,"CopyBridgeDiagnostic");
                 await Wait(()=>Find<Button>(dialog,"CopyBridgeDiagnostic").IsEnabled);
-                var diagnosticPrompt=Clipboard.GetText();
-                Check(diagnosticPrompt.Contains("agent-c")&&diagnosticPrompt.Contains("cli-recipe doctor"),
+                var diagnosticPrompt=CopiedText();
+                CheckClipboard(_ => diagnosticPrompt.Contains("agent-c")&&diagnosticPrompt.Contains("cli-recipe doctor"),
                     $"A failed probe or blocked bridge offers a targeted repair prompt (length={diagnosticPrompt.Length}, status={Find<TextBlock>(dialog,"CliProbeStatus").Text})");
                 Press(dialog,"CloseCliProbe");
             });
@@ -575,11 +587,27 @@ internal static partial class Program
             Press(dialog,"SendCliTask");return Task.CompletedTask;
         });
         Check(manualOptions.Result?.Collaboration is {GenerateCriteria:false,ReviewerFinal:true,AuthorId:"ui-target",Criteria:"Tests pass"},"Manual criteria and initiating Agent as final reviewer are recorded");
+        var relayOptions=new CliHandoffDialog(window,station,"en");
+        await Show(relayOptions,dialog=>
+        {
+            Check(FindAll<RadioButton>(dialog).Any(r=>r.Name=="CliTaskRelay"),"CLI task offers a fixed relay with a set number of handoffs");
+            Find<RadioButton>(dialog,"CliTaskRelay").IsChecked=true;
+            Find<TextBox>(dialog,"CliTaskRelaySteps").Text="ui-target=实现\nui-source:test=跑回归\nui-target:modify=按报告修改";
+            Find<CheckBox>(dialog,"CliTaskNewSessionEachTurn").IsChecked=true;
+            Find<TextBox>(dialog,"CliTaskPrompt").Text="Relay fixture work.";
+            Press(dialog,"SendCliTask");return Task.CompletedTask;
+        });
+        Check(relayOptions.Result?.RelayPlan is {Steps.Length:3,NewSessionEachTurn:true} relay
+            && relay.Steps[1].Role==RelayStepRole.Test && relay.Steps[2].Role==RelayStepRole.Modify
+            && RelayService.HandoffCount(relay.Steps.Length)==2,
+            "A three-step relay is recorded as three steps and two handoffs, with the declared test and modify roles");
         await Modal<CliHandoffDialog>(window,"New automatic transfer task",async dialog=>
         {
             Check(Find<RadioButton>(dialog,"CliTaskNewSession").IsChecked==true,"Explicit CLI task entry offers a new target conversation by default");
             Check(!FindAll<TextBox>(dialog).Any(t=>t.Name=="FileHandoffReply"),"CLI work entry accepts instructions directly without a file or pasted Agent JSON");
-            Check(Find<RadioButton>(dialog,"CliTaskSingle").IsChecked==true&&FindAll<RadioButton>(dialog).Any(r=>r.Name=="CliTaskLoop")&&!FindAll<CheckBox>(dialog).Any(c=>c.Name=="CliTaskReviewPlan"),"CLI task offers a single handoff or a review loop instead of a fixed step plan");
+            Check(Find<RadioButton>(dialog,"CliTaskSingle").IsChecked==true&&FindAll<RadioButton>(dialog).Any(r=>r.Name=="CliTaskLoop")
+                &&FindAll<RadioButton>(dialog).Any(r=>r.Name=="CliTaskRelay")&&Find<RadioButton>(dialog,"CliTaskRelay").IsChecked==false,
+                "CLI task offers a single handoff, a review loop or a fixed relay, with the single handoff selected by default");
             string CardText()=>string.Join(" ",FindAll<TextBlock>(Find<Border>(dialog,"CliTaskBridgeCard")).Select(t=>t.Text));
             Check(CardText().Contains("Target",StringComparison.Ordinal)&&CardText().Contains("CLI bridge, not yet verified",StringComparison.Ordinal),"Choosing a recipient explains which bridge carries its turns: "+CardText());
             var recipientChoice=Find<ComboBox>(dialog,"CliTaskTo");recipientChoice.SelectedValue="ui-source";
@@ -924,7 +952,7 @@ internal static partial class Program
         Check(!FindAll<Button>(window).Any(b=>Equals(b.Tag,"Send via bridge"))&&FindAll<Button>(window).Any(b=>Equals(b.Tag,"Check Agent bridge")),"Blocked tasks offer bridge diagnostics instead of an ineffective Send button");
         Check(FindAll<TextBlock>(window).Any(t=>t.Text.Contains("rejected authentication")),"The task card preserves the actual bridge failure");
         await Click(window,"Copy bridge diagnostic prompt");
-        Check(Clipboard.GetText().Contains(service.Home)&&Clipboard.GetText().Contains("auth_required")&&Clipboard.GetText().Contains("\"agent_id\": \"target\""),"A blocked task copies diagnostics for its receiving Agent without resending");
+        CheckClipboard(t => t.Contains(service.Home)&&t.Contains("auth_required")&&t.Contains("\"agent_id\": \"target\""),"A blocked task copies diagnostics for its receiving Agent without resending");
         await SaveImage(window,Path.Combine(root,"Blocked-task.png"));
         new RelayStore(service.Home).Write(s=>
         {
@@ -937,7 +965,7 @@ internal static partial class Program
         Check(FindAll<TextBlock>(window).Any(t=>t.Text.Contains("Saved failure at")),"Agent management labels the blocker as a saved failure rather than a new connection result");
         await Click(window,"Check bridge setup (no model call)");
         await Click(window,"Copy bridge diagnostic prompt");
-        Check(Clipboard.GetText().Contains("\"agent_id\": \"target\"")&&service.Status(task.TaskId).Task.State==TaskState.Paused&&service.CliExtension("target")!.Block is not null,"Agent diagnostics and copying leave tasks, verification and blockers unchanged");
+        CheckClipboard(t => t.Contains("\"agent_id\": \"target\"")&&service.Status(task.TaskId).Task.State==TaskState.Paused&&service.CliExtension("target")!.Block is not null,"Agent diagnostics and copying leave tasks, verification and blockers unchanged");
         var saved=service.CliExtension("target")!;
         SaveExtension(service,saved with {Recipe=saved.Recipe with {OutputFormat="dsh-desktop",Create=new("relay-test-"+Guid.NewGuid().ToString("N")+".exe",[],null,null,new(){["DSH_HOME"]=Path.Combine(root,"missing-desktop")}),Resume=null}});
         await Click(window,"Refresh");
@@ -1384,6 +1412,23 @@ internal static partial class Program
         }
     }
     private static void Check(bool passed,string check){if(!passed)throw new InvalidOperationException(check);checks.Add(check);}
+    private static void Skip(string reason)=>skipped.Add(reason);
+    private static string CopiedText(){try{return Clipboard.GetText();}catch(ExternalException){return "";}}
+    /// <summary>Clipboard checks are skipped, not failed, when the workstation clipboard cannot be opened.</summary>
+    private static void CheckClipboard(Func<string,bool> verify,string check)
+    {
+        if(!ClipboardReady()){Skip(check+" (skipped: desktop clipboard locked)");return;}
+        Check(verify(CopiedText()),check);
+    }
+    /// <summary>The clipboard is unavailable when the workstation is locked or another app holds it; report that instead of failing.</summary>
+    private static bool ClipboardReady()
+    {
+        if(clipboardReady is { } known)return known;
+        for(var attempt=0;attempt<3;attempt++)
+            try{Clipboard.SetText("relay-smoke-probe");clipboardReady=true;return true;}
+            catch(ExternalException){Thread.Sleep(150);}
+        clipboardReady=false;return false;
+    }
     private static async Task SaveImage(Window window,string path)
     {await window.Dispatcher.InvokeAsync(()=>{},DispatcherPriority.ApplicationIdle);window.UpdateLayout();var content=(FrameworkElement)window.Content;var bitmap=new RenderTargetBitmap((int)content.ActualWidth,(int)content.ActualHeight,96,96,PixelFormats.Pbgra32);var visual=new DrawingVisual();using(var drawing=visual.RenderOpen()){var bounds=new Rect(0,0,content.ActualWidth,content.ActualHeight);drawing.DrawRectangle(window.Background,null,bounds);drawing.DrawRectangle(new VisualBrush(content){Stretch=Stretch.Fill},null,bounds);}bitmap.Render(visual);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using var output=File.Create(path);encoder.Save(output);}
 }

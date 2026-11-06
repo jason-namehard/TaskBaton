@@ -53,7 +53,49 @@ public sealed partial class RelayService
         });
     }
 
-    private static string ImageInstructions(TaskRecord task) => task.Images is { Length: > 0 }
-        ? "Inspect every attached image in images before performing this turn; open each image by its path. "
-        : "";
+    /// <summary>
+    /// Images travel with the first turn only. A later turn receives images only when the user selected them for that
+    /// exact turn; otherwise the Agent is told not to pretend it saw them.
+    /// </summary>
+    internal static TaskImage[] ImagesForTurn(TaskRecord task)
+    {
+        if (task.Images is not { Length: > 0 }) return [];
+        if (task.ManualTurn == 0) return task.Images;
+        if (task.ImageTurn != task.ManualTurn) return [];
+        return task.ImageTurnIds is { Length: > 0 } ids
+            ? task.Images.Where(image => ids.Contains(image.ImageId)).ToArray()
+            : task.Images;
+    }
+
+    /// <summary>User choice: attach the selected images to one specific later turn, never to every turn.</summary>
+    public TaskView AllowTurnImages(string taskId, int turn, string[]? imageIds = null) => store.Write(s =>
+    {
+        var task = s.Task(taskId);
+        if (!task.IsFileHandoff) throw new RelayException("file_handoff_required", "此接口只用于文件或 CLI 工作交接。");
+        if (Terminal(task.State)) throw new RelayException("session_task_finished", "已结束任务不能追加图片。");
+        if (task.Images is not { Length: > 0 }) throw new RelayException("task_image_missing", "此任务没有保存的图片。");
+        if (turn < 1) throw new RelayException("image_turn_invalid", "第一轮图片已自动携带；只能为后续轮次追加。");
+        if (turn < task.ManualTurn || turn == task.ManualTurn && task.CliFileTurn == task.ManualTurn)
+            throw new RelayException("image_turn_started", "该轮已开始投递，不能事后追加图片；请选择尚未开始的轮次。");
+        var ids = (imageIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray();
+        foreach (var id in ids)
+            if (task.Images.All(image => image.ImageId != id))
+                throw new RelayException("task_image_missing", "所选图片不属于此任务：" + id);
+        task.ImageTurn = turn; task.ImageTurnIds = ids.Length == 0 ? null : ids;
+        s.Save(task);
+        s.Event(task, "task.images_turn", "operator", Now,
+            "turn=" + turn + " images=" + (ids.Length == 0 ? "all" : string.Join(",", ids)));
+        return ManualView(task);
+    });
+
+    private static string ImageInstructions(TaskRecord task, TaskImage[] images)
+    {
+        if (images.Length > 0)
+            return "Inspect every attached image in images before performing this turn; open each image by its path. ";
+        // Originals stay viewable for the user, but a later turn must not be told to read them again.
+        return task.Images is { Length: > 0 }
+            ? "No images are attached to this turn. Do not claim to have inspected the original images; use current_file and the recorded results instead. "
+                + "If this is a continued host conversation, earlier images may still be in its history; Relay cannot remove them. "
+            : "";
+    }
 }

@@ -75,6 +75,22 @@ internal static class CliOutput
         catch (JsonException) { return null; } // A partial or malformed external stream is not a successful invocation.
     }
 
+    /// <summary>
+    /// Reads a session id from one streaming record while the turn is still running. Only a host that announces the
+    /// session before the turn ends (DSH headless prints a session record first) can be read this early; the other
+    /// formats report the id only in the final result, so their id stays unknown until the call returns.
+    /// </summary>
+    internal static string? SessionIdFromLine(string line, string format)
+    {
+        if (format != "dsh-jsonl") return null;
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+            return Text(document.RootElement, "type") == "session" ? Text(document.RootElement, "sessionId") : null;
+        }
+        catch (JsonException) { return null; }
+    }
+
     private static IEnumerable<JsonElement> Records(string output, string format)
     {
         if (format is "zcode-json" or "claude-json")

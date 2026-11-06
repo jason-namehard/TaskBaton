@@ -35,6 +35,7 @@ internal static partial class Program
 
     private static async Task CheckTaskImageInput(MainWindow owner, string root)
     {
+        if (!ClipboardReady()) { Skip("Clipboard image input checks skipped: the desktop clipboard is locked (workstation locked or another app holds it)."); return; }
         var station = new RelayService(Path.Combine(root, "image-input")); station.Initialize();
         station.RegisterManual("image-a", "fixture", "Image A"); station.RegisterManual("image-b", "fixture", "Image B");
         Appearance.Save(station.Home, new DesktopPreferences("en", NotificationSound: "none"));

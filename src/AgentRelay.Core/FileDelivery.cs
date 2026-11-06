@@ -13,6 +13,8 @@ public sealed partial class RelayService
     {
         if (!task.IsFileHandoff || task.ManualContinuous || Terminal(task.State) || task.CliFileTurn == task.ManualTurn ||
             task.State is not (TaskState.AwaitingManual or TaskState.AwaitingReply)) return false;
+        // A receipt can arrive while Relay's own call is still running; never start the next turn on top of it.
+        if (task.CliFileTurn is not null && task.CliFileStatus == "submitting") return false;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         var sender = recipient == task.RecipientId ? task.RequesterId : task.RecipientId;
         var extension = CliExtension(recipient);
@@ -41,6 +43,8 @@ public sealed partial class RelayService
         var extension = CliExtension(recipient);
         if (extension?.Block is {} block) return block.Message;
         if (task.CliFileTurn == task.ManualTurn && task.CliFileStatus is "unknown" or "failed") return task.CliFileError;
+        if (task.CliFileTurn is not null && task.CliFileStatus == "submitting")
+            return "上一轮的投递仍在执行，本轮结果已提交但执行结束未知；确认宿主结束后再自动开始下一步。";
         if (!task.AutoDeliver || extension is null || !CanSendFileHandoff(task)) return null;
         var resume = TaskSession(task.TaskId, recipient)?.SessionId is not null;
         if (resume ? extension.CanResume : extension.CanCreate) return null;
@@ -112,7 +116,9 @@ public sealed partial class RelayService
             command = command with { Environment = context };
         }
         RequireTaskImages(task);
-        var images = await ImageDelivery.PrepareAsync(task.Images, cancellationToken);
+        // Only the first turn carries the original images; a later turn carries what the user selected for it.
+        var images = await ImageDelivery.PrepareAsync(ImagesForTurn(task), cancellationToken);
+        var startedAt = Now;
         store.Write(s =>
         {
             var current = s.Task(taskId);
@@ -127,16 +133,28 @@ public sealed partial class RelayService
             current.CliFileTurn = current.ManualTurn; current.CliFileStatus = "submitting";
             current.CliFileError = null; current.CliFileSessionId = null; current.Mode = "cli"; current.AdapterId = "cli:" + recipient;
             current.CliFileOperation = resume ? "resume" : "create"; current.CliFileRevision = extension.Revision;
+            current.SendStartedAt = Now;
             s.Save(current); s.Event(current, "file.cli_submitting", "operator", Now, resume ? "resume " + binding!.SessionId : "create");
             return true;
         });
         // Print-mode hosts return only after the Agent finishes its turn, so the call may run until the turn deadline.
         var budget = task.DeadlineAt - Now;
         string status; string? session = null; string? error; CliFailure? failure = null; CliSidebarSyncResult? sidebarSync = null;
+        var observed = new List<string>();
+        void Observe(string id)
+        {
+            lock (observed)
+            {
+                if (string.IsNullOrWhiteSpace(id) || observed.Contains(id)) return;
+                observed.Add(id);
+            }
+            // Persist immediately: a turn that later times out must still keep the exact conversation id.
+            PersistObservedSession(task, recipient, id, command.WorkingDirectory);
+        }
         try
         {
             var process = await CliRecipes.InvokePreparedAsync(command, CliRecipes.OutputFormatFor(extension.Recipe), prompt, binding?.SessionId, Home,
-                budget > MinimumCliTurn ? budget : MinimumCliTurn, cancellationToken, images);
+                budget > MinimumCliTurn ? budget : MinimumCliTurn, cancellationToken, images, Observe);
             var receipt = CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe));
             if (receipt is { } received && CliExtension(recipient) is { } current && current.Revision == extension.Revision)
                 sidebarSync = ZcodeTaskIndexVisibility.Sync(current, received.SessionId, ZcodeUserDirectory, Home);
@@ -157,6 +175,9 @@ public sealed partial class RelayService
         {
             status = "failed"; error = rejected.Message;
         }
+        // Nothing reached the Agent: the time went to starting or connecting to the host, so the turn keeps its budget.
+        var reachedAgent = resume || observed.Count > 0 || status == "submitted";
+        var hostWait = reachedAgent ? TimeSpan.Zero : Now - startedAt;
         store.Write(s =>
         {
             var current = s.Task(taskId);
@@ -186,15 +207,42 @@ public sealed partial class RelayService
                 (current.ManualTurn == task.ManualTurn || current.CliFileStatus == "submitting"))
             {
                 current.CliFileStatus = status; current.CliFileError = error; current.CliFileSessionId = session;
+                // A matching turn result proves this host's turn ended; a timeout or failure proves nothing.
+                current.HostTurnEnded = status == "submitted" ? true : status == "failed" ? false : null;
+                if (hostWait > TimeSpan.Zero)
+                {
+                    current.DeadlineAt += hostWait;
+                    current.HostWaitSeconds += (int)Math.Round(hostWait.TotalSeconds);
+                    s.Event(current, "file.host_wait", "relay", Now,
+                        $"waited {current.HostWaitSeconds}s for the host; the turn keeps its work time");
+                }
                 if (!Terminal(current.State) && current.ManualTurn == task.ManualTurn && status == "submitted" &&
                     current.State is TaskState.AwaitingManual or TaskState.AwaitingReply)
                     current.State = TaskState.Dispatched;
+                if (status == "submitted") current.DeliveredAt = Now;
                 s.Save(current); s.Event(current, "file.cli_" + status, "operator", Now, error ?? session ?? "");
             }
             return true;
         });
         return Status(taskId);
     }
+
+    /// <summary>The host named the conversation before the turn ended; keep it now, not after the turn returns.</summary>
+    private void PersistObservedSession(TaskRecord task, string agentId, string sessionId, string? cwd) => store.Write(s =>
+    {
+        var current = s.Task(task.TaskId);
+        if (current.AttemptId != task.AttemptId || current.ManualTurn != task.ManualTurn ||
+            (current.AwaitingAgentId ?? current.RecipientId) != agentId) return false;
+        var existing = ReadTaskSession(s, current, agentId);
+        if (existing?.SessionId is not null) return false;
+        var agent = Agent(s, agentId);
+        var value = new TaskSessionBinding(current.TaskId, current.AttemptId, current.ManualTurn, agentId, agent.Host,
+            sessionId, cwd ?? existing?.Cwd, existing?.Profile, existing?.SessionPath, "created",
+            existing?.Visibility ?? "unknown", Now, "host reported this session id before the turn finished");
+        SaveTaskSession(s, current, value);
+        s.Event(current, "session.observed_early", agentId, Now, sessionId);
+        return true;
+    });
 
     /// <summary>The user checked the target conversation and confirms this turn never arrived, so one new send is allowed.</summary>
     public TaskView AllowFileHandoffResend(string taskId, string reason, bool approved)

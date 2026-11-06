@@ -10,7 +10,8 @@ public static class RelayProcess
 {
     public static async Task<ProcessResult> RunAsync(string executable, IEnumerable<string> arguments,
         string? input, TimeSpan timeout, CancellationToken cancellationToken = default,
-        IReadOnlyDictionary<string, string>? environment = null, string? workingDirectory = null)
+        IReadOnlyDictionary<string, string>? environment = null, string? workingDirectory = null,
+        Action<string>? onLine = null)
     {
         var start = new ProcessStartInfo(executable)
         {
@@ -30,7 +31,8 @@ public static class RelayProcess
             foreach (var (key, value) in environment) start.Environment[key] = value;
         using var process = new Process { StartInfo = start };
         process.Start();
-        var output = process.StandardOutput.ReadToEndAsync();
+        // A streaming caller needs each record while the turn is still running (e.g. the session id).
+        var output = onLine is null ? process.StandardOutput.ReadToEndAsync() : ReadLinesAsync(process.StandardOutput, onLine);
         var error = process.StandardError.ReadToEndAsync();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
@@ -47,6 +49,18 @@ public static class RelayProcess
             return new ProcessResult(-1, await output, await error, true);
         }
         return new ProcessResult(process.ExitCode, await output, await error, false);
+    }
+
+    private static async Task<string> ReadLinesAsync(StreamReader reader, Action<string> onLine)
+    {
+        var text = new System.Text.StringBuilder();
+        while (await reader.ReadLineAsync() is { } line)
+        {
+            text.AppendLine(line);
+            try { onLine(line); }
+            catch (Exception error) when (error is InvalidOperationException or IOException or JsonException) { }
+        }
+        return text.ToString();
     }
 }
 

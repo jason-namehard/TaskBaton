@@ -36,7 +36,7 @@ public partial class MainWindow
     {
         receiptWatcher?.Dispose();
         var path=Path.Combine(service.Home,"workspace");Directory.CreateDirectory(path);
-        receiptWatcher=new FileSystemWatcher(path,"receipt.json"){IncludeSubdirectories=true,NotifyFilter=NotifyFilters.FileName|NotifyFilters.LastWrite|NotifyFilters.Size};
+        receiptWatcher=new FileSystemWatcher(path,"receipt*.json"){IncludeSubdirectories=true,NotifyFilter=NotifyFilters.FileName|NotifyFilters.LastWrite|NotifyFilters.Size};
         receiptWatcher.Created+=(_,_)=>ReceiptChanged();receiptWatcher.Changed+=(_,_)=>ReceiptChanged();receiptWatcher.Renamed+=(_,_)=>ReceiptChanged();
         receiptWatcher.Error+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=>LedgerHint.Text=T("Receipt monitoring needs a refresh. Click Refresh to read saved receipts.")));
         receiptWatcher.EnableRaisingEvents=true;
@@ -68,6 +68,9 @@ public partial class MainWindow
         var progress=task.IsFileHandoff?service.FileHandoffProgress(task):null;
         if(sendingTasks.Contains(task.TaskId) || progress?.Delivery=="cli_in_flight")
             return string.Format(CultureInfo.CurrentUICulture,T("Sending to {0}…"),agent);
+        // A submitted receipt is not proof that the host stopped; say which fact is known.
+        if(progress?.Status is {Agent:"submitted",Host:"unknown"} && !progress.Finished)
+            return string.Format(CultureInfo.CurrentUICulture,T("Result submitted · host end unknown · {0}"),agent);
         if(task.State==TaskState.Paused && progress?.DeliveryMessage is not null)return T("Paused · Bridge needs attention");
         if(progress?.Delivery=="cli_blocked")return string.Format(CultureInfo.CurrentUICulture,T("Bridge blocked · {0}"),agent);
         if(progress?.Delivery=="cli_unconfirmed")return string.Format(CultureInfo.CurrentUICulture,T("Delivery unconfirmed · {0}"),agent);
@@ -90,8 +93,8 @@ public partial class MainWindow
     private string FilePrompt(TaskRecord task)
     {
         _=service.FileHandoffPrompt(task);
-        var receipt=service.ManualReceiptPath(task);
-        var context=Path.Combine(Path.GetDirectoryName(receipt)!,"context.json");
+        // Each turn has its own context and receipt path; never hand out another turn's file.
+        var context=service.ManualContextPath(task);
         return string.Format(CultureInfo.CurrentUICulture,T("A file is waiting for you. Read {0}, perform the request and write its receipt. No extra acknowledgement message is needed."),context);
     }
 
@@ -134,10 +137,23 @@ public partial class MainWindow
                 :string.Format(CultureInfo.CurrentUICulture,T("Completed steps: {0} · Completed reviews: {1} (limit: {2})"),completed,reviews,c.MaxReviewRounds)});
             steps.Children.Add(RoundBar(c.History.Where(step=>step.Outcome is not "criteria_ready").Select(step=>step.Outcome).ToArray(),!progress.Finished));
         }
+        else if(task.RelaySteps is {} relaySteps)steps.Children.Add(new TextBlock{TextWrapping=TextWrapping.Wrap,Text=progress.Finished
+            ?T(task.State.ToString())
+            :string.Format(CultureInfo.CurrentUICulture,T("Step {0} of {1} · {2} handoffs in this relay"),task.ManualTurn+1,relaySteps.Length,
+                RelayService.HandoffCount(relaySteps.Length))});
         else steps.Children.Add(new TextBlock{TextWrapping=TextWrapping.Wrap,Text=progress.Finished?T(task.State.ToString()):progress.MaxTurns is null
             ?string.Format(CultureInfo.CurrentUICulture,T("Transfer turn {0}"),task.ManualTurn+1)
             :string.Format(CultureInfo.CurrentUICulture,T("Turn {0} of at most {1}"),task.ManualTurn+1,progress.MaxTurns)});
+        if(task.RelaySteps is {} relay)
+            steps.Children.Add(Muted(T("Relay steps")+": "+string.Join(" → ",relay.Select(step=>AgentName(step.AgentId)+(step.Role==RelayStepRole.Work?"":" ["+T(step.Role.ToString())+"]")))
+                +" · "+T("Current step")+" "+(task.ManualTurn+1)+"/"+relay.Length,12.5,new(0,8,0,0)));
         if(task.HandoffPlan is {} plan)steps.Children.Add(Muted(T("Planned steps")+": "+string.Join(" → ",plan.Select(AgentName))+" · "+T("Current step")+" "+(task.ManualTurn+1)+"/"+plan.Length,12.5,new(0,8,0,0)));
+        if(task.CompletionNote=="modified_not_retested")
+            steps.Children.Add(Muted(T("Modified without retest: the flow ended on a modify step and no later test step ran. The earlier test result is not a retest of this change."),12.5,new(0,8,0,0)));
+        if(task.HostWaitSeconds>0)
+            steps.Children.Add(Muted(string.Format(CultureInfo.CurrentUICulture,T("Waiting for the host took {0} s and was not counted against this turn's work time."),task.HostWaitSeconds),12.5,new(0,8,0,0)));
+        if(task.IndependentAcceptance&&task.Collaboration is {Phase:"review"})
+            steps.Children.Add(Muted(T("This review uses a conversation that was not used for the work. A new conversation does not isolate the host's global rules or memory."),12.5,new(0,8,0,0)));
         if(!progress.Finished)
         {
             var next=Muted(string.Format(CultureInfo.CurrentUICulture,T("Next recipient: {0}"),AgentName(task.AwaitingAgentId??task.RecipientId)),12.5,new(0,8,0,0));

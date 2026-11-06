@@ -1,9 +1,9 @@
 namespace AgentRelay.Core;
 
 public sealed record CollaborationOptions(string AuthorId, string? Criteria = null, int MaxReviewRounds = 5,
-    bool GenerateCriteria = false, bool ReviewerFinal = false);
+    bool GenerateCriteria = false, bool ReviewerFinal = false, bool IndependentAcceptance = false);
 public sealed record FileHandoffOptions(CollaborationOptions? Collaboration = null, bool AutoDeliver = false,
-    int? TurnTimeoutMinutes = null,bool ManualContinuous = false);
+    int? TurnTimeoutMinutes = null,bool ManualContinuous = false, RelayPlanOptions? RelayPlan = null);
 
 public sealed record CollaborationStep(int Turn, string AgentId, string Phase, string Outcome, DateTimeOffset At,
     string? ResultPath = null, string[]? OpenItems = null, string? Note = null);
@@ -15,6 +15,7 @@ public sealed class CollaborationRecord
     public string? Criteria { get; set; }
     public bool GenerateCriteria { get; set; }
     public bool ReviewerFinal { get; set; }
+    public bool IndependentAcceptance { get; set; }
     public int MaxReviewRounds { get; set; }
     // implement → review → (revise → review)* → accept → delivered
     public required string Phase { get; set; }
@@ -29,7 +30,15 @@ public sealed class CollaborationRecord
 /// <summary>What the board shows: who holds the task, how the turn travels and whether the user is needed.</summary>
 public sealed record HandoffProgress(string? CurrentAgentId, string? Phase, string WaitingOn, string Delivery,
     int Turn, int? MaxTurns, int? ReviewRound, int? MaxReviewRounds, string? NextIfPassed, string? NextIfChanged,
-    string? PauseReason, string? PauseMessage, bool Finished, string? Completion, string? DeliveryMessage = null);
+    string? PauseReason, string? PauseMessage, bool Finished, string? Completion, string? DeliveryMessage = null,
+    RelayStatus? Status = null);
+
+/// <summary>
+/// Separate facts, in the order they become true: Relay sent, the host confirmed the turn, the Agent declared it
+/// received and working, the turn was submitted, the flow ended. An Agent's declaration is never shown as proof.
+/// </summary>
+public sealed record RelayStatus(string Send, string Agent, string Host, string Flow, bool NeedsUser, string? Note,
+    int HandoffsDone = 0, int? HandoffsTotal = null, string? CompletionNote = null);
 
 public sealed partial class RelayService
 {
@@ -48,7 +57,7 @@ public sealed partial class RelayService
     {
         if (options.TurnTimeoutMinutes is < 1 or > 43200)
             throw new RelayException("handoff_turn_timeout", "单轮时限为 1–43200 分钟。");
-        if(options.ManualContinuous&&(options.Collaboration is not null||options.AutoDeliver))
+        if(options.ManualContinuous&&(options.Collaboration is not null||options.AutoDeliver||options.RelayPlan is not null))
             throw new RelayException("manual_options_invalid","手动连续传递不配置自动投递或预设验收角色。");
         if (options.Collaboration is not { } collaboration) return;
         if (collaboration.AuthorId != requesterId && collaboration.AuthorId != recipientId)
@@ -61,9 +70,12 @@ public sealed partial class RelayService
     {
         var task = s.Task(taskId);
         if (!task.IsFileHandoff || task.State != TaskState.AwaitingManual || task.ManualTurn != 0 ||
-            task.ManualReceiptJson is not null || task.CliFileTurn is not null || task.HandoffPlan is not null)
+            task.ManualReceiptJson is not null || task.CliFileTurn is not null || task.HandoffPlan is not null ||
+            task.RelaySteps is not null)
             throw new RelayException("handoff_options_started", "协作方式只能在首次投递和回执之前设置。");
         ValidateFileHandoffOptions(options, task.RequesterId, task.RecipientId);
+        // A fixed-count relay plan replaces the single-handoff or review-loop settings for this task.
+        if (options.RelayPlan is { } relayPlan) return ConfigureRelayPlan(s, task, relayPlan);
         task.AwaitingAgentId = task.RecipientId;
         if (options.Collaboration is { } collaboration)
         {
@@ -74,6 +86,7 @@ public sealed partial class RelayService
                 AuthorId = collaboration.AuthorId, ReviewerId = reviewer,
                 Criteria = string.IsNullOrWhiteSpace(collaboration.Criteria) ? null : collaboration.Criteria.Trim(),
                 GenerateCriteria = collaboration.GenerateCriteria, ReviewerFinal = collaboration.ReviewerFinal,
+                IndependentAcceptance = collaboration.IndependentAcceptance,
                 MaxReviewRounds = collaboration.MaxReviewRounds,
                 Phase = collaboration.GenerateCriteria ? "criteria" : reviewFirst ? "review" : "implement", ReviewRound = reviewFirst ? 1 : 0,
                 // When the sender already holds the work, the original request file is the first submission.
@@ -109,6 +122,9 @@ public sealed partial class RelayService
             case "agent_failed":
                 // The failed turn's delivery is spent; the retry is a new turn for the same Agent.
                 task.ManualTurn++;
+                EnsureTurnControl(task);
+                task.SendStartedAt = null; task.DeliveredAt = null; task.AcknowledgedAt = null; task.WorkingAt = null;
+                task.HostTurnEnded = null;
                 break;
         }
         if (!string.IsNullOrWhiteSpace(note))
@@ -159,7 +175,44 @@ public sealed partial class RelayService
         return new(current, collaboration?.Phase, waiting, delivery, task.ManualTurn,
             collaboration is null && !task.ManualContinuous ? task.MaxTurns ?? MaxManualTurns : null,
             collaboration?.ReviewRound, collaboration?.MaxReviewRounds, passed, changed,
-            task.PauseReason, task.PauseMessage, finished, completion, finished ? null : FileDeliveryMessage(task));
+            task.PauseReason, task.PauseMessage, finished, completion, finished ? null : FileDeliveryMessage(task),
+            RelayStatusOf(task, finished, delivery));
+    }
+
+    /// <summary>Delivery, host turn, Agent declarations and flow state are reported separately, never merged.</summary>
+    private RelayStatus RelayStatusOf(TaskRecord task, bool finished, string delivery)
+    {
+        var cliTurn = task.CliFileTurn == task.ManualTurn;
+        // Relay's own call for a previous turn may still be running; that is a send in flight, not "not sent".
+        var inFlight = task.CliFileTurn is not null && task.CliFileStatus == "submitting";
+        var send = inFlight ? "sending" : !cliTurn ? "not_sent" : task.CliFileStatus switch
+        {
+            "submitted" => "delivered", "unknown" => "sent_unknown", "failed" => "failed", _ => "not_sent"
+        };
+        var last = task.TurnStatuses.Where(entry => entry.Turn == task.ManualTurn && entry.Accepted).LastOrDefault();
+        var agent = last?.Status switch
+        {
+            "received" => "received", "working" => "working", "done" => "submitted", "failed" => "failed", _ => "none"
+        };
+        var host = inFlight ? "running" : !cliTurn ? "not_started" : task.CliFileStatus switch
+        {
+            "submitted" => task.HostTurnEnded == true ? "ended" : "unknown",
+            _ => task.HostTurnEnded == true ? "ended" : "unknown"
+        };
+        var flow = finished ? task.State switch
+            {
+                TaskState.Succeeded => "finished", TaskState.Cancelled => "cancelled",
+                TaskState.TimedOut => "timed_out", _ => "failed"
+            }
+            : task.State == TaskState.Paused ? "paused" : "active";
+        var needsUser = task.State == TaskState.Paused || delivery is "cli_blocked" or "cli_unconfirmed" or "cli_ready" or "copy_prompt";
+        // A submitted receipt does not prove the host stopped. Say so instead of implying the next step is safe.
+        var note = agent == "submitted" && host == "unknown"
+            ? "结果已提交，但无法确认宿主轮次已结束；自动开始下一步会等待确认或由你决定。"
+            : agent == "submitted" && host == "running" && !finished
+                ? "结果已提交，当前投递仍在执行；不会在宿主结束前自动开始下一步。"
+                : null;
+        return new(send, agent, host, flow, needsUser, note, HandoffsDone(task), HandoffsTotal(task), task.CompletionNote);
     }
 
     private TimeSpan TurnTimeout(StoreSession s, TaskRecord task) => TimeSpan.FromMinutes(
@@ -205,6 +258,11 @@ public sealed partial class RelayService
     {
         task.AwaitingAgentId = next; task.ManualTurn++; task.State = TaskState.AwaitingReply;
         task.ManualNextAction = action;
+        // The new turn gets its own writable control directory before anyone is asked to write a receipt.
+        EnsureTurnControl(task);
+        // A new turn starts its own clock; the previous turn's delivery evidence does not carry over.
+        task.SendStartedAt = null; task.DeliveredAt = null; task.AcknowledgedAt = null; task.WorkingAt = null;
+        task.HostTurnEnded = null;
         task.DeadlineAt = Now + TurnTimeout(s, task);
     }
 
@@ -253,6 +311,7 @@ public sealed partial class RelayService
                 c.SubmissionPath = artifact.Path; c.ApprovedSubmissionPath = null; c.OpenItems = items;
                 c.ReviewRound++; c.Phase = "review";
                 AdvanceFileHandoff(s, task, c.ReviewerId, receipt.NextAction ?? "请按验收标准检查作者的最新提交。");
+                EnsureIndependentReviewSession(s, task, c);
                 if (c.MaxReviewRounds > 0 && c.ReviewRound > c.MaxReviewRounds)
                     PauseFileHandoff(s, task, "round_limit", $"已用完 {c.MaxReviewRounds} 轮验收，最新提交尚未复验。请决定追加轮数继续、取消或人工标记完成。", TaskState.AwaitingReply);
                 else if (unchanged)
@@ -301,6 +360,21 @@ public sealed partial class RelayService
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// When the user asks for independent acceptance and the reviewer also executed or tested this task, the review
+    /// must not continue in the execution conversation. A new session still shares the host's global rules and memory.
+    /// </summary>
+    private void EnsureIndependentReviewSession(StoreSession s, TaskRecord task, CollaborationRecord c)
+    {
+        if (!c.IndependentAcceptance) return;
+        var participated = c.History.Any(step => step.AgentId == c.ReviewerId && step.Phase is "criteria" or "implement" or "revise");
+        if (!participated) return;
+        if (ReadTaskSession(s, task, c.ReviewerId)?.SessionId is null) return;
+        StartFreshSession(s, task, c.ReviewerId);
+        s.Event(task, "collaboration.independent_session", c.ReviewerId, Now,
+            "review uses a new session because the reviewer also executed this task; host-wide rules and memory are not isolated");
     }
 
     private ArtifactRecord? KeepReceiptResult(StoreSession s, TaskRecord task, string? file)

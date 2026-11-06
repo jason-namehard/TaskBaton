@@ -44,7 +44,8 @@ public static partial class DshDesktopClient
 
     /// <summary>Returns the turn as relay-json on stdout, like the ACP client.</summary>
     internal static async Task<ProcessResult> RunAsync(CliCommand command, string prompt, string? sessionId, string cwd,
-        TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images)
+        TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images,
+        Action<string>? sessionObserved = null)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
@@ -53,7 +54,7 @@ public static partial class DshDesktopClient
             var dshHome = command.Environment?.GetValueOrDefault("DSH_HOME")
                 ?? throw new DshDesktopException("调用方案缺少 DSH_HOME 环境变量，找不到 DSH 的数据目录。");
             using var host = await Connect(command.Executable, dshHome, deadline.Token);
-            return await RunTurnAsync(host, prompt, sessionId, cwd, deadline.Token, images);
+            return await RunTurnAsync(host, prompt, sessionId, cwd, deadline.Token, images, sessionObserved);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -66,10 +67,15 @@ public static partial class DshDesktopClient
     }
 
     internal static async Task<ProcessResult> RunTurnAsync(Host host, string prompt, string? sessionId, string cwd, CancellationToken token,
-        IReadOnlyList<PreparedTaskImage>? images = null)
+        IReadOnlyList<PreparedTaskImage>? images = null, Action<string>? sessionObserved = null)
     {
-        sessionId ??= (await host.Call("session/create", new JsonObject { ["cwd"] = cwd, ["agentPreset"] = "standard" }, token))
-            ?["sessionId"]?.GetValue<string>() ?? throw new DshDesktopException("DSH 没有返回新会话 ID。");
+        if (sessionId is null)
+        {
+            sessionId = (await host.Call("session/create", new JsonObject { ["cwd"] = cwd, ["agentPreset"] = "standard" }, token))
+                ?["sessionId"]?.GetValue<string>() ?? throw new DshDesktopException("DSH 没有返回新会话 ID。");
+            // The desktop hands out the id before the turn runs; report it now so a timeout keeps the exact conversation.
+            sessionObserved?.Invoke(sessionId);
+        }
         var baseline = await host.LatestSeq(sessionId, token);
         var content = new JsonArray();
         if (images is not null)

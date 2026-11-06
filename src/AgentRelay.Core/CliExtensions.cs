@@ -229,18 +229,24 @@ public static class CliRecipes
             await ImageDelivery.PrepareAsync(images, cancellationToken));
 
     internal static Task<ProcessResult> InvokePreparedAsync(CliCommand command, string format, string prompt, string? sessionId,
-        string home, TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images)
+        string home, TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images,
+        Action<string>? sessionObserved = null)
     {
         if (format == "acp")
-            return AcpClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken, images);
+            return AcpClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken, images, sessionObserved);
         if (format == "dsh-desktop")
-            return DshDesktopClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken, images);
+            return DshDesktopClient.RunAsync(command, prompt, sessionId, command.WorkingDirectory ?? home, timeout, cancellationToken, images, sessionObserved);
         prompt = ImageDelivery.AddFileInstructions(prompt, images);
         string Expand(string template) => template.Replace("{session_id}", sessionId ?? "", StringComparison.Ordinal)
             .Replace("{relay_home}", home, StringComparison.Ordinal).Replace("{prompt}", prompt, StringComparison.Ordinal);
         return RelayProcess.RunAsync(command.Executable, command.Arguments.Select(Expand),
             command.Input is null ? null : Expand(command.Input), timeout, cancellationToken,
-            environment: command.Environment, workingDirectory: command.WorkingDirectory);
+            environment: command.Environment, workingDirectory: command.WorkingDirectory,
+            // A streaming host prints the new session id long before the turn ends; report it as soon as it appears.
+            onLine: sessionObserved is null ? null : line =>
+            {
+                if (CliOutput.SessionIdFromLine(line, format) is { Length: > 0 } observed) sessionObserved(observed);
+            });
     }
 
     internal static (string? SessionId, string Reply)? Receipt(ProcessResult process, string outputFormat = "relay-json") =>

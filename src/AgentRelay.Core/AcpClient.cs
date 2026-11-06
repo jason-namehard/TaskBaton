@@ -15,7 +15,8 @@ internal static class AcpClient
 
     /// <summary>Returns the turn as relay-json on stdout so the regular output reader and diagnostics apply unchanged.</summary>
     public static async Task<ProcessResult> RunAsync(CliCommand command, string prompt, string? sessionId, string cwd,
-        TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images)
+        TimeSpan timeout, CancellationToken cancellationToken, IReadOnlyList<PreparedTaskImage> images,
+        Action<string>? sessionObserved = null)
     {
         var start = new ProcessStartInfo(command.Executable)
         {
@@ -36,7 +37,7 @@ internal static class AcpClient
         var session = new Session(process.StandardInput, process.StandardOutput, cwd);
         try
         {
-            var reply = await session.RunTurnAsync(prompt, sessionId, images, deadline.Token);
+            var reply = await session.RunTurnAsync(prompt, sessionId, images, deadline.Token, sessionObserved);
             return new ProcessResult(0, reply, await Finish(process, stderr), false);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
@@ -73,7 +74,8 @@ internal static class AcpClient
         private readonly StringBuilder transcript = new();
         public string Transcript => transcript.Length <= 8 * 1024 ? transcript.ToString() : transcript.ToString()[^(8 * 1024)..];
 
-        public async Task<string> RunTurnAsync(string prompt, string? sessionId, IReadOnlyList<PreparedTaskImage> images, CancellationToken token)
+        public async Task<string> RunTurnAsync(string prompt, string? sessionId, IReadOnlyList<PreparedTaskImage> images, CancellationToken token,
+            Action<string>? sessionObserved = null)
         {
             var init = await Request("initialize", new JsonObject
             {
@@ -92,6 +94,8 @@ internal static class AcpClient
             {
                 var created = await Request("session/new", new JsonObject { ["cwd"] = cwd, ["mcpServers"] = mcp }, token);
                 sessionId = created?["sessionId"]?.GetValue<string>() ?? throw new AcpException("ACP session/new returned no sessionId.");
+                // Report the new id before the prompt runs, so a timeout cannot lose the exact conversation.
+                sessionObserved?.Invoke(sessionId);
             }
             else
             {

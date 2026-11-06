@@ -94,7 +94,7 @@ public sealed class CliHandoffDialog : Window
             var choice=options.Build(sender,recipient);
             Result=new(sender,recipient,prompt.Text,Origin?.SessionId,existing.IsChecked==true?Target!.SessionId:null,
                 permission.IsChecked==true,Origin?.Cwd,existing.IsChecked==true?Target?.Cwd:string.IsNullOrWhiteSpace(newCwd.Text)?null:newCwd.Text.Trim(),
-                choice.Collaboration,choice.AutoDeliver,choice.TurnTimeoutMinutes,images.Length>0?images:null);
+                choice.Collaboration,choice.AutoDeliver,choice.TurnTimeoutMinutes,images.Length>0?images:null,choice.RelayPlan);
             DialogResult=true;
         },true);
         var cancel=ui.Button(ui.Actions,"Cancel","CancelCliTask",()=>DialogResult=false);cancel.IsCancel=true;
