@@ -15,7 +15,8 @@ public sealed record CliProbe(string ProbeId, string Operation, string Marker, s
     CliSidebarSyncResult? SidebarSync = null);
 public sealed record ProbeArtifact(string ProbeId, string Operation, string Marker, string? SessionId,
     SessionDiscoverySource? Source, bool OwnedSession, string? SessionDirectory = null, CliCommand? CreateCommand = null,
-    bool Completed = false, string? OwnershipWarning = null);
+    bool Completed = false, string? OwnershipWarning = null, string[]? DshAttachmentIds = null,
+    string? OutputFormat = null);
 /// <summary>A real handoff turn sent through this recipe whose Agent then wrote the turn's receipt.</summary>
 public sealed record CliDeliveryEvidence(string TaskId, int Turn, string? SessionId, DateTimeOffset VerifiedAt);
 /// <summary>A host condition that makes further unattended calls pointless until the user resolves it.</summary>
@@ -323,7 +324,8 @@ public sealed partial class RelayService
         var sessionId = operation == "resume" ? record.CreateProbe!.SessionId : null;
         var command = operation == "create" ? record.Recipe.Create : CliRecipes.ResumeCommand(record.Recipe)!;
         var snapshot = CaptureProbeSessions(agentId);
-        var artifact = new ProbeArtifact(probeId, operation, marker, null, snapshot.Source, false, CreateCommand: command);
+        var artifact = new ProbeArtifact(probeId, operation, marker, null, snapshot.Source, false, CreateCommand: command,
+            OutputFormat: CliRecipes.OutputFormatFor(record.Recipe));
         store.Write(s =>
         {
             var current = ReadCliExtension(s, agentId);
@@ -377,7 +379,10 @@ public sealed partial class RelayService
         var createdSession = operation == "create" || sessionId != record.CreateProbe!.SessionId ? sessionId : null;
         var ownership = createdSession is not null ? IdentifyProbeSession(snapshot, createdSession) : null;
         artifact = artifact with { SessionId = createdSession,
-            OwnedSession = ownership?.Owned == true, SessionDirectory = ownership?.Directory, Completed = true,
+            OwnedSession = ownership?.Owned == true,
+            SessionDirectory = ownership?.Owned == true && artifact.OutputFormat == "dsh-desktop"
+                ? Path.GetFullPath(command.WorkingDirectory ?? Home) : ownership?.Directory,
+            Completed = true,
             OwnershipWarning = ownership?.Warning };
         var cleanupWarning = ownership?.Warning;
         if (fileCleanupWarning is not null)

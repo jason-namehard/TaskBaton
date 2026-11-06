@@ -73,6 +73,25 @@ public sealed class AgentGuidanceTests
     }
 
     [TestMethod]
+    [DataRow(false, false)]
+    [DataRow(false, true)]
+    [DataRow(true, false)]
+    [DataRow(true, true)]
+    public void SetupPromptRequiresCleanupOfOnlyItsOwnUnneededArtifactsAndReportsTheResult(bool update, bool hasCommand)
+    {
+        var prompt = service.AgentSetupPrompt(update ? "agent-a" : null, hasCommand ? "relay" : null);
+        StringAssert.Contains(prompt, "本次创建的临时文件、测试和探针及其产物的确切路径或标识");
+        StringAssert.Contains(prompt, "本次配置创建、归属明确且已不再需要的临时产物");
+        StringAssert.Contains(prompt, "临时 JSON、废弃 Markdown、压缩包、备份、测试和探针产物、临时脚本");
+        StringAssert.Contains(prompt, "最终生效的配置、运行必需文件及必要的最终说明");
+        StringAssert.Contains(prompt, "配置前已有的文件、其他会话的产物、仍在执行或使用中的数据以及无法确认归属的数据");
+        StringAssert.Contains(prompt, "不按扩展名或目录批量删除");
+        StringAssert.Contains(prompt, "列出保留项和清理摘要");
+        StringAssert.Contains(prompt, "暂时无法清理的临时产物说明路径和原因");
+        Assert.DoesNotContain("只向用户报告已登记", prompt, StringComparison.Ordinal);
+    }
+
+    [TestMethod]
     public void NewSetupPromptsHaveUniqueRequestsAndNeverTargetSelectedNodes()
     {
         var first = service.AgentSetupPrompt(relayCommand: "relay");

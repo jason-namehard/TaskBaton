@@ -52,11 +52,17 @@
         "resolved": "2.10.1",
         "contentHash": "ykjOY3IpYmC4SpPcAZRTl/w2jTmhPMDydHq8xcV7tTBAQ22nKBsOkPqauIrZlMjHm03cmKfV23UOPscKp+J4Og=="
       },
+      "ZstdSharp.Port": {
+        "type": "Transitive",
+        "resolved": "0.8.8",
+        "contentHash": "UIDFkA5DC3en3tOJ3Mof11yBx9kUQLsaeo/oFdvN6Bbkr9E9+VCqfIadHci8cu+I51K2Sl7XYWVl2R/mA75NBQ=="
+      },
       "agentrelay.core": {
         "type": "Project",
         "dependencies": {
           "Microsoft.Data.Sqlite": "[10.0.13, )",
-          "Tomlyn": "[2.10.1, )"
+          "Tomlyn": "[2.10.1, )",
+          "ZstdSharp.Port": "[0.8.8, )"
         }
       }
     },

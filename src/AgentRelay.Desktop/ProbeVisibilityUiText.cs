@@ -5,6 +5,13 @@ internal static class ProbeVisibilityUiText
     public static void AddTo(Dictionary<string,string[]> entries)
     {
         void Add(string en,string cn,string tw,string ja,string ko,string es)=>entries[en]=[en,cn,tw,ja,ko,es];
+        Add("Shared attachment kept","已保留共享附件","已保留共用附件","共有添付を保持","공유 첨부 보관됨","Adjunto compartido conservado");
+        Add("To clean up DSH probes, save your work and fully quit DSH, including the tray, then run cleanup. Relay never closes the host. Shared images and data whose ownership cannot be confirmed are kept.",
+            "清理 DSH 探针前，请保存工作并从托盘完全退出 DSH，再执行清理。Relay 不会关闭宿主。共享图片和无法确认归属的数据会保留。",
+            "清理 DSH 探針前，請儲存工作並從系統匣完全退出 DSH，再執行清理。Relay 不會關閉宿主。共用圖片和無法確認歸屬的資料會保留。",
+            "DSH テストの整理前に作業を保存し、トレイから DSH を完全に終了してください。Relay がホストを終了することはありません。共有画像と所有を確認できないデータは保持されます。",
+            "DSH 프로브를 정리하기 전에 작업을 저장하고 트레이에서도 DSH를 완전히 종료하세요. Relay는 호스트를 종료하지 않습니다. 공유 이미지와 소유권을 확인할 수 없는 데이터는 보관됩니다.",
+            "Antes de limpiar pruebas de DSH, guarda el trabajo y cierra DSH por completo, incluida la bandeja. Relay nunca cierra el host. Se conservan las imágenes compartidas y los datos cuya propiedad no puede confirmarse.");
         Add("Clean up probe sessions and files","清理探针会话和文件","清理探針會話及檔案","テストの会話とファイルを整理","프로브 대화 및 파일 정리","Limpiar sesiones y archivos de prueba");
         Add("Clean up this Agent's recorded probe sessions and files? Verification stays enabled. Sessions used by real tasks, items whose ownership cannot be confirmed, and unsupported items are kept and reported. Some hosts can archive a session but cannot delete it. Once a probe session is removed, a new-session probe is needed to test resume again.",
             "清理此 Agent 已记录的探针会话和文件？已通过的验证会保留。真实任务使用的会话、无法确认归属的项目及宿主不支持清理的项目会保留并在结果中列出。部分宿主只能归档会话，不能删除。清理探针会话后，若要再测试续接，需要重新运行新会话探针。",

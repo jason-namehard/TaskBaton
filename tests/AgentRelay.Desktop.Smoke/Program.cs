@@ -328,6 +328,9 @@ internal static partial class Program
                 Check(format=="zcode-json"?hint.Contains("foreground")&&hint.Contains("syncing is off or fails")&&!hint.Contains("11 minutes"):hint.Contains("without restarting"),"Probe advice distinguishes sidebar sync and foreground refresh from the live DSH desktop bridge");
                 Check(!FindAll<Button>(dialog).Any(button=>button.Name=="CopyBridgeDiagnostic"),"Verified probes do not offer a misleading repair action");
                 Check(FindAll<Button>(dialog).Any(button=>button.Name=="CleanupCliProbe"),"Verified probes offer explicit session and file cleanup");
+                if(format=="dsh-desktop")
+                    Check(Find<TextBlock>(dialog,"ProbeCleanupDshHint").Text.Contains("fully quit DSH",StringComparison.Ordinal),
+                        "DSH cleanup explains that the tray host must be fully closed before removing probe data");
                 Press(dialog,"CloseCliProbe");
             });
         }

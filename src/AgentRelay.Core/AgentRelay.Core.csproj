@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Skills\relay-cache-parity\SKILL.md" LogicalName="AgentRelay.Skills.relay-cache-parity" />

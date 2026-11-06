@@ -114,8 +114,10 @@ public sealed class CliProbeDialog : Window
                     resume.ToolTip=T("The probe session was cleaned up. Run a new-session probe before testing resume again.");
                 if(extension.ResumeProbe is {} resumed)ProbeResult(resumed);
             }
-            if(extension.CreateProbe is {MachinePassed:true,UserConfirmed:true})
+            if(extension.ProbeArtifacts is {Length:>0} || extension.CreateProbe is {MachinePassed:true,UserConfirmed:true})
             {
+                if(CliRecipes.OutputFormatFor(extension.Recipe)=="dsh-desktop")
+                    layout.Body.Children.Add(new TextBlock{Name="ProbeCleanupDshHint",Text=T("To clean up DSH probes, save your work and fully quit DSH, including the tray, then run cleanup. Relay never closes the host. Shared images and data whose ownership cannot be confirmed are kept."),TextWrapping=TextWrapping.Wrap,Margin=new(0,8,0,10)});
                 var cleanup=Action(layout.Body,"Clean up probe sessions and files","CleanupCliProbe",CleanupProbe);
                 cleanup.IsEnabled=!demo;
                 if(demo)cleanup.ToolTip=T("Demo mode does not clean real host sessions.");
@@ -159,7 +161,7 @@ public sealed class CliProbeDialog : Window
             });
             var status=T(item.Status switch
             {
-                "removed"=>"Removed", "absent"=>"Already absent", "synced"=>"Index updated",
+                "removed"=>"Removed", "absent"=>"Already absent", "synced"=>"Index updated", "shared"=>"Shared attachment kept",
                 "unsupported"=>"Not supported", "unverified"=>"Ownership unverified", "in_use"=>"Used by a task",
                 "failed"=>"Cleanup failed", "pending"=>"Cleanup pending",
                 _=>throw new InvalidOperationException("Unknown probe cleanup item status: "+item.Status)

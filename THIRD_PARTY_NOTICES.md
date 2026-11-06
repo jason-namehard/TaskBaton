@@ -17,6 +17,7 @@ Windows 安装器使用 [Inno Setup](https://github.com/jrsoftware/issrc) 构建
 | ModelContextProtocol / ModelContextProtocol.Core | 2.3.0 | 包声明 Apache-2.0；Model Context Protocol a Series of LF Projects, LLC，许可转换中的 MIT 内容另见原文 | stdio MCP 协议、协商、工具与客户端测试 |
 | Microsoft.Extensions.Hosting 及实际传递依赖 | 10.0.13；完整版本见 lockfile | MIT；.NET Foundation and Contributors | MCP 服务生命周期、依赖注入及 stderr 日志 |
 | Tomlyn | 2.10.1 | BSD-2-Clause；Copyright 2019–2026 Alexandre Mutel | TOML 读取与语法校验 |
+| [ZstdSharp.Port](https://github.com/oleg-st/ZstdSharp) | 0.8.8 | MIT；Copyright (c) 2021 Oleg Stepanischev，许可见 `licenses/ZstdSharp-MIT.txt` | 读取 DSH 的 Zstandard 会话日志，核对探针图片附件的引用 |
 
 许可全文位于 `licenses/`。Microsoft.Data.Sqlite 来源为 [dotnet/efcore](https://github.com/dotnet/efcore)，System.CommandLine 来源为 [dotnet/command-line-api](https://github.com/dotnet/command-line-api)，SQLitePCLRaw 来源为 [ericsink/SQLitePCL.raw](https://github.com/ericsink/SQLitePCL.raw)。许可证适用于各自组件，不因本项目 MIT 声明而被替换。打包脚本将本文件、项目 LICENSE 和依赖许可全文一起复制到分发目录。
 

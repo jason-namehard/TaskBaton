@@ -9,7 +9,8 @@ public sealed record ProbeCleanupItem(string? SessionId, string Kind, string Sta
     string? Path = null, string? BackupPath = null);
 public sealed record ProbeCleanupResult(string AgentId, IReadOnlyList<ProbeCleanupItem> Items)
 {
-    public bool Complete => Items.All(item => item.Status is "removed" or "absent" or "synced");
+    public bool Complete => Items.All(IsComplete);
+    internal static bool IsComplete(ProbeCleanupItem item) => item.Status is "removed" or "absent" or "synced" or "shared";
 }
 
 internal sealed record ProbeSessionSnapshot(SessionDiscoverySource? Source, HashSet<string>? SessionIds, string? Warning);
@@ -22,7 +23,7 @@ public sealed partial class RelayService
         var source = DiscoverySource(agentId);
         if (source is null) return new(null, null, "此宿主没有可核实的会话来源，无法自动清理探针会话。");
         try { return new(source, ProbeHostSessions.Ids(source), null); }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or SqliteException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or SqliteException or InvalidDataException)
         {
             return new(source, null, "无法读取探针前的宿主会话，无法自动清理探针会话：" + error.Message);
         }
@@ -39,7 +40,7 @@ public sealed partial class RelayService
             return found.Exists ? new(true, found.Directory, null)
                 : new(false, null, "宿主未持久化返回的会话 ID，无法确认其归属。");
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or SqliteException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or SqliteException or InvalidDataException)
         {
             return new(false, null, "无法核实探针后的宿主会话，无法自动清理：" + error.Message);
         }
@@ -90,7 +91,7 @@ public sealed partial class RelayService
                     items.Add(new(id, "session", "in_use", "会话已绑定实际任务，已保留。"));
                 else
                 {
-                    var sessionItems = await CleanupOwnedSessionAsync(artifact, cancellationToken);
+                    var sessionItems = await CleanupOwnedSessionAsync(agentId, artifact, cancellationToken);
                     items.AddRange(sessionItems);
                     if (sessionItems.Any(i => i.Kind == "session" && i.Status is "removed" or "absent"))
                     {
@@ -110,7 +111,7 @@ public sealed partial class RelayService
                 }
             }
 
-            if (items.Skip(start).All(item => item.Status is "removed" or "absent" or "synced"))
+            if (items.Skip(start).All(ProbeCleanupResult.IsComplete))
                 store.Write(s =>
                 {
                     var current = ReadCliExtension(s, agentId);
@@ -122,12 +123,21 @@ public sealed partial class RelayService
         return new(agentId, items);
     }
 
-    private async Task<IReadOnlyList<ProbeCleanupItem>> CleanupOwnedSessionAsync(ProbeArtifact artifact, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<ProbeCleanupItem>> CleanupOwnedSessionAsync(string agentId, ProbeArtifact artifact, CancellationToken cancellationToken)
     {
         var source = artifact.Source!;
         var id = artifact.SessionId!;
         if (!Regex.IsMatch(id, "^[A-Za-z0-9_-]+$", RegexOptions.CultureInvariant))
             return [new(id, "session", "unverified", "宿主会话 ID 格式无法安全定位，已保留。")];
+
+        if (source.Provider == "dsh")
+            return DshProbeCleanup.Cleanup(artifact, ids => store.Write(s =>
+            {
+                var current = ReadCliExtension(s, agentId)!;
+                SaveCliExtension(s, current with { ProbeArtifacts = [.. current.ProbeArtifacts!.Select(p =>
+                    p.ProbeId == artifact.ProbeId ? p with { DshAttachmentIds = ids } : p)] });
+                return true;
+            }), cancellationToken);
 
         if (source.Provider == "zcode")
         {
@@ -257,9 +267,7 @@ internal static class ProbeHostSessions
     {
         if (source.Provider == "dsh")
         {
-            var sessions = Path.Combine(source.StorageRoot, "sessions");
-            return !Directory.Exists(sessions) ? [] : Directory.EnumerateDirectories(sessions)
-                .SelectMany(Directory.EnumerateDirectories).Select(Path.GetFileName).OfType<string>().ToHashSet(StringComparer.Ordinal);
+            return DshProbeCleanup.SessionDirectories(source.StorageRoot).Select(path => Path.GetFileName(path)!).ToHashSet(StringComparer.Ordinal);
         }
         var (database, table) = Database(source);
         if (!File.Exists(database)) return [];
@@ -274,7 +282,11 @@ internal static class ProbeHostSessions
 
     internal static (bool Exists, string? Directory) Find(SessionDiscoverySource source, string id)
     {
-        if (source.Provider == "dsh") return (Ids(source).Contains(id), null);
+        if (source.Provider == "dsh")
+        {
+            var directory = DshProbeCleanup.SessionDirectories(source.StorageRoot).FirstOrDefault(p => Path.GetFileName(p) == id);
+            return (directory is not null, null);
+        }
         var (database, table) = Database(source);
         if (!File.Exists(database)) return (false, null);
         using var connection = SessionProviders.OpenReadOnly(database);
@@ -415,10 +427,36 @@ internal static class ZcodeProbeCleanup
         try
         {
             using var connection = OpenWrite(path);
+            bool HasTable(string table)
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=$name)";
+                command.Parameters.AddWithValue("$name", table);
+                return Convert.ToInt64(command.ExecuteScalar()) != 0;
+            }
+            var deletes = new List<string>();
+            var counts = new List<string> { "SELECT COUNT(*) FROM tasks WHERE task_id=$id" };
+            foreach (var table in new[] { "task_group_members", "task_group_admissions" }.Where(HasTable))
+            {
+                deletes.Add($"DELETE FROM {table} WHERE task_id=$id;");
+                counts.Add($"SELECT COUNT(*) FROM {table} WHERE task_id=$id");
+            }
+            if (HasTable("task_group_view_node_orders"))
+            {
+                deletes.Add("DELETE FROM task_group_view_node_orders WHERE node_type='task' AND instr(node_key,$quoted)>0;");
+                counts.Add("SELECT COUNT(*) FROM task_group_view_node_orders WHERE node_type='task' AND instr(node_key,$quoted)>0");
+            }
+            bool cliDeleted;
+            using (var schema = connection.CreateCommand())
+            {
+                schema.CommandText = "SELECT EXISTS(SELECT 1 FROM pragma_table_info('tasks') WHERE name='cli_deleted')";
+                cliDeleted = Convert.ToInt64(schema.ExecuteScalar()) != 0;
+            }
             using (var lookup = connection.CreateCommand())
             {
-                lookup.CommandText = "SELECT EXISTS(SELECT 1 FROM tasks WHERE task_id=$id)";
+                lookup.CommandText = "SELECT " + string.Join(" + ", counts.Select(sql => "(" + sql + ")"));
                 lookup.Parameters.AddWithValue("$id", id);
+                lookup.Parameters.AddWithValue("$quoted", "\"" + id + "\"");
                 if (Convert.ToInt64(lookup.ExecuteScalar()) == 0)
                     return new(id, "index", "absent", "Zcode 侧栏索引中没有此会话。", path);
             }
@@ -431,18 +469,15 @@ internal static class ZcodeProbeCleanup
             using (var transaction = connection.BeginTransaction())
             {
                 using var command = connection.CreateCommand(); command.Transaction = transaction;
-                command.CommandText = """
-                    UPDATE tasks SET deleted=1, archived=1 WHERE task_id=$id;
-                    DELETE FROM task_group_admissions WHERE task_id=$id;
-                    DELETE FROM task_group_view_node_orders WHERE node_type='task' AND instr(node_key,$quoted)>0;
-                    """;
+                command.CommandText = "UPDATE tasks SET deleted=1, archived=1" + (cliDeleted ? ", cli_deleted=1" : "") +
+                    " WHERE task_id=$id;\n" + string.Join("\n", deletes);
                 command.Parameters.AddWithValue("$id", id); command.Parameters.AddWithValue("$quoted", "\"" + id + "\"");
                 command.ExecuteNonQuery(); transaction.Commit();
             }
             using var check = connection.CreateCommand(); check.CommandText = "PRAGMA integrity_check";
             var integrity = (string)check.ExecuteScalar()!;
             if (integrity != "ok") return new(id, "index", "failed", "侧栏索引完整性检查失败：" + integrity, path, backup);
-            return new(id, "index", "synced", "已同步 Zcode 侧栏索引（integrity_check=ok）。", path, backup);
+            return new(id, "index", "synced", "已清理 Zcode 侧栏索引。切回 Zcode 可刷新列表。", path, backup);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or SqliteException)
         {

@@ -300,6 +300,24 @@ public sealed class ProbeCleanupTests
         Assert.AreEqual(2L, Scalar(index, "SELECT COUNT(*) FROM tasks WHERE deleted=0 AND archived=0"));
     }
 
+    [TestMethod]
+    public void ZcodeCleanupRemovesOrphanMembershipAndSortRowsWhenTaskRowIsGone()
+    {
+        var index = Index(zcode);
+        Execute(index, """
+            DELETE FROM tasks WHERE task_id='probe-session';
+            CREATE TABLE task_group_members(task_id TEXT);
+            INSERT INTO task_group_members VALUES('probe-session'),('another-session');
+            """);
+        var result = ZcodeProbeCleanup.SyncIndex(index, "probe-session", Path.Combine(root, "backups"));
+        Assert.AreEqual("synced", result.Status, result.Message);
+        Assert.AreEqual(0L, Scalar(index, "SELECT COUNT(*) FROM task_group_members WHERE task_id='probe-session'"));
+        Assert.AreEqual(1L, Scalar(index, "SELECT COUNT(*) FROM task_group_members WHERE task_id='another-session'"));
+        Assert.AreEqual(0L, Scalar(index, "SELECT COUNT(*) FROM task_group_admissions WHERE task_id='probe-session'"));
+        Assert.AreEqual(0L, Scalar(index, "SELECT COUNT(*) FROM task_group_view_node_orders WHERE node_type='task' AND node_key='[\"probe-session\"]'"));
+        Assert.AreEqual(1L, Scalar(index, "SELECT COUNT(*) FROM task_group_view_node_orders WHERE node_type='group'"));
+    }
+
     private (string Root, string Database, CliCommand Command) HermesFixture()
     {
         var hermes = Path.Combine(root, "hermes-data"); var path = Path.Combine(hermes, "state.db");
