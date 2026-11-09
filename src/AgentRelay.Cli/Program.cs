@@ -173,9 +173,15 @@ public static class RelayCli
         Sync(handoff, "status", "由当前 Agent 轻量登记 received 或 working；不必手写回执 JSON", ["task!", "status!", "note"],
             (s,v) => s.RegisterTurnStatus(v.Get("task"), v.Get("status"), v.Optional("note")));
         Sync(handoff, "allow-images", "只为指定后续轮次补带所选图片（省略 --image 表示全部原图）", ["task!", "turn", "image"],
-            (s,v) => s.AllowTurnImages(v.Get("task"),
-                v.Optional("turn") is { } turn && int.TryParse(turn, out var number) ? number : s.Status(v.Get("task")).Task.ManualTurn,
-                v.Optional("image")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+            (s,v) =>
+            {
+                var taskId = v.Get("task");
+                var turn = v.Optional("turn") is not { } value ? s.Status(taskId).Task.ManualTurn
+                    : int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number
+                    : throw new ArgumentException("--turn 必须为整数。");
+                return s.AllowTurnImages(taskId, turn,
+                    v.Optional("image")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            });
         Add(handoff, "sync", "导入回执；加 --deliver 时发送已选择自动投递且能力已验证的轮次", ["deliver?", "approve?"], async (s,v) =>
         {
             if(v.Flag("deliver")&&!v.Flag("approve"))throw new RelayException("approval_required","自动投递会启动目标 CLI，可能产生模型费用，确认后加 --approve。");

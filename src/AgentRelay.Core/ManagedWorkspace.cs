@@ -46,12 +46,33 @@ public sealed class ManagedWorkspace(string home)
         return artifact;
     }
 
-    public void WriteNew(string path, string content)
+    public void WriteNew(string path, string content) => Write(path, content, overwrite: false);
+
+    internal void Replace(string path, string content) => Write(path, content, overwrite: true);
+
+    private void Write(string path, string content, bool overwrite)
     {
         var full = RequireManaged(path);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         var temp = full + "." + Guid.NewGuid() + ".tmp";
-        File.WriteAllText(temp, content, new System.Text.UTF8Encoding(false));
-        File.Move(temp, full);
+        try
+        {
+            File.WriteAllText(temp, content, new System.Text.UTF8Encoding(false));
+            for (var retries = 0; ; retries++)
+            {
+                try
+                {
+                    File.Move(temp, full, overwrite);
+                    break;
+                }
+                // Windows can report access denied as well as a sharing violation during concurrent replacement.
+                catch (Exception error) when (overwrite && retries < 3 && OperatingSystem.IsWindows() &&
+                    (error is IOException or UnauthorizedAccessException) && (error.HResult & 0xffff) is 5 or 32 or 33)
+                {
+                    Thread.Sleep(50 * (retries + 1));
+                }
+            }
+        }
+        finally { File.Delete(temp); }
     }
 }

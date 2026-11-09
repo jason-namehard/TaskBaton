@@ -155,7 +155,7 @@ public sealed partial class RelayService
             };
         }
         EnsureTurnControl(task);
-        File.WriteAllText(context,RelayJson.Write(document));
+        workspace.Replace(context,RelayJson.Write(document));
         return "A file is waiting for you. Read "+context+", perform the request and write its receipt. No extra acknowledgement message is needed.";
     }
 }

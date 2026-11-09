@@ -108,9 +108,10 @@ public static class ManualTransfers
                 : receipt ? "回执只接受契约内的字段。" : "交接清单只接受 from/to/file/message。";
             return $"{label}格式不正确：字段 {name} 不是{label}契约的一部分，未导入。{advice}可用字段：{string.Join(", ", allowed)}。";
         }
-        var missing = System.Text.RegularExpressions.Regex.Match(message, "missing required properties, including the following: (.+)$");
+        var missing = System.Text.RegularExpressions.Regex.Match(message,
+            @"missing required properties,?\s+including(?: the following)?:\s*(.+)$");
         if (missing.Success)
-            return $"{label}格式不正确：缺少必填字段 {missing.Groups[1].Value.Trim()}，未导入。必填字段：{string.Join(", ", allowed)}。";
+            return $"{label}格式不正确：缺少必填字段 {missing.Groups[1].Value.Trim().TrimEnd('.')}，请按模板补齐。";
         var path = error.Path;
         var field = FieldName(path);
         var actual = ActualKind(json, path);
@@ -283,45 +284,57 @@ public sealed partial class RelayService
     }
 
     /// <summary>Per-turn receipt files first, then the single attempt-level file that 0.3.0 prompts named.</summary>
-    private IEnumerable<(string Path, int? Turn)> ReceiptCandidates(TaskRecord task)
+    private IEnumerable<(FileInfo File, int? Turn)> ReceiptCandidates(TaskRecord task)
     {
         var attempt = AttemptControlDirectory(task);
         foreach (var directory in Directory.Exists(attempt) ? Directory.GetDirectories(attempt, "turn-*") : [])
         {
             var turn = int.TryParse(Path.GetFileName(directory).AsSpan(5), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : -1;
             if (turn < 0) continue;
-            foreach (var path in ReceiptFiles(directory)) yield return (path, turn);
+            foreach (var file in ReceiptFiles(directory)) yield return (file, turn);
         }
-        var legacy = LegacyReceiptPath(task);
-        if (File.Exists(legacy)) yield return (legacy, null);
+        var legacy = new FileInfo(LegacyReceiptPath(task));
+        if (legacy.Exists) yield return (legacy, null);
     }
 
     /// <summary>Receipt files the current turn may publish; a turn can register several statuses in order.</summary>
-    private static IEnumerable<string> ReceiptFiles(string directory)
-    {
-        if (!Directory.Exists(directory)) yield break;
-        var files = Directory.GetFiles(directory, "*.json")
-            .Where(path => !string.Equals(Path.GetFileName(path), "context.json", StringComparison.OrdinalIgnoreCase))
+    private static IEnumerable<FileInfo> ReceiptFiles(string directory) =>
+        !Directory.Exists(directory) ? [] : new DirectoryInfo(directory).EnumerateFiles("*.json")
+            .Where(file => !string.Equals(file.Name, "context.json", StringComparison.OrdinalIgnoreCase))
             // Status files are applied in the order the Agent wrote them; the name only breaks a timestamp tie.
-            .OrderBy(path => File.GetLastWriteTimeUtc(path))
-            .ThenBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase).ToArray();
-        foreach (var path in files) yield return path;
-    }
+            .OrderBy(file => file.LastWriteTimeUtc)
+            .ThenBy(file => file.Name, StringComparer.OrdinalIgnoreCase);
+
+    private readonly record struct ReceiptStamp(DateTime ModifiedUtc, long Length);
+    // Only files already accounted for as evidence are cached. New or rewritten files are still read.
+    private Dictionary<string, ReceiptStamp> evidenceFiles = new(StringComparer.Ordinal);
 
     public ManualReceiptImportResult ImportManualReceipts()
     {
         var tasks = store.Read(s => s.Query("SELECT json FROM tasks", r => RelayJson.Read<TaskRecord>(r.GetString(0))))
             .Where(t => t.IsFileHandoff).ToArray();
         var changed = new List<string>(); var errors = new List<ManualReceiptError>();
+        var previousEvidence = Volatile.Read(ref evidenceFiles);
+        var scannedEvidence = new Dictionary<string, ReceiptStamp>(StringComparer.Ordinal);
         foreach (var stored in tasks)
         {
             var task = stored;
             var applied = false;
+            var pendingEvidence = new List<(TurnStatusEntry Entry, string Path, ReceiptStamp Stamp)>();
+            HashSet<(int Turn, string? Hash)>? recorded = null;
             // Old turns keep their files as evidence; only the current turn may change the task.
-            foreach (var (path, knownTurn) in ReceiptCandidates(task))
+            foreach (var (file, knownTurn) in ReceiptCandidates(task))
             {
+                var path = file.FullName;
                 try
                 {
+                    var stamp = new ReceiptStamp(file.LastWriteTimeUtc, file.Length);
+                    if ((Terminal(task.State) || knownTurn < task.ManualTurn) &&
+                        previousEvidence.TryGetValue(path, out var previousStamp) && previousStamp == stamp)
+                    {
+                        scannedEvidence.Add(path, stamp);
+                        continue;
+                    }
                     var json = File.ReadAllText(path);
                     var receipt = ManualTransfers.ParseReceipt(json);
                     // A 0.3.0 prompt named one receipt for the whole attempt; the receipt itself declares its turn.
@@ -334,7 +347,11 @@ public sealed partial class RelayService
                     if (Terminal(task.State) || turn < task.ManualTurn)
                     {
                         // Evidence only: it never advances, rewinds or re-opens the flow.
-                        RecordEvidence(task, turn, json, path);
+                        var hash = ManualTransfers.Hash(json);
+                        recorded ??= task.TurnStatuses.Select(entry => (entry.Turn, entry.Hash)).ToHashSet();
+                        if (recorded.Contains((turn, hash))) scannedEvidence.Add(path, stamp);
+                        else pendingEvidence.Add((new(turn, receipt.Sender, "evidence", Now, file.Name, hash, Accepted: false),
+                            path, stamp));
                         continue;
                     }
                     if (turn > task.ManualTurn)
@@ -355,6 +372,18 @@ public sealed partial class RelayService
                     errors.Add(new(task.TaskId, path, error.Message));
                 }
             }
+            if (pendingEvidence.Count > 0)
+            {
+                try
+                {
+                    RecordEvidence(stored, pendingEvidence.Select(item => item.Entry));
+                    foreach (var item in pendingEvidence) scannedEvidence.Add(item.Path, item.Stamp);
+                }
+                catch (RelayException error)
+                {
+                    errors.Add(new(task.TaskId, pendingEvidence[0].Path, error.Message));
+                }
+            }
             if (applied || Terminal(task.State)) continue;
             if (task.DeadlineAt > Now) continue;
             var paused = store.Write(s =>
@@ -371,22 +400,27 @@ public sealed partial class RelayService
             });
             if (paused) changed.Add(task.TaskId);
         }
+        Volatile.Write(ref evidenceFiles, scannedEvidence);
         return new(changed.Distinct().ToArray(), errors.ToArray());
     }
 
-    /// <summary>Keeps a receipt that cannot change the task (old turn, finished task) as audit evidence exactly once.</summary>
-    private bool RecordEvidence(TaskRecord task, int turn, string json, string path) => store.Write(s =>
+    /// <summary>Records a task's new late receipts together, with deduplication inside the write transaction.</summary>
+    private void RecordEvidence(TaskRecord task, IEnumerable<TurnStatusEntry> entries) => store.Write(s =>
     {
         var latest = s.Task(task.TaskId);
-        var hash = ManualTransfers.Hash(json);
-        if (latest.TurnStatuses.Any(entry => entry.Hash == hash && entry.Turn == turn)) return false;
-        var sender = "";
-        try { sender = ManualTransfers.ParseReceipt(json).Sender; } catch (RelayException) { }
-        latest.TurnStatuses.Add(new(turn, sender, "evidence", Now, Path.GetFileName(path), hash, Accepted: false));
-        s.Save(latest);
-        s.Event(latest, "manual.receipt_evidence", sender, Now,
-            $"turn={turn} file={Path.GetFileName(path)} task_state={latest.State} accepted=false");
-        return true;
+        if (latest.AttemptId != task.AttemptId) return false;
+        var recorded = latest.TurnStatuses.Select(entry => (entry.Turn, entry.Hash)).ToHashSet();
+        var changed = false;
+        foreach (var entry in entries)
+        {
+            if (!recorded.Add((entry.Turn, entry.Hash))) continue;
+            latest.TurnStatuses.Add(entry);
+            s.Event(latest, "manual.receipt_evidence", entry.Sender, entry.At,
+                $"turn={entry.Turn} file={entry.Source} task_state={latest.State} accepted=false");
+            changed = true;
+        }
+        if (changed) s.Save(latest);
+        return changed;
     });
 
     private enum ReceiptOutcome { None, Applied, Backwards }
@@ -394,7 +428,7 @@ public sealed partial class RelayService
     private ReceiptOutcome ApplyManualReceipt(string id, ManualReceipt receipt, string json, string source) =>
         store.Write(s => ApplyManualReceipt(s, s.Task(id), receipt, json, source));
 
-    private ReceiptOutcome ApplyManualReceipt(StoreSession s, TaskRecord task, ManualReceipt receipt, string json, string source)
+    private ReceiptOutcome ApplyManualReceipt(StoreSession s, TaskRecord task, ManualReceipt receipt, string json, string? source)
     {
         var hash = ManualTransfers.Hash(json);
         if (Terminal(task.State)) return ReceiptOutcome.None;
@@ -407,18 +441,25 @@ public sealed partial class RelayService
             throw new RelayException("manual_receipt_sender", "此回执必须由当前等待的 Agent 提交。");
         if (receipt.Status is not ("received" or "working" or "done" or "failed"))
             throw new RelayException("manual_receipt_status", "回执状态应为 received、working、done 或 failed。");
-        // A later or duplicated "received" never rewinds a turn that already started working; it stays as evidence.
-        var started = task.TurnStatuses.Any(entry => entry.Turn == receipt.Turn && entry.Accepted &&
-            entry.Status is "working" or "done" or "failed");
-        if (receipt.Status == "received" && started)
+        var alreadyRecorded = task.TurnStatuses.Any(entry => entry.Turn == receipt.Turn && entry.Hash == hash);
+        if (receipt.Status == "received" && task.TurnStatuses.Any(entry => entry.Turn == receipt.Turn &&
+                entry.Accepted && entry.Status is "working" or "done" or "failed"))
         {
-            task.TurnStatuses.Add(new(receipt.Turn, receipt.Sender, receipt.Status, Now, Path.GetFileName(source), hash));
+            if (source is null)
+                throw new RelayException("manual_receipt_order", "本轮已在处理中，不能退回 received。", 5);
+            var fileName = Path.GetFileName(source);
+            // An unchanged earlier receipt is harmless. A file that replaced its own working receipt is a new error.
+            var lastFromFile = task.TurnStatuses.LastOrDefault(entry => entry.Turn == receipt.Turn && entry.Source == fileName);
+            if (alreadyRecorded && (lastFromFile?.Status is not ("working" or "done" or "failed") ||
+                task.TurnStatuses.Any(entry => entry.Turn == receipt.Turn && entry.Hash == hash && !entry.Accepted)))
+                return ReceiptOutcome.None;
+            task.TurnStatuses.Add(new(receipt.Turn, receipt.Sender, receipt.Status, Now, fileName, hash, Accepted: false));
             s.Save(task);
             s.Event(task, "manual.receipt_duplicate", receipt.Sender, Now, "turn=" + receipt.Turn + " status=received");
             return ReceiptOutcome.Backwards;
         }
         // The same status reported again (same file or a byte-identical copy) changes nothing.
-        if (task.TurnStatuses.Any(entry => entry.Turn == receipt.Turn && entry.Hash == hash)) return ReceiptOutcome.None;
+        if (alreadyRecorded) return ReceiptOutcome.None;
         // Single handoffs are decided by needs_reply; review-loop fields an Agent adds there carry no decision.
         if (task.Collaboration is null) receipt = receipt with { Outcome = null, OpenItems = null, Deliverable = null };
         if (task.State == TaskState.Paused)
@@ -426,7 +467,8 @@ public sealed partial class RelayService
             // A late receipt for the timed-out or unconfirmed-send turn is still the Agent's real result.
             if (task.PauseReason is not ("turn_timeout" or "delivery_failed"))
                 throw new RelayException("handoff_paused", "交接已暂停，等待用户决定；暂停期间不接收新的回执。");
-            task.State = task.PausedFrom!.Value;
+            task.State = task.PausedFrom ?? throw new RelayException("handoff_state_inconsistent",
+                "账本缺少此交接暂停前的状态，无法导入该回执。其他任务仍可同步。", 5);
             task.PauseReason = null; task.PauseMessage = null; task.PausedFrom = null;
             task.DeadlineAt = Now + TurnTimeout(s, task);
             s.Event(task, "handoff.late_receipt", receipt.Sender, Now, "turn=" + receipt.Turn + " reason=resumed");
@@ -441,7 +483,8 @@ public sealed partial class RelayService
         }
         else if (task.Collaboration is { } collaboration) ApplyCollaborationOutcome(s, task, collaboration, receipt);
         else ApplyPlainOutcome(s, task, receipt);
-        task.TurnStatuses.Add(new(receipt.Turn, receipt.Sender, receipt.Status, Now, Path.GetFileName(source), hash));
+        var recordedSource = source is null ? "handoff status" : Path.GetFileName(source);
+        task.TurnStatuses.Add(new(receipt.Turn, receipt.Sender, receipt.Status, Now, recordedSource, hash));
         task.ManualReceiptJson = json;
         s.Save(task);
         s.Event(task, "manual." + receipt.Status, receipt.Sender, Now,
@@ -574,13 +617,8 @@ public sealed partial class RelayService
         if (Terminal(task.State)) throw new RelayException("session_task_finished", "任务已结束，不能再登记状态。");
         var receipt = new ManualReceipt(task.TaskId, task.AttemptId, task.AwaitingAgentId ?? task.RecipientId,
             task.ManualTurn, status, NextAction: string.IsNullOrWhiteSpace(note) ? null : note.Trim());
-        EnsureTurnControl(task);
-        var path = ManualReceiptPath(task);
-        var json = RelayJson.Write(receipt);
-        File.WriteAllText(path, json);
-        var outcome = ApplyManualReceipt(s, task, receipt, json, path);
-        if (outcome == ReceiptOutcome.Backwards)
-            throw new RelayException("manual_receipt_order", "本轮已在处理中，不能退回 received。", 5);
+        // The ledger is the receipt for this command. The Agent owns the on-disk receipt path.
+        ApplyManualReceipt(s, task, receipt, RelayJson.Write(receipt), source: null);
         return ManualView(s.Task(taskId));
     });
 

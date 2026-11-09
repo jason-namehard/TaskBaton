@@ -73,6 +73,15 @@ public sealed class CliHandoffCreationTests
             Assert.IsEmpty(service.ConnectionPermissions());
             Assert.IsFalse(Directory.Exists(Path.Combine(service.Home,".cli-drafts")));
         }
+        var conflict = Request(review:true) with
+        {
+            RelayPlan = new RelayPlanOptions([new("agent-b", RelayStepRole.Work, "Check the work")])
+        };
+        Assert.AreEqual("handoff_options_conflict", Assert.ThrowsExactly<RelayException>(() =>
+            service.CreateCliHandoff(conflict)).Code);
+        Assert.IsEmpty(service.Tasks());
+        Assert.IsEmpty(service.ConnectionPermissions());
+        Assert.IsFalse(Directory.Exists(Path.Combine(service.Home, ".cli-drafts")));
     }
 
     [TestMethod]
@@ -101,6 +110,16 @@ public sealed class CliHandoffCreationTests
             return(code,document.RootElement.Clone());
         }
         finally{Console.SetOut(original);}
+    }
+
+    [TestMethod]
+    public async Task AllowImagesRejectsANonIntegerTurn()
+    {
+        var task = service.CreateCliHandoff(Request()).Task;
+        var result = await Invoke("handoff", "allow-images", "--task", task.TaskId, "--turn", "abc");
+        Assert.AreEqual(2, result.Code);
+        Assert.AreEqual("invalid_argument", result.Json.GetProperty("error").GetProperty("code").GetString());
+        Assert.IsNull(service.Status(task.TaskId).Task.ImageTurn);
     }
 
     private string Manifest(CliHandoffRequest request)

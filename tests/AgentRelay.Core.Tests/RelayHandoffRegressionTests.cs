@@ -338,7 +338,21 @@ public sealed class RelayHandoffRegressionTests
         Assert.IsEmpty(result.UpdatedTaskIds);
         task = Reload(task);
         Assert.AreEqual(TaskState.Succeeded, task.State, "a finished task must not be reopened by a late receipt");
-        Assert.IsTrue(task.TurnStatuses.Any(entry => !entry.Accepted && entry.Turn == 0));
+        Assert.HasCount(2, task.TurnStatuses);
+        Assert.IsFalse(task.TurnStatuses[^1].Accepted);
+
+        // Unchanged evidence can be skipped even while another process has the file open.
+        var latePath = Path.Combine(service.TurnControlDirectory(task), "receipt-late.json");
+        using (File.Open(latePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert.IsEmpty(Import().Errors);
+        Assert.HasCount(2, Reload(task).TurnStatuses);
+
+        WriteReceipt(task, "agent-b", "failed", false, null, "迟到文件补充说明", fileName: "receipt-late.json");
+        Assert.IsEmpty(Import().Errors);
+        Assert.HasCount(3, Reload(task).TurnStatuses);
+        var restarted = new RelayService(service.Home);
+        Assert.IsEmpty(restarted.ImportManualReceipts().Errors);
+        Assert.HasCount(3, restarted.Status(task.TaskId).Task.TurnStatuses);
     }
 
     [TestMethod]
@@ -393,7 +407,18 @@ public sealed class RelayHandoffRegressionTests
         StringAssert.Contains(result.Errors[0].Message, "退回 received");
         task = Reload(task);
         Assert.AreEqual(TaskState.Running, task.State);
-        Assert.IsTrue(task.TurnStatuses.Any(entry => entry.Status == "received"));
+        Assert.HasCount(2, task.TurnStatuses);
+        Assert.IsFalse(task.TurnStatuses.Single(entry => entry.Status == "received").Accepted);
+        Assert.AreEqual("working", service.FileHandoffProgress(task).Status!.Agent);
+
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.IsEmpty(Import().Errors);
+            task = Reload(task);
+            Assert.HasCount(2, task.TurnStatuses);
+            Assert.AreEqual(TaskState.Running, task.State);
+            Assert.AreEqual("working", service.FileHandoffProgress(task).Status!.Agent);
+        }
     }
 
     [TestMethod]
@@ -432,6 +457,39 @@ public sealed class RelayHandoffRegressionTests
     }
 
     [TestMethod]
+    public void MissingReceiptFieldsAreNamed()
+    {
+        var error = Assert.ThrowsExactly<RelayException>(() => ManualTransfers.ParseReceipt("""{"task_id":"example"}"""));
+        var detail = error.Message.Split(Environment.NewLine)[1];
+        StringAssert.Contains(detail, "缺少必填字段");
+        foreach (var name in new[] { "attempt_id", "sender", "turn", "status" })
+            StringAssert.Contains(detail, name);
+    }
+
+    [TestMethod]
+    public void MissingPauseStateOnlyRejectsTheAffectedReceipt()
+    {
+        var broken = Manual();
+        var healthy = service.CreateFileHandoff(new("agent-a", "agent-b", ResultFile("separate-work.md"))).Task;
+        new RelayStore(service.Home).Write(s =>
+        {
+            var task = s.Task(broken.TaskId);
+            task.State = TaskState.Paused;
+            task.PauseReason = "turn_timeout";
+            s.Save(task);
+            return true;
+        });
+        WriteReceipt(broken, "agent-b", "done", false);
+        WriteReceipt(healthy, "agent-b", "done", false);
+
+        var result = Import();
+        Assert.AreEqual(broken.TaskId, result.Errors.Single().TaskId);
+        StringAssert.Contains(result.Errors.Single().Message, "暂停前的状态");
+        Assert.AreEqual(TaskState.Paused, Reload(broken).State);
+        Assert.AreEqual(TaskState.Succeeded, Reload(healthy).State);
+    }
+
+    [TestMethod]
     public void LightweightStatusRegistrationFillsTheIdentityFields()
     {
         var task = Manual();
@@ -445,6 +503,27 @@ public sealed class RelayHandoffRegressionTests
             service.RegisterTurnStatus(task.TaskId, "received")).Code);
         Assert.AreEqual("manual_receipt_status", Assert.ThrowsExactly<RelayException>(() =>
             service.RegisterTurnStatus(task.TaskId, "done")).Code);
+    }
+
+    [TestMethod]
+    public void LightweightStatusLeavesTheAgentsReceiptIntact()
+    {
+        var task = Manual();
+        WriteReceipt(task, "agent-b", "working", nextAction: "Agent's progress");
+        var path = service.ManualReceiptPath(task);
+        var original = File.ReadAllText(path);
+        Import();
+
+        Assert.AreEqual("manual_receipt_order", Assert.ThrowsExactly<RelayException>(() =>
+            service.RegisterTurnStatus(task.TaskId, "received")).Code);
+        Assert.AreEqual(original, File.ReadAllText(path));
+        Assert.HasCount(1, Reload(task).TurnStatuses);
+
+        service.RegisterTurnStatus(task.TaskId, "working", "Additional progress");
+        Assert.AreEqual(original, File.ReadAllText(path));
+        Assert.HasCount(2, Reload(task).TurnStatuses);
+        Assert.IsEmpty(Import().Errors);
+        Assert.HasCount(2, Reload(task).TurnStatuses);
     }
 
     [TestMethod]
@@ -541,6 +620,11 @@ public sealed class RelayHandoffRegressionTests
             service.AllowTurnImages(task.TaskId, 0)).Code);
         Assert.AreEqual("task_image_missing", Assert.ThrowsExactly<RelayException>(() =>
             service.AllowTurnImages(task.TaskId, 2, ["not-an-image"])).Code);
+        service.ConfigureRelayPlan(task.TaskId, new RelayPlanOptions(
+            [new("agent-b", RelayStepRole.Work, "处理图片"), new("agent-a", RelayStepRole.Work, "复核")]));
+        Assert.AreEqual("image_turn_invalid", Assert.ThrowsExactly<RelayException>(() =>
+            service.AllowTurnImages(task.TaskId, 2)).Code);
+        Assert.IsNull(Reload(task).ImageTurn);
     }
 
     // ---------- E. independent acceptance ----------

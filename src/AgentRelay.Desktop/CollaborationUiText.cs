@@ -42,10 +42,10 @@ internal static class CollaborationUiText
             "Las conversaciones elegidas quedan vinculadas. Sin conversación de origen, los turnos del emisor se copian a mano.");
         Add("Relay sends this turn to {0} through CLI automatically.","本轮将由 Relay 自动通过 CLI 发送给 {0}。","本輪將由 Relay 自動透過 CLI 傳送給 {0}。","この回は Relay が CLI で {0} に自動送信します。","이번 회차는 Relay가 CLI로 {0}에게 자동 전송합니다.","Relay envía este turno a {0} por CLI automáticamente.");
         Add("Not received · Allow resending","确认未收到 · 允许重发","確認未收到 · 允許重傳","未着を確認 · 再送を許可","미수신 확인 · 재전송 허용","No recibido · Permitir reenviar");
-        Add("Check the target conversation first. Allow one more CLI send only if this turn did not arrive; otherwise the Agent may do the work twice.",
-            "请先检查目标会话。只有确认本轮没有送达时才允许再发送一次，否则 Agent 可能重复处理。","請先檢查目標會話。只有確認本輪沒有送達時才允許再傳送一次，否則 Agent 可能重複處理。",
-            "先に相手の会話を確認してください。この回が届いていない場合のみ再送を許可します。届いていると二重に作業される可能性があります。","먼저 대상 대화를 확인하세요. 이번 회차가 도착하지 않은 경우에만 재전송을 허용하세요. 그렇지 않으면 작업이 중복될 수 있습니다.",
-            "Revisa primero la conversación. Permite otro envío solo si este turno no llegó; si no, el agente podría repetir el trabajo.");
+        Add("Relay still accepts a valid late receipt for this turn. Check the target conversation first and allow one more send only if the request did not arrive.",
+            "Relay 仍会接收本轮迟到的有效回执。请先检查目标会话，确认本轮请求确实没有送达后，再允许重发一次。","Relay 仍會接收本輪遲到的有效回執。請先檢查目標會話，確認本輪請求確實沒有送達後，再允許重傳一次。",
+            "この回の有効な応答が遅れて届いても、Relay は受け付けます。先に相手の会話を確認し、依頼が届いていない場合のみ再送を許可してください。","Relay는 이번 회차의 유효한 회신이 늦게 도착해도 받습니다. 먼저 대상 대화를 확인하고 요청이 도착하지 않은 경우에만 한 번 더 보내도록 허용하세요.",
+            "Relay seguirá aceptando una confirmación válida aunque llegue tarde. Revisa primero la conversación de destino y permite un reenvío solo si la solicitud no llegó.");
         Add("Implementing","实现中","實作中","作業中","작업 중","Implementando");
         Add("Revising","修改中","修改中","修正中","수정 중","Revisando cambios");
         Add("Reviewing","验收中","驗收中","レビュー中","검토 중","En revisión");

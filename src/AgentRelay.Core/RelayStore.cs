@@ -93,13 +93,23 @@ public sealed class RelayStore
     {
         if (!File.Exists(DatabasePath))
             throw new RelayException("not_initialized", "请先运行 relay init。", 3);
-        using var connection = Open();
-        using var transaction = connection.BeginTransaction();
-        RequireCurrentLocation();
-        var result = operation(new StoreSession(connection, transaction));
-        transaction.Commit();
-        WindowsLedgerSignal.Publish();
-        return result;
+        try
+        {
+            using var connection = Open();
+            using var transaction = connection.BeginTransaction();
+            RequireCurrentLocation();
+            var result = operation(new StoreSession(connection, transaction));
+            transaction.Commit();
+            WindowsLedgerSignal.Publish();
+            return result;
+        }
+        // Microsoft.Data.Sqlite already retries busy and locked operations until DefaultTimeout.
+        catch (SqliteException error) when (error.SqliteErrorCode is SQLitePCL.raw.SQLITE_BUSY or SQLitePCL.raw.SQLITE_LOCKED)
+        {
+            var failure = new RelayException("database_busy", "中转站账本正被其他操作占用，请稍后重试。", 5);
+            failure.Data["technical_detail"] = error.Message;
+            throw failure;
+        }
     }
 
     private void RequireCurrentLocation()

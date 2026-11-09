@@ -75,6 +75,8 @@ public sealed partial class RelayService
         if (Terminal(task.State)) throw new RelayException("session_task_finished", "已结束任务不能追加图片。");
         if (task.Images is not { Length: > 0 }) throw new RelayException("task_image_missing", "此任务没有保存的图片。");
         if (turn < 1) throw new RelayException("image_turn_invalid", "第一轮图片已自动携带；只能为后续轮次追加。");
+        if (task.RelaySteps is { } steps && turn >= steps.Length)
+            throw new RelayException("image_turn_invalid", $"接力计划的最后一轮为第 {steps.Length - 1} 轮，请选择计划内的轮次。");
         if (turn < task.ManualTurn || turn == task.ManualTurn && task.CliFileTurn == task.ManualTurn)
             throw new RelayException("image_turn_started", "该轮已开始投递，不能事后追加图片；请选择尚未开始的轮次。");
         var ids = (imageIds ?? []).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray();

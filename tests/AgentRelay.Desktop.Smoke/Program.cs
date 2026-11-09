@@ -72,6 +72,7 @@ internal static partial class Program
         await CheckTaskFooterLayout(window,waiting.TaskId);
         await CheckDemoSampleTranslations(window,root);
         await CheckBlockedDeliveryUi(window,root);
+        await CheckRejectedReceipt(window,root);
         await CheckFileCancellation(window,root);
         Check(navigation.Items.Cast<ListBoxItem>().Select(i=>(string)i.Tag).SequenceEqual(new[]{"Home","Agents","Connections","Settings"}),"Exactly four main pages");
         Check(Find<DataGrid>(window,"TasksTable").Items.Count==2,"Board combines all handoffs");
@@ -911,6 +912,34 @@ internal static partial class Program
         await Click(window,"Refresh");SelectTask(window,active.TaskId);
         await ConfirmAction(window,"Delete task",true);
         Check(service.Tasks().All(v=>v.Task.TaskId!=active.TaskId),"User can confirm deletion of an unfinished handoff");
+    }
+
+    private static async Task CheckRejectedReceipt(MainWindow owner,string root)
+    {
+        var service = new RelayService(Path.Combine(root,"rejected-receipt"));
+        service.Initialize();
+        service.RegisterManual("source","fixture","Source");
+        service.RegisterManual("target","fixture","Target");
+        var file = Path.Combine(root,"rejected-receipt.md");
+        File.WriteAllText(file,"Review the fixture.");
+        var task = service.CreateFileHandoff(new("source","target",file)).Task;
+        service.RegisterTurnStatus(task.TaskId,"working");
+        var receipt = new ManualReceipt(task.TaskId,task.AttemptId,"target",0,"received");
+        File.WriteAllText(service.ManualReceiptPath(task),RelayJson.Write(receipt));
+        Appearance.Save(service.Home,new DesktopPreferences("en",NotificationSound:"none"));
+        var window = new MainWindow(service) { Owner = owner };
+        window.Show();
+        try
+        {
+            await Wait(() => service.Status(task.TaskId).Task.TurnStatuses.Count == 2);
+            await Click(window,"Refresh");
+            await Click(window,"Refresh");
+            var hint = Find<TextBlock>(window,"LedgerHint").Text;
+            Check(!hint.StartsWith("Receipt needs attention",StringComparison.Ordinal) &&
+                service.Status(task.TaskId).Progress?.Status?.Agent == "working",
+                "Repeated refresh clears the rejected receipt hint and preserves the working status");
+        }
+        finally { window.RequestExit(); }
     }
 
     private static async Task CheckFileCancellation(MainWindow owner,string root)

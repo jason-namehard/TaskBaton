@@ -171,7 +171,10 @@ public sealed class ManualTransferTests
         Receipt(task, "agent-b", "working"); service.ImportManualReceipts();
         Assert.AreEqual(TaskState.Running, service.Status(task.TaskId).Task.State);
         Receipt(task, "agent-b", "received"); Assert.HasCount(1, service.ImportManualReceipts().Errors);
-        Assert.AreEqual(TaskState.Running, service.Status(task.TaskId).Task.State);
+        Assert.IsEmpty(service.ImportManualReceipts().Errors);
+        var progress = service.Status(task.TaskId);
+        Assert.AreEqual(TaskState.Running, progress.Task.State);
+        Assert.AreEqual("working", progress.Progress!.Status!.Agent);
     }
 
     [TestMethod]

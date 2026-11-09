@@ -57,6 +57,8 @@ public sealed partial class RelayService
     {
         if (options.TurnTimeoutMinutes is < 1 or > 43200)
             throw new RelayException("handoff_turn_timeout", "单轮时限为 1–43200 分钟。");
+        if (options.Collaboration is not null && options.RelayPlan is not null)
+            throw new RelayException("handoff_options_conflict", "请在验收循环和定次接力之间选择一种交接方式。");
         if(options.ManualContinuous&&(options.Collaboration is not null||options.AutoDeliver||options.RelayPlan is not null))
             throw new RelayException("manual_options_invalid","手动连续传递不配置自动投递或预设验收角色。");
         if (options.Collaboration is not { } collaboration) return;
@@ -74,7 +76,6 @@ public sealed partial class RelayService
             task.RelaySteps is not null)
             throw new RelayException("handoff_options_started", "协作方式只能在首次投递和回执之前设置。");
         ValidateFileHandoffOptions(options, task.RequesterId, task.RecipientId);
-        // A fixed-count relay plan replaces the single-handoff or review-loop settings for this task.
         if (options.RelayPlan is { } relayPlan) return ConfigureRelayPlan(s, task, relayPlan);
         task.AwaitingAgentId = task.RecipientId;
         if (options.Collaboration is { } collaboration)
@@ -190,6 +191,10 @@ public sealed partial class RelayService
             "submitted" => "delivered", "unknown" => "sent_unknown", "failed" => "failed", _ => "not_sent"
         };
         var last = task.TurnStatuses.Where(entry => entry.Turn == task.ManualTurn && entry.Accepted).LastOrDefault();
+        // Older ledgers could mark a late "received" as accepted even after work started.
+        if (last?.Status == "received")
+            last = task.TurnStatuses.LastOrDefault(entry => entry.Turn == task.ManualTurn && entry.Accepted &&
+                entry.Status is "working" or "done" or "failed") ?? last;
         var agent = last?.Status switch
         {
             "received" => "received", "working" => "working", "done" => "submitted", "failed" => "failed", _ => "none"
