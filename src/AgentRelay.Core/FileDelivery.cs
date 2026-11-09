@@ -30,7 +30,7 @@ public sealed partial class RelayService
     /// <summary>Unattended sends need the exact capability already proven and no unresolved host blocker.</summary>
     public bool CanAutoDeliver(TaskRecord task)
     {
-        if (!CanSendFileHandoff(task)) return false;
+        if (task.ManualResendTurn == task.ManualTurn || !CanSendFileHandoff(task)) return false;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         var extension = CliExtension(recipient)!;
         if (extension.Block is not null) return false;
@@ -45,7 +45,7 @@ public sealed partial class RelayService
         if (task.CliFileTurn == task.ManualTurn && task.CliFileStatus is "unknown" or "failed") return task.CliFileError;
         if (task.CliFileTurn is not null && task.CliFileStatus == "submitting")
             return "上一轮的投递仍在执行，本轮结果已提交但执行结束未知；确认宿主结束后再自动开始下一步。";
-        if (!task.AutoDeliver || extension is null || !CanSendFileHandoff(task)) return null;
+        if (!task.AutoDeliver || task.ManualResendTurn == task.ManualTurn || extension is null || !CanSendFileHandoff(task)) return null;
         var resume = TaskSession(task.TaskId, recipient)?.SessionId is not null;
         if (resume ? extension.CanResume : extension.CanCreate) return null;
         return resume
@@ -67,7 +67,9 @@ public sealed partial class RelayService
             {
                 try
                 {
-                    await SendFileHandoffAsync(id, FileHandoffPrompt(Status(id).Task), cancellationToken);
+                    var task = Status(id).Task;
+                    await SendFileHandoffAsync(id, FileHandoffPrompt(task), cancellationToken,
+                        automatic: true, expectedTurn: task.ManualTurn);
                     sent.Add(id);
                 }
                 catch (RelayException error)
@@ -79,10 +81,25 @@ public sealed partial class RelayService
         return new(imported.UpdatedTaskIds, imported.Errors, sent.ToArray(), failures.ToArray());
     }
 
-    public async Task<TaskView> SendFileHandoffAsync(string taskId, string prompt, CancellationToken cancellationToken = default)
+    public async Task<TaskView> SendFileHandoffAsync(string taskId, string prompt, CancellationToken cancellationToken = default,
+        bool automatic = false, int? expectedTurn = null)
     {
         if (string.IsNullOrWhiteSpace(prompt)) throw new RelayException("file_prompt_required", "文件交接提示不能为空。");
         var task = Status(taskId).Task;
+        if (expectedTurn is { } turn && task.ManualTurn != turn)
+            throw new RelayException("file_cli_changed", "交接已进入另一轮，请先查看当前进度。");
+        if (task.ManualResendTurn == task.ManualTurn)
+        {
+            if (automatic)
+                throw new RelayException("file_cli_changed", "本轮仅允许手动重发。");
+            var receiptError = ImportManualReceipts().Errors.FirstOrDefault(error => error.TaskId == taskId);
+            if (receiptError is not null)
+                throw new RelayException("file_resend_receipt_error", receiptError.Message, 5);
+            var latest = Status(taskId).Task;
+            if (latest.ManualTurn != task.ManualTurn || latest.ManualResendTurn != task.ManualTurn)
+                throw new RelayException("file_cli_changed", "本轮已有新的回执，请查看当前进度。");
+            task = latest;
+        }
         if (CliExtension(task.AwaitingAgentId ?? task.RecipientId)?.Block is {} blocked)
             throw new RelayException("cli_blocked", blocked.Message);
         if (!CanSendFileHandoff(task)) throw new RelayException("file_cli_unavailable", "当前方向未启用 CLI、本轮已发送，或没有可续接的明确会话。请检查连接图和会话选择，必要时手动传递。");
@@ -123,6 +140,8 @@ public sealed partial class RelayService
         {
             var current = s.Task(taskId);
             if (current.ManualTurn != task.ManualTurn || current.CliFileTurn == current.ManualTurn ||
+                automatic && current.ManualResendTurn == current.ManualTurn ||
+                current.CliFileTurn is not null && current.CliFileStatus == "submitting" ||
                 current.State is not (TaskState.AwaitingManual or TaskState.AwaitingReply) ||
                 (current.AwaitingAgentId ?? current.RecipientId) != recipient || ReadCliExtension(s,recipient)?.Revision != extension.Revision ||
                 ReadTaskSession(s,current,recipient) != binding)
@@ -131,6 +150,7 @@ public sealed partial class RelayService
             if (ReadCliExtension(s,recipient)?.Block is {} currentBlock)
                 throw new RelayException("cli_blocked",currentBlock.Message);
             current.CliFileTurn = current.ManualTurn; current.CliFileStatus = "submitting";
+            current.ManualResendTurn = null;
             current.CliFileError = null; current.CliFileSessionId = null; current.Mode = "cli"; current.AdapterId = "cli:" + recipient;
             current.CliFileOperation = resume ? "resume" : "create"; current.CliFileRevision = extension.Revision;
             current.SendStartedAt = Now;
@@ -244,18 +264,26 @@ public sealed partial class RelayService
         return true;
     });
 
-    /// <summary>The user checked the target conversation and confirms this turn never arrived, so one new send is allowed.</summary>
-    public TaskView AllowFileHandoffResend(string taskId, string reason, bool approved)
+    public static bool CanAllowFileHandoffResend(TaskRecord task) =>
+        task.IsFileHandoff && !Terminal(task.State) && task.CliFileTurn == task.ManualTurn &&
+        task.CliFileStatus is "unknown" or "failed" &&
+        (task.State != TaskState.Paused || task.PauseReason is "turn_timeout" or "delivery_failed") &&
+        (task.State == TaskState.Paused ? task.PausedFrom : task.State) is TaskState.AwaitingManual or TaskState.AwaitingReply;
+
+    /// <summary>The user checked the target conversation and authorizes one manual send of the current turn.</summary>
+    public TaskView AllowFileHandoffResend(string taskId, string reason, bool approved, int? expectedTurn = null)
     {
         if (!approved) throw new RelayException("approval_required", "重新发送可能让 Agent 重复处理，请确认目标会话确实没有收到后再批准。", 4);
         RequireReason(reason);
         return store.Write(s =>
         {
             var task = s.Task(taskId);
-            if (Terminal(task.State) || task.CliFileTurn != task.ManualTurn || task.CliFileStatus is not ("unknown" or "failed"))
-                throw new RelayException("file_resend_not_needed", "本轮没有待确认的 CLI 投递。", 5);
+            if ((expectedTurn is { } turn && task.ManualTurn != turn) || !CanAllowFileHandoffResend(task))
+                throw new RelayException("file_resend_not_needed", "本轮没有可重发的待确认投递，请查看当前进度和回执。", 5);
+            if (task.State == TaskState.Paused) ContinueFileHandoff(s, task, note: null, extraRounds: 0);
             task.CliFileTurn = null; task.CliFileStatus = null; task.CliFileError = null; task.CliFileSessionId = null;
             task.CliFileOperation = null; task.CliFileRevision = null;
+            task.ManualResendTurn = task.ManualTurn;
             s.Save(task); s.Event(task, "file.cli_resend_allowed", "operator", Now, reason);
             return View(task, s);
         });

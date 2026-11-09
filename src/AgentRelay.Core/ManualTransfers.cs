@@ -485,6 +485,7 @@ public sealed partial class RelayService
         else ApplyPlainOutcome(s, task, receipt);
         var recordedSource = source is null ? "handoff status" : Path.GetFileName(source);
         task.TurnStatuses.Add(new(receipt.Turn, receipt.Sender, receipt.Status, Now, recordedSource, hash));
+        if (task.ManualResendTurn == receipt.Turn) task.ManualResendTurn = null;
         task.ManualReceiptJson = json;
         s.Save(task);
         s.Event(task, "manual." + receipt.Status, receipt.Sender, Now,

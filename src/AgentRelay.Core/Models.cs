@@ -82,6 +82,7 @@ public sealed class TaskRecord
     public string? ManualSourceFile { get; set; }
     public TaskImage[]? Images { get; set; }
     public int? CliFileTurn { get; set; }
+    public int? ManualResendTurn { get; set; }
     public string? CliFileStatus { get; set; }
     public string? CliFileSessionId { get; set; }
     public string? CliFileError { get; set; }

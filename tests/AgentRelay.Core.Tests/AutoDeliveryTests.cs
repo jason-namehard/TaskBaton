@@ -179,8 +179,10 @@ public sealed class AutoDeliveryTests
         Assert.AreEqual("delivery_failed",paused.PauseReason);
         StringAssert.Contains(paused.PauseMessage!,"单独登录");
         Mode("agent-b", "ok"); service.ClearCliBlock("agent-b");
-        service.ContinueFileHandoff(task.TaskId);
-        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        task = service.ContinueFileHandoff(task.TaskId).Task;
+        Assert.IsTrue(service.CanSendFileHandoff(task));
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        await service.SendFileHandoffAsync(task.TaskId,service.FileHandoffPrompt(task));
         await service.SyncFileHandoffsAsync(false);
         Assert.AreEqual("review", service.Status(task.TaskId).Task.Collaboration!.Phase);
     }

@@ -106,7 +106,7 @@ Statuses are separate facts: **sent / delivery unknown / host confirmed delivery
 3. Copy the next prompt to the Agent the board names. Receipts are read while Relay is running and on refresh; keep passing turns as the work needs, and the task ends only when it is explicitly complete.
 4. Optionally install the one-line handoff rule into the instruction file your host actually reads. Relay never edits that file silently: you see the line before it is written, and detailed instructions are read on demand.
 
-A result file appearing or changing never completes a task. A task changes state only through a valid receipt, or through your explicit "mark handoff complete", which records a user decision. If a CLI delivery is unconfirmed, inspect the target session first; **Not received · Allow resending** permits one more send instead of automatic retry.
+A result file appearing or changing never completes a task. A task changes state only through a valid receipt, or through your explicit "mark handoff complete", which records a user decision. If a delivery is unconfirmed, use **View target conversation** to see its saved session ID and check it in the host. **Continue waiting** extends the deadline for a paused delivery, and **Check for receipts now** reads any receipts already on disk. If you confirm the request never arrived, **Not received · Allow resending** authorizes one manual send for that turn. Relay keeps checking for late receipts throughout.
 
 ## What it includes
 

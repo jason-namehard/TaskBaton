@@ -42,6 +42,18 @@ internal static class CollaborationUiText
             "Las conversaciones elegidas quedan vinculadas. Sin conversación de origen, los turnos del emisor se copian a mano.");
         Add("Relay sends this turn to {0} through CLI automatically.","本轮将由 Relay 自动通过 CLI 发送给 {0}。","本輪將由 Relay 自動透過 CLI 傳送給 {0}。","この回は Relay が CLI で {0} に自動送信します。","이번 회차는 Relay가 CLI로 {0}에게 자동 전송합니다.","Relay envía este turno a {0} por CLI automáticamente.");
         Add("Not received · Allow resending","确认未收到 · 允许重发","確認未收到 · 允許重傳","未着を確認 · 再送を許可","미수신 확인 · 재전송 허용","No recibido · Permitir reenviar");
+        Add("Continue waiting","继续等待","繼續等待","待機を続ける","계속 기다리기","Seguir esperando");
+        Add("Check for receipts now","立即检查回执","立即檢查回執","今すぐ応答を確認","지금 회신 확인","Buscar confirmaciones ahora");
+        Add("View target conversation","查看目标会话","查看目標會話","相手の会話を確認","대상 대화 보기","Ver conversación de destino");
+        Add("Saved conversation ID for {0}","{0} 已记录的会话 ID","{0} 已記錄的會話 ID","{0} の保存済み会話 ID","{0}에 저장된 대화 ID","ID de conversación guardado para {0}");
+        Add("The target conversation ID is still unknown.","目标会话 ID 仍未知。","目標會話 ID 仍未知。","相手の会話 ID はまだ不明です。","대상 대화 ID가 아직 확인되지 않았습니다.","Aún se desconoce el ID de la conversación de destino.");
+        Add("One manual resend is allowed for this turn. Relay still checks for late receipts.",
+            "本轮已允许手动重发一次。Relay 仍会检查迟到的回执。","本輪已允許手動重傳一次。Relay 仍會檢查遲到的回執。",
+            "この回は手動で一度再送できます。Relay は遅れて届く応答も確認します。","이번 회차를 수동으로 한 번 다시 보낼 수 있습니다. Relay는 늦게 도착한 회신도 계속 확인합니다.",
+            "Puedes reenviar este turno manualmente una vez. Relay seguirá buscando confirmaciones tardías.");
+        Add("The handoff has moved to another turn. Check its current progress.",
+            "交接已进入另一轮，请查看当前进度。","交接已進入另一輪，請查看目前進度。","引き継ぎは別の回に進みました。現在の進捗を確認してください。",
+            "인계가 다른 회차로 넘어갔습니다. 현재 진행 상황을 확인하세요.","El traspaso pasó a otro turno. Consulta el progreso actual.");
         Add("Relay still accepts a valid late receipt for this turn. Check the target conversation first and allow one more send only if the request did not arrive.",
             "Relay 仍会接收本轮迟到的有效回执。请先检查目标会话，确认本轮请求确实没有送达后，再允许重发一次。","Relay 仍會接收本輪遲到的有效回執。請先檢查目標會話，確認本輪請求確實沒有送達後，再允許重傳一次。",
             "この回の有効な応答が遅れて届いても、Relay は受け付けます。先に相手の会話を確認し、依頼が届いていない場合のみ再送を許可してください。","Relay는 이번 회차의 유효한 회신이 늦게 도착해도 받습니다. 먼저 대상 대화를 확인하고 요청이 도착하지 않은 경우에만 한 번 더 보내도록 허용하세요.",

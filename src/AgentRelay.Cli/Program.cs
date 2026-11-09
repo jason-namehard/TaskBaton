@@ -157,7 +157,7 @@ public static class RelayCli
         {
             if(!v.Flag("approve"))throw new RelayException("approval_required","真实 CLI 投递可能产生模型费用，确认后加 --approve。");
             var task=s.Status(v.Get("task")).Task;
-            return await s.SendFileHandoffAsync(task.TaskId,s.FileHandoffPrompt(task),v.CancellationToken);
+            return await s.SendFileHandoffAsync(task.TaskId,s.FileHandoffPrompt(task),v.CancellationToken,expectedTurn:task.ManualTurn);
         });
         Sync(handoff, "create", "读取短清单，不要求 Agent 查找会话 ID", ["manifest!"],
             (s,v) => s.CreateFileHandoffFromContext(ManualTransfers.Parse(File.ReadAllText(v.Get("manifest")),s.Agents())));
@@ -191,7 +191,7 @@ public static class RelayCli
             (s,v) => s.FileHandoffProgress(s.Status(v.Get("task")).Task));
         Sync(handoff, "continue", "用户决定继续已暂停的交接；轮数用完时须追加轮数", ["task!", "note", "extra-rounds"],
             (s,v) => s.ContinueFileHandoff(v.Get("task"), v.Optional("note"), v.Number("extra-rounds", 0)));
-        Sync(handoff, "allow-resend", "确认本轮未送达后允许再发送一次", ["task!", "reason!", "approve?"],
+        Sync(handoff, "allow-resend", "确认本轮未送达后允许手动再发送一次", ["task!", "reason!", "approve?"],
             (s,v) => s.AllowFileHandoffResend(v.Get("task"), v.Get("reason"), v.Flag("approve")));
 
         var cliRecipe = Group("cli-recipe", "保存已有 CLI 调用方案，不执行或启用");

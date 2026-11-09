@@ -106,8 +106,10 @@ public sealed partial class RelayService
     });
 
     public TaskView ContinueFileHandoff(string taskId, string? note = null, int extraRounds = 0) => store.Write(s =>
+        ContinueFileHandoff(s, s.Task(taskId), note, extraRounds));
+
+    private TaskView ContinueFileHandoff(StoreSession s, TaskRecord task, string? note, int extraRounds)
     {
-        var task = s.Task(taskId);
         if (task.State != TaskState.Paused || task.PauseReason is null || task.PausedFrom is null)
             throw new RelayException("handoff_not_paused", "只有已暂停的交接可以继续。", 5);
         if (extraRounds is < 0 or > MaxReviewRounds)
@@ -138,7 +140,7 @@ public sealed partial class RelayService
         s.Event(task, "handoff.continued", "operator", Now, RelayJson.Write(new { reason, note, extra_rounds = extraRounds }));
         s.Notify(task, "continued_" + task.ManualTurn + "_" + reason, "用户已决定继续交接。", Now);
         return ManualView(task);
-    });
+    }
 
     public HandoffProgress FileHandoffProgress(TaskRecord task)
     {

@@ -36,7 +36,7 @@ public partial class MainWindow
             var actions=new StackPanel{Orientation=Orientation.Horizontal,Margin=new(-6,2,0,0)};
             value.Children.Add(actions);
             section.Children.Add(row);
-            if(finished)continue;
+            if(finished||(id==(task.AwaitingAgentId??task.RecipientId)&&WaitingForFileReceipt(task)))continue;
             var change=Add(actions,service.SessionDiscoverySupported(id)?"Change conversation":"Enter Session ID manually",()=>
             {
                 var picker=new SessionPickerDialog(this,service,id,preferences.Language,binding?.Cwd);

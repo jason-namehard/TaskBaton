@@ -73,6 +73,7 @@ internal static partial class Program
         await CheckDemoSampleTranslations(window,root);
         await CheckBlockedDeliveryUi(window,root);
         await CheckRejectedReceipt(window,root);
+        await CheckHandoffRecovery(window,root);
         await CheckFileCancellation(window,root);
         Check(navigation.Items.Cast<ListBoxItem>().Select(i=>(string)i.Tag).SequenceEqual(new[]{"Home","Agents","Connections","Settings"}),"Exactly four main pages");
         Check(Find<DataGrid>(window,"TasksTable").Items.Count==2,"Board combines all handoffs");
@@ -938,6 +939,67 @@ internal static partial class Program
             Check(!hint.StartsWith("Receipt needs attention",StringComparison.Ordinal) &&
                 service.Status(task.TaskId).Progress?.Status?.Agent == "working",
                 "Repeated refresh clears the rejected receipt hint and preserves the working status");
+        }
+        finally { window.RequestExit(); }
+    }
+
+    private static async Task CheckHandoffRecovery(MainWindow owner,string root)
+    {
+        var service = new RelayService(Path.Combine(root,"handoff-recovery"));
+        service.Initialize();
+        service.RegisterManual("source","fixture","Source");
+        service.RegisterManual("target","fixture","Target");
+        TaskRecord Create(string name, string? sessionId)
+        {
+            var file = Path.Combine(root,name+".md");
+            File.WriteAllText(file,"Review the fixture.");
+            var task = service.CreateFileHandoff(new("source","target",file)).Task;
+            if (sessionId is not null) service.BindManualTaskSession(task.TaskId,"target",sessionId);
+            new RelayStore(service.Home).Write(s =>
+            {
+                var saved = s.Task(task.TaskId);
+                saved.CliFileTurn = saved.ManualTurn; saved.CliFileStatus = "unknown";
+                saved.PausedFrom = saved.State; saved.State = TaskState.Paused;
+                saved.PauseReason = "turn_timeout"; saved.PauseMessage = "Turn timed out.";
+                s.Save(saved);
+                return true;
+            });
+            return task;
+        }
+        var known = Create("known-conversation","fixture-known-session");
+        var unknown = Create("unknown-conversation",null);
+        Appearance.Save(service.Home,new DesktopPreferences("en",NotificationSound:"none"));
+        var window = new MainWindow(service) { Owner = owner };
+        window.Show();
+        try
+        {
+            await Click(window,"Refresh");
+            SelectTask(window,unknown.TaskId);
+            Check(!FindAll<Button>(window).Any(button=>Equals(button.Tag,"Not received · Allow resending")) &&
+                FindAll<TextBlock>(window).Any(text=>text.Text=="The target conversation ID is still unknown."),
+                "An unidentified target keeps the receipt check available without offering a duplicate delivery");
+
+            SelectTask(window,known.TaskId);
+            Find<Expander>(window,"RecoveryConversation").IsExpanded = true;
+            window.UpdateLayout();
+            var session = Find<TextBox>(window,"RecoverySessionId");
+            Check(session.Text=="fixture-known-session" && session.IsReadOnly,
+                "Recovery shows the saved target conversation ID as selectable read-only text");
+            await Click(window,"Continue waiting");
+            Check(service.Status(known.TaskId).Task is {State:TaskState.AwaitingManual,CliFileStatus:"unknown"},
+                "Continuing to wait extends the turn while preserving the unconfirmed delivery");
+            await Click(window,"Check for receipts now");
+            Check(service.Status(known.TaskId).Task.CliFileStatus=="unknown",
+                "Checking for a receipt preserves an unconfirmed turn when no receipt exists");
+
+            await ConfirmAction(window,"Not received · Allow resending",true);
+            Check(service.Status(known.TaskId).Task is {ManualResendTurn:0,CliFileTurn:null},
+                "Confirming non-delivery authorizes a manual resend of the same turn");
+            File.WriteAllText(service.ManualReceiptPath(known),
+                RelayJson.Write(new ManualReceipt(known.TaskId,known.AttemptId,"target",0,"done",false)));
+            await Wait(()=>service.Status(known.TaskId).Task.State==TaskState.Succeeded);
+            Check(service.Status(known.TaskId).Task.ManualResendTurn is null,
+                "A valid late receipt settles the turn and clears its manual resend authorization");
         }
         finally { window.RequestExit(); }
     }

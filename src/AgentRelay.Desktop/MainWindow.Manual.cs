@@ -112,17 +112,24 @@ public partial class MainWindow
             var recipient=AgentName(task.AwaitingAgentId??task.RecipientId);
             var tone=progress.Delivery=="cli_blocked"?"bad":task.State==TaskState.Paused?"warn":"info";
             var (_,actions)=Alert(head,tone,null,FileDeliveryHint(task,progress,recipient));
-            if(task.State==TaskState.Paused)
+            var waitingForReceipt=WaitingForFileReceipt(task)||sendingTasks.Contains(task.TaskId);
+            if(task.State==TaskState.Paused&&waitingForReceipt&&task.PauseReason is "turn_timeout" or "delivery_failed")
+                Styled(Add(actions,"Continue waiting",()=>
+                {service.ContinueFileHandoff(task.TaskId);return Task.CompletedTask;}),"PrimaryButtonStyle");
+            else if(task.State==TaskState.Paused)
             {
                 var note=EntryDialogLayout.Input("ContinueNote",multiline:true);note.Height=60;note.Margin=new(0,2,0,0);
                 var label=new Label{Content=T("Note for the next Agent (optional)"),Target=note,Padding=new(0,10,0,2)};
                 var host=(Panel)actions.Parent;host.Children.Insert(host.Children.IndexOf(actions),label);host.Children.Insert(host.Children.IndexOf(actions),note);
                 var extra=task.PauseReason=="round_limit"?2:0;
                 Styled(Add(actions,extra>0?string.Format(CultureInfo.CurrentUICulture,T("Continue with {0} more rounds"),extra):T("Continue"),()=>
-                {service.ContinueFileHandoff(task.TaskId,note.Text,extra);StartAutoDeliveries();return Task.CompletedTask;}),"PrimaryButtonStyle");
+                {service.ContinueFileHandoff(task.TaskId,note.Text,extra);return Task.CompletedTask;}),"PrimaryButtonStyle");
             }
-            else Styled(Add(actions,string.Format(CultureInfo.CurrentUICulture,T("Copy prompt for {0}"),recipient),()=>{Clipboard.SetText(FilePrompt(task));return Task.CompletedTask;},false),"PrimaryButtonStyle");
-            AddFileDeliveryAction(actions,task,progress);
+            else if(!waitingForReceipt)
+                Styled(Add(actions,string.Format(CultureInfo.CurrentUICulture,T("Copy prompt for {0}"),recipient),()=>{Clipboard.SetText(FilePrompt(task));return Task.CompletedTask;},false),"PrimaryButtonStyle");
+            if(waitingForReceipt||task.ManualResendTurn==task.ManualTurn||task.PauseReason is "turn_timeout" or "delivery_failed")
+                AddFileRecoveryActions(actions,task);
+            AddFileDeliveryAction(actions,task);
             footerActions.Add(footer=>Styled(Add(footer,"Cancel",()=>ConfirmTaskCancellation(task.TaskId)),"GhostButtonStyle"));
         }
 

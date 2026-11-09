@@ -96,7 +96,13 @@ public sealed class FileDeliveryTests
         Assert.IsFalse(service.CanSendFileHandoff(service.Status(task.TaskId).Task));
         Assert.ThrowsExactly<RelayException>(() => service.AllowFileHandoffResend(task.TaskId, "Not received", false));
         service.AllowFileHandoffResend(task.TaskId, "Target did not receive this turn", true);
+        service = new RelayService(service.Home, clock);
         Assert.IsTrue(service.CanSendFileHandoff(service.Status(task.TaskId).Task));
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        var refused = await Assert.ThrowsExactlyAsync<RelayException>(() =>
+            service.SendFileHandoffAsync(task.TaskId, "Read the file.", automatic: true));
+        Assert.AreEqual("file_cli_changed", refused.Code);
+        Assert.AreEqual(0, Calls("agent-b"));
         await service.SendFileHandoffAsync(task.TaskId, "Read the file.");
         Assert.AreEqual("submitted", service.Status(task.TaskId).Task.CliFileStatus);
         Assert.AreEqual(1, Calls("agent-b"));
@@ -125,6 +131,35 @@ public sealed class FileDeliveryTests
         var imported = service.ImportManualReceipts();
         Assert.IsEmpty(imported.Errors);
         Assert.AreEqual(TaskState.Succeeded, service.Status(task.TaskId).Task.State);
+        Assert.AreEqual(0, Calls("agent-b"));
+    }
+
+    [TestMethod]
+    public async Task APausedTurnCanAuthorizeAManualResendAndStillAcceptItsLateReceipt()
+    {
+        var task = await InterruptedSend();
+        clock.Advance(TimeSpan.FromMinutes(31));
+        service.ImportManualReceipts();
+        Assert.AreEqual(TaskState.Paused, service.Status(task.TaskId).Task.State);
+        var stale = Assert.ThrowsExactly<RelayException>(() =>
+            service.AllowFileHandoffResend(task.TaskId, "Checked the target", true, expectedTurn: 1));
+        Assert.AreEqual("file_resend_not_needed", stale.Code);
+
+        var ready = service.AllowFileHandoffResend(task.TaskId, "Checked the target", true, expectedTurn: 0).Task;
+        Assert.AreEqual(TaskState.AwaitingManual, ready.State);
+        Assert.AreEqual(0, ready.ManualResendTurn);
+        Assert.IsTrue(service.CanSendFileHandoff(ready));
+        Assert.IsFalse(service.CanAutoDeliver(ready));
+
+        File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId,
+            task.AttemptId, "agent-b", 0, "working")));
+        var refused = await Assert.ThrowsExactlyAsync<RelayException>(() =>
+            service.SendFileHandoffAsync(task.TaskId, "Read the file.", expectedTurn: 0));
+        Assert.AreEqual("file_cli_changed", refused.Code);
+        var working = service.Status(task.TaskId).Task;
+        Assert.AreEqual(TaskState.Running, working.State);
+        Assert.IsNull(working.ManualResendTurn);
+        Assert.IsFalse(service.CanSendFileHandoff(working));
         Assert.AreEqual(0, Calls("agent-b"));
     }
 
@@ -207,6 +242,9 @@ public sealed class FileDeliveryTests
         Assert.AreEqual(0, sent.Task.CliFileTurn);
         Assert.IsFalse(service.CanSendFileHandoff(sent.Task));
         await Assert.ThrowsExactlyAsync<RelayException>(() => service.SendFileHandoffAsync(task.TaskId, "Do not retry unknown submission."));
+        service.RegisterTurnStatus(task.TaskId, "working");
+        Assert.AreEqual("file_resend_not_needed", Assert.ThrowsExactly<RelayException>(() =>
+            service.AllowFileHandoffResend(task.TaskId, "Checked the target", true)).Code);
         Assert.AreEqual(1, Calls("agent-b"));
     }
 
