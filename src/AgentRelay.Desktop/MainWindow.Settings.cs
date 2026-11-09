@@ -127,8 +127,12 @@ public partial class MainWindow
         }
         var settings = service.Settings();
         var ttl = NumberBox("TtlDays", settings.ArtifactTtlDays);
-        var retention = SettingRow(storage, "Keep handoff files", "Expired temporary files can be cleaned. Registered results are kept.", ttl, Muted("days", 12.5, new(8, 0, 0, 0)));
-        Styled(RowAction(retention, "Clean expired files", () => { var proposed = service.Cleanup(false); if (ThemedMessageBox.Show(this, string.Format(CultureInfo.CurrentUICulture, T("Delete {0} expired relay files?"), proposed.Eligible), T("Clean expired files"), MessageBoxButton.OKCancel) == MessageBoxResult.OK) service.Cleanup(true); else reviewCancelled = true; return Task.CompletedTask; }), "GhostButtonStyle").Margin = new(16, 0, 0, 0);
+        var retention = SettingRow(storage, "Keep handoff files", "Review file ownership and task references before cleaning expired Relay files.", ttl, Muted("days", 12.5, new(8, 0, 0, 0)));
+        Styled(RowAction(retention, "Review relay files", () =>
+        {
+            new WorkspaceFilesDialog(this, service, preferences.Language).ShowDialog();
+            return Task.CompletedTask;
+        }), "GhostButtonStyle").Margin = new(16, 0, 0, 0);
 
         var advanced = Group(content, "Advanced", "SettingsAdvanced");
         var timeout = NumberBox("TaskTimeout", settings.TaskTimeoutMinutes);

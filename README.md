@@ -185,7 +185,9 @@ Tools: `relay_task_dispatch`, `relay_task_ack`, `relay_task_start`, `relay_task_
 | Desktop app | `--home` → `RELAY_HOME` → folder chosen in Settings → `%LOCALAPPDATA%\AgentRelay` |
 | Demo | A new folder under `%LOCALAPPDATA%\AgentRelay.Demos\` |
 
-After moving the relay folder in Settings, point the CLI and MCP at the new `--home` and copy handoff prompts again. Managed files expire after the retention period (3 days by default); keep permanent deliverables in your project folder.
+In **Settings → Relay storage → Review relay files**, select a file to see its full path, ownership and task references. **Preview cleanup** lists the exact expired Relay-owned files eligible for deletion. After confirmation, Relay rechecks the listed files and keeps files that changed or gained an active reference. Originals, project deliverables, control files and files of unverified ownership stay in place. The default retention period is 3 days.
+
+After moving the relay folder in Settings, point the CLI and MCP at the new `--home` and copy handoff prompts again.
 
 </details>
 
@@ -194,7 +196,7 @@ After moving the relay folder in Settings, point the CLI and MCP at the new `--h
 - Preview software with real gaps: real host creation, visibility and continuation need testing in that host; simulated bridges do not establish real integration. Windows display scaling and multi-monitor behaviour need manual checks.
 - No background service or scheduled task. A running desktop app monitors receipts; after every process closes, overdue work waits for the next `relay recover` (CLI) or the next launch.
 - Uninstall cleanup only covers rules registered for the current relay folder. Other sites you used need separate handling. Deleting the install or ZIP folder does not replace uninstalling or removing rules.
-- Cancelling a task stops Relay's tracking and further delivery; it does not stop an Agent that is already working. Deleting a task removes its ledger record and keeps the files until retention cleanup.
+- Cancelling a task stops Relay's tracking and further delivery; it does not stop an Agent that is already working. Deleting a task keeps the files and their ownership records so eligible Relay copies can be reviewed for cleanup later.
 
 [Getting started](docs/GETTING_STARTED.md) · [Setup and receipts](docs/CONFIGURATION_ASSISTANT.md) · [Sessions](docs/SESSIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [UI spec](docs/UI_SPEC.md) · [Adapters](docs/ADAPTERS.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
 

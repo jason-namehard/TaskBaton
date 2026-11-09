@@ -121,6 +121,7 @@ relay task cancel --task <id> --reason <text>
 relay recover --task <id>
 relay inbox list --json
 relay prompt show --task <id>
+relay artifact inventory
 relay cleanup --dry-run
 relay cleanup --apply
 ```
@@ -145,6 +146,6 @@ Phase 4 stdio MCP 映射共享核心的 `relay_task_dispatch`、`relay_task_ack`
 
 配置 `artifact_ttl_days` 默认 `3`。每份产物在创建时记录 `created_at`、`expires_at`；修改文件不刷新 TTL，新产物单独计算。任务截止时间与文件过期时间独立。
 
-清理仅处理账本登记且位于 Relay 管理根目录内的文件；不接受任意目录递归删除。先将到期产物标为待删除并防止新增引用，再删除并记录 `artifact_expired`；进程中断可继续同一删除。到期前新写入的文件不删除。过期仍活动的任务先持久化 `timed_out` 和人工恢复提示，再移除过期文件；提示明确标注文件不可用，不复制悬空路径作为可用结果。
+文件清单显示受管产物、明确记录的原件和交付物、任务控制文件及归属未确认的文件。任务引用按账本中的路径展示。仅清理位于当前中转站、已过期、归属确认为 Relay 且没有活跃引用的文件。桌面确认只应用预览中的候选，并在写入事务内复核归属、引用和文件状态。CLI 的 `--dry-run` 列出当前候选，`--apply` 显式执行当次候选的清理。
 
-任务、事件和幂等键不随三天文件 TTL 删除；Phase 1 SQLite 还保留原请求快照，以支持精确幂等比对和经批准的重试。Audit 不保存完整正文。未登记 workspace 文件按文件系统创建时间和当前 TTL 处理；临时文件 TTL 不等于数据库内容保留期。数据库长期归档另议，不增加自动清理框架。普通删除只表示逻辑移除，不承诺安全物理擦除。
+清理保留任务、事件和幂等键，也保留仍有活跃引用的过期文件。未登记或无法确认归属的 workspace 文件保留。任务删除后保留文件归属记录，以便后续查看和清理明确归属的过期产物。临时文件保留期与账本内容保留期分别计算。

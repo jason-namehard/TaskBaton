@@ -27,7 +27,7 @@ public sealed class ManagedWorkspace(string home)
     {
         var id = Guid.NewGuid().ToString();
         var path = RequireManaged(Path.Combine(AttemptDirectory(task.TaskId, task.AttemptId), $"{kind}-{id}.md"));
-        var artifact = new ArtifactRecord(id, task.TaskId, task.AttemptId, kind, path, now, now.AddDays(ttlDays), "available");
+        var artifact = new ArtifactRecord(id, task.TaskId, task.AttemptId, kind, path, now, now.AddDays(ttlDays), "available", RelayOwned: true);
         var markdown = $"""
             ---
             relay_version: 1

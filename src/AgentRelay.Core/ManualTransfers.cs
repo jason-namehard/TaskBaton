@@ -590,6 +590,7 @@ public sealed partial class RelayService
             return existing;
         }
         var path = full;
+        var relayOwned = kind == "result" && SameWorkspacePath(full, TurnReplyPath(task));
         if (!full.StartsWith(workspace.Root + Path.DirectorySeparatorChar, comparison) || existing is not null)
         {
             var directory = workspace.AttemptDirectory(task.TaskId, task.AttemptId);
@@ -598,9 +599,10 @@ public sealed partial class RelayService
             if (File.Exists(path)) path = workspace.RequireManaged(Path.Combine(directory,
                 Path.GetFileNameWithoutExtension(source) + "-" + Guid.NewGuid().ToString("N")[..8] + Path.GetExtension(source)));
             File.Copy(full, path);
+            relayOwned = true;
         }
         else path = workspace.RequireManaged(full);
-        var artifact = new ArtifactRecord(Guid.NewGuid().ToString(), task.TaskId, task.AttemptId, kind, path, now, now.AddDays(ttl), "available");
+        var artifact = new ArtifactRecord(Guid.NewGuid().ToString(), task.TaskId, task.AttemptId, kind, path, now, now.AddDays(ttl), "available", relayOwned);
         AddArtifact(s, artifact);
         return artifact;
     }

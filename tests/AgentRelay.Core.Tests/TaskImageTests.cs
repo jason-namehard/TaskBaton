@@ -134,11 +134,13 @@ public sealed class TaskImageTests
         var path = task.Images!.Single().Path;
         clock.UtcNow = clock.UtcNow.AddDays(4);
         Assert.AreEqual("task_image_unavailable", Assert.ThrowsExactly<RelayException>(() => service.FileHandoffPrompt(task)).Code);
+        CollectionAssert.DoesNotContain(service.Cleanup(false).Paths, path);
+        service.Cancel(task.TaskId, "Finish the fixture");
         CollectionAssert.Contains(service.Cleanup(false).Paths, path);
         service.Cleanup(true);
         Assert.IsFalse(File.Exists(path));
         Assert.AreEqual("expired", service.Artifacts(task.TaskId).Single(item => item.Kind == "image").State);
-        Assert.AreEqual(TaskState.TimedOut, service.Status(task.TaskId).Task.State);
+        Assert.AreEqual(TaskState.Cancelled, service.Status(task.TaskId).Task.State);
 
         var missing = service.CreateCliHandoff(Request(images: [Image()])).Task;
         File.Delete(missing.Images!.Single().Path);

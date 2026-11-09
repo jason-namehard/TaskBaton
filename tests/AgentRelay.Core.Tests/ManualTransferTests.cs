@@ -254,12 +254,14 @@ public sealed class ManualTransferTests
     }
 
     [TestMethod]
-    public void ArtifactExpiryStillEndsAnUnfinishedHandoffWithoutQueueingLegacyContinuation()
+    public void CleanupKeepsExpiredFilesReferencedByAnUnfinishedHandoff()
     {
         var other = Path.Combine(root, "other.zip"); File.WriteAllBytes(other, [1, 2, 3]);
         var second = service.CreateFileHandoff(new("agent-a", "agent-b", other)).Task;
-        clock.Advance(TimeSpan.FromDays(4)); service.Cleanup(true);
-        Assert.AreEqual(TaskState.TimedOut, service.Status(second.TaskId).Task.State);
+        clock.Advance(TimeSpan.FromDays(4));
+        Assert.AreEqual(0, service.Cleanup(true).Deleted);
+        Assert.IsTrue(File.Exists(second.RequestPath));
+        Assert.AreEqual(TaskState.AwaitingManual, service.Status(second.TaskId).Task.State);
         Assert.IsEmpty(service.Continuations(second.TaskId));
     }
 

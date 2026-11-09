@@ -22,7 +22,7 @@ public sealed class TaskOperatorActionTests
     public void Cleanup() => Directory.Delete(root, true);
 
     [TestMethod]
-    public void DeletionRequiresConfirmationAndRemovesRelatedRecordsWithoutRemovingFiles()
+    public void DeletionRequiresConfirmationAndKeepsFileOwnershipForLaterCleanup()
     {
         var task = service.CreateFileHandoff(new("a", "b", source)).Task;
         var receiptPath = service.ManualReceiptPath(task);
@@ -32,11 +32,15 @@ public sealed class TaskOperatorActionTests
         Assert.AreEqual(TaskState.Running, service.Status(task.TaskId).Task.State);
         service.DeleteTask(task.TaskId, true);
         Assert.IsEmpty(service.Tasks()); Assert.IsEmpty(service.Audit(task.TaskId));
-        Assert.IsEmpty(service.Artifacts(task.TaskId)); Assert.IsEmpty(service.Continuations(task.TaskId));
+        Assert.HasCount(1, service.Artifacts(task.TaskId)); Assert.IsEmpty(service.Continuations(task.TaskId));
+        var retained = service.WorkspaceFiles().Single(file => file.Path == task.RequestPath);
+        Assert.AreEqual(WorkspaceFileOwner.Relay, retained.Owner);
+        Assert.AreEqual(task.TaskId, retained.OwnerTaskId);
+        Assert.IsEmpty(retained.References);
         Assert.IsEmpty(service.Inbox()); Assert.IsTrue(File.Exists(task.RequestPath)); Assert.IsTrue(File.Exists(source));
         Assert.IsEmpty(service.ImportManualReceipts().UpdatedTaskIds);
         var store = new RelayStore(service.Home);
-        foreach (var table in new[] { "tasks", "callbacks", "artifacts", "events", "outbox", "notifications", "executions", "continuations" })
+        foreach (var table in new[] { "tasks", "callbacks", "events", "outbox", "notifications", "executions", "continuations" })
             Assert.AreEqual(0L, store.Read(s => s.Query($"SELECT COUNT(*) FROM {table}", r => r.GetInt64(0)).Single()));
     }
 

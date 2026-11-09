@@ -119,7 +119,7 @@ public sealed class TaskRecord
 public sealed record TaskView(TaskRecord Task, bool DeadlineExceeded, string NextAction, string Prompt,
     ExecutionRecord? Execution = null, ContinuationRecord? Continuation = null, HandoffProgress? Progress = null);
 public sealed record ArtifactRecord(string ArtifactId, string TaskId, string AttemptId, string Kind,
-    string Path, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, string State);
+    string Path, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, string State, bool? RelayOwned = null);
 public sealed record AuditEvent(long Sequence, string EventId, string TaskId, string AttemptId,
     string Event, string SenderId, DateTimeOffset RecordedAt, string Detail);
 public sealed record InboxItem(long NotificationId, string TaskId, string Event, string Message,
@@ -128,7 +128,8 @@ public sealed record OutboxItem(string TaskId, string AttemptId, string State, i
     DateTimeOffset? LeaseUntil, string? Receipt);
 public sealed record DeliveryResult(string Status, string? Receipt, string? Error, bool Retryable = false,
     CliSidebarSyncResult? SidebarSync = null);
-public sealed record CleanupResult(int Eligible, int Deleted, string[] Paths);
+public sealed record CleanupIssue(string Path, string? Error = null);
+public sealed record CleanupResult(int Eligible, int Deleted, string[] Paths, CleanupIssue[]? Kept = null);
 
 public sealed record ExecutorRecord(string AgentId, string Kind, string Executable, string Version,
     string VerificationStatus, DateTimeOffset VerifiedAt, string ConfigDirectory,

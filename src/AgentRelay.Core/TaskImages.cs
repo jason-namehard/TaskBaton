@@ -30,7 +30,7 @@ public sealed partial class RelayService
             var path = workspace.RequireManaged(Path.Combine(directory, id + extension));
             using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 file.Write(image.Data);
-            AddArtifact(session, new ArtifactRecord(id, task.TaskId, task.AttemptId, "image", path, now, now.AddDays(ttl), "available"));
+            AddArtifact(session, new ArtifactRecord(id, task.TaskId, task.AttemptId, "image", path, now, now.AddDays(ttl), "available", RelayOwned: true));
             kept.Add(new TaskImage(id, image.FileName, image.MediaType, path));
         }
         return kept.ToArray();

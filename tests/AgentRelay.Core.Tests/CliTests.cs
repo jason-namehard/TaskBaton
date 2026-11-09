@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentRelay.Core;
 
 namespace AgentRelay.Core.Tests;
 
@@ -24,6 +25,37 @@ public sealed class CliTests
         Assert.AreEqual(3, result.Code);
         Assert.AreEqual("not_initialized", result.Json.GetProperty("error").GetProperty("code").GetString());
         Assert.IsFalse(Directory.Exists(home));
+    }
+
+    [TestMethod]
+    public async Task ArtifactInventoryAndCleanupPreviewDistinguishLiveCopiesFromOriginals()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "AgentRelay.Tests", Guid.NewGuid().ToString());
+        var service = new RelayService(Path.Combine(root, "relay"));
+        service.Initialize();
+        try
+        {
+            service.RegisterManual("a", "fixture", "A");
+            service.RegisterManual("b", "fixture", "B");
+            var original = Path.Combine(root, "input.md");
+            File.WriteAllText(original, "Review this file.");
+            var task = service.CreateFileHandoff(new("a", "b", original)).Task;
+            var inventory = await Invoke("--home", service.Home, "artifact", "inventory");
+            Assert.AreEqual(0, inventory.Code);
+            var entries = inventory.Json.GetProperty("data").EnumerateArray().ToArray();
+            Assert.AreEqual("user", entries.Single(file => file.GetProperty("path").GetString() == original)
+                .GetProperty("owner").GetString());
+            var copy = entries.Single(file => file.GetProperty("path").GetString() == task.RequestPath);
+            Assert.AreEqual("relay", copy.GetProperty("owner").GetString());
+            Assert.AreEqual("in_use", copy.GetProperty("status").GetString());
+            Assert.IsTrue(copy.GetProperty("references").EnumerateArray().Any(reference =>
+                reference.GetProperty("task_id").GetString() == task.TaskId && reference.GetProperty("active").GetBoolean()));
+            var preview = await Invoke("--home", service.Home, "cleanup", "--dry-run");
+            Assert.AreEqual(0, preview.Code);
+            Assert.AreEqual(0, preview.Json.GetProperty("data").GetProperty("eligible").GetInt32());
+            Assert.IsTrue(File.Exists(original) && File.Exists(task.RequestPath));
+        }
+        finally { Directory.Delete(root, recursive: true); }
     }
 
     [TestMethod]

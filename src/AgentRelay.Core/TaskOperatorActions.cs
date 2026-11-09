@@ -7,8 +7,8 @@ public sealed partial class RelayService
         if (!approved) throw new RelayException("approval_required", "删除任务前需要明确确认。", 4);
         store.Write(s =>
         {
-            _ = s.Task(taskId);
-            foreach (var table in new[] { "callbacks", "artifacts", "events", "outbox", "notifications", "executions", "continuations", "task_session_bindings" })
+            PreserveWorkspaceOwnership(s, s.Task(taskId));
+            foreach (var table in new[] { "callbacks", "events", "outbox", "notifications", "executions", "continuations", "task_session_bindings" })
                 s.Execute($"DELETE FROM {table} WHERE task_id=$id", ("$id", taskId));
             s.Execute("DELETE FROM tasks WHERE id=$id", ("$id", taskId));
             return true;

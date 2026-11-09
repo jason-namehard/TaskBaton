@@ -108,7 +108,8 @@ public sealed partial class RelayService
             var settings = s.Json<RelaySettings>("SELECT json FROM settings WHERE id=1")!;
             if (registered is null)
                 AddArtifact(s, new ArtifactRecord(Guid.NewGuid().ToString(), taskId, attemptId, "submission", full,
-                    Now, Now.AddDays(settings.ArtifactTtlDays), "available"));
+                    Now, Now.AddDays(settings.ArtifactTtlDays), "available",
+                    RelayOwned: SameWorkspacePath(full, Path.Combine(workspace.AttemptDirectory(taskId, attemptId), "result.md"))));
             // Snapshot the supplied result so later edits cannot change the accepted result.
             var artifact = workspace.Publish(task, failed ? "failure" : "result", content, Now, settings.ArtifactTtlDays);
             AddArtifact(s, artifact);

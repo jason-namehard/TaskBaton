@@ -344,6 +344,7 @@ public static class RelayCli
         });
 
         var artifact = Group("artifact", "登记受管产物；不会完成任务");
+        Sync(artifact, "inventory", "查看中转文件归属、任务引用与清理资格", [], (s, _) => s.WorkspaceFiles());
         Sync(artifact, "register", "把外部文件导入当前任务的受管目录", ["task!", "attempt!", "kind!", "path!"],
             (s, v) => s.RegisterArtifact(v.Get("task"), v.Get("attempt"), v.Get("kind"), v.Get("path")));
         Sync(artifact, "list", "显示产物及过期时间", ["task!"], (s, v) => s.Artifacts(v.Get("task")));

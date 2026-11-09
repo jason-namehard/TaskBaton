@@ -192,6 +192,11 @@ public sealed class LifecycleTests
         var invalid = Assert.ThrowsExactly<RelayException>(() => service.Complete(task.TaskId, task.AttemptId, "agent-b", "done", external));
         Assert.AreEqual("unmanaged_path", invalid.Code);
         clock.Advance(TimeSpan.FromDays(4));
+        Assert.IsEmpty(service.Cleanup(false).Paths);
+        Assert.AreEqual(0, service.Cleanup(true).Deleted);
+        Assert.IsTrue(File.Exists(task.RequestPath));
+        Assert.AreEqual(TaskState.AwaitingManual, service.Status(task.TaskId).Task.State);
+        await service.RecoverAsync(task.TaskId);
         Assert.IsGreaterThan(0, service.Cleanup(false).Eligible);
         Assert.IsTrue(File.Exists(task.RequestPath));
         Assert.IsGreaterThan(0, service.Cleanup(true).Deleted);
@@ -263,15 +268,18 @@ public sealed class LifecycleTests
     }
 
     [TestMethod]
-    public async Task ExpiredUnregisteredCrashFileIsCleanedWithinManagedWorkspace()
+    public async Task AnOldUnregisteredFileHasUnverifiedOwnershipAndIsPreserved()
     {
         var task = (await service.DispatchAsync(Request())).Task;
         var orphan = Path.Combine(Path.GetDirectoryName(task.RequestPath)!, "interrupted.tmp");
         File.WriteAllText(orphan, "interrupted publication");
         clock.Advance(new DateTimeOffset(File.GetCreationTimeUtc(orphan)).AddDays(4) - clock.GetUtcNow());
-        CollectionAssert.Contains(service.Cleanup(false).Paths, orphan);
+        var file = service.WorkspaceFiles().Single(entry => entry.Path == orphan);
+        Assert.AreEqual(WorkspaceFileOwner.Unknown, file.Owner);
+        Assert.AreEqual(WorkspaceFileStatus.Unverified, file.Status);
+        CollectionAssert.DoesNotContain(service.Cleanup(false).Paths, orphan);
         service.Cleanup(true);
-        Assert.IsFalse(File.Exists(orphan));
+        Assert.IsTrue(File.Exists(orphan));
     }
 
     [TestMethod]

@@ -109,8 +109,49 @@ internal static class RedesignUiText
         Add("Temporary handoff files and the local ledger live here. Keep final results in your project folder.", "这里保存临时交接文件和本机记录。最终成果请存进项目目录。", "這裡保存暫存交接檔與本機記錄。最終成果請存到專案資料夾。",
             "一時的な引き継ぎファイルとローカル記録の保存先です。最終成果はプロジェクトフォルダーに保存してください。", "임시 인계 파일과 로컬 기록이 저장됩니다. 최종 결과는 프로젝트 폴더에 두세요.", "Aquí se guardan los archivos temporales y el registro local. Guarda los resultados finales en tu proyecto.");
         Add("Keep handoff files", "交接文件保留", "交接檔保留", "引き継ぎファイルの保存期間", "인계 파일 보관", "Conservar archivos de traspaso");
-        Add("Expired temporary files can be cleaned. Registered results are kept.", "到期的临时文件可以清理，已登记的成果会保留。", "到期的暫存檔可以清理，已登記的成果會保留。",
-            "期限切れの一時ファイルは削除できます。登録済みの成果は残ります。", "만료된 임시 파일은 정리할 수 있으며 등록된 결과는 유지됩니다.", "Los temporales caducados se pueden limpiar; los resultados registrados se conservan.");
+        Add("Review relay files", "查看中转文件", "查看中轉檔案", "中継ファイルを確認", "중계 파일 보기", "Revisar archivos de intercambio");
+        Add("Relay files", "中转文件", "中轉檔案", "中継ファイル", "중계 파일", "Archivos de intercambio");
+        Add("Review file ownership and task references before cleaning expired Relay files.", "清理过期中转文件前，先查看归属和任务引用。", "清理過期中轉檔案前，先查看歸屬和任務參照。",
+            "期限切れの Relay ファイルを削除する前に、所有者とタスクからの参照を確認できます。", "만료된 Relay 파일을 정리하기 전에 소유권과 작업 참조를 확인하세요.", "Revisa la propiedad y las referencias de las tareas antes de limpiar los archivos caducados de Relay.");
+        Add("Review Relay copies, user files, and the tasks that reference them. Only expired Relay files with no active reference qualify for cleanup.",
+            "查看 Relay 副本、用户文件及引用它们的任务。只有已过期且没有活跃任务引用的 Relay 文件可清理。",
+            "查看 Relay 副本、使用者檔案及參照它們的任務。只有已過期且沒有進行中任務參照的 Relay 檔案可清理。",
+            "Relay のコピー、ユーザーファイル、参照元タスクを確認できます。期限切れで作業中の参照がない Relay ファイルだけ削除できます。",
+            "Relay 사본, 사용자 파일 및 참조하는 작업을 확인하세요. 활성 참조가 없는 만료된 Relay 파일만 정리할 수 있습니다.",
+            "Revisa las copias de Relay, los archivos del usuario y las tareas que los usan. Solo se pueden eliminar los archivos caducados de Relay sin referencias activas.");
+        Add("File", "文件", "檔案", "ファイル", "파일", "Archivo");
+        Add("File ownership", "文件归属", "檔案歸屬", "ファイルの所有者", "파일 소유권", "Propiedad del archivo");
+        Add("Cleanup status", "清理状态", "清理狀態", "クリーンアップ状態", "정리 상태", "Estado de limpieza");
+        Add("Task references", "任务引用", "任務參照", "タスクからの参照", "작업 참조", "Referencias de tareas");
+        Add("File and task references", "文件路径与任务引用", "檔案路徑與任務參照", "ファイルのパスとタスク参照", "파일 경로 및 작업 참조", "Ruta y referencias de tareas");
+        Add("Relay managed file", "Relay 受管文件", "Relay 受管檔案", "Relay 管理ファイル", "Relay 관리 파일", "Archivo gestionado por Relay");
+        Add("User or project file", "用户或项目文件", "使用者或專案檔案", "ユーザーまたはプロジェクトのファイル", "사용자 또는 프로젝트 파일", "Archivo del usuario o del proyecto");
+        Add("Task control file", "任务控制文件", "任務控制檔", "タスク制御ファイル", "작업 제어 파일", "Archivo de control de la tarea");
+        Add("Ownership unverified", "归属未确认", "歸屬未確認", "所有者を未確認", "소유권 미확인", "Propiedad sin verificar");
+        Add("Eligible for cleanup", "可清理", "可清理", "削除可能", "정리 가능", "Se puede limpiar");
+        Add("In use by a task", "任务仍在引用", "任務仍在參照", "タスクが使用中", "작업에서 사용 중", "En uso por una tarea");
+        Add("Within retention period", "仍在保留期内", "仍在保留期內", "保存期間内", "보관 기간 내", "Dentro del plazo de conservación");
+        Add("Protected file", "保留文件", "保留檔案", "保護されたファイル", "보호된 파일", "Archivo protegido");
+        Add("File missing", "文件缺失", "檔案遺失", "ファイルなし", "파일 없음", "Archivo ausente");
+        Add("Cleaned up", "已清理", "已清理", "削除済み", "정리 완료", "Eliminado");
+        Add("Path unavailable for cleanup", "路径不可清理", "路徑無法清理", "削除できないパス", "정리할 수 없는 경로", "Ruta no apta para la limpieza");
+        Add("Retention ends {0}", "保留期至 {0}", "保留期至 {0}", "保存期限 {0}", "보관 기한 {0}", "Conservar hasta {0}");
+        Add("Registered task {0}", "登记任务 {0}", "登記任務 {0}", "登録元タスク {0}", "등록 작업 {0}", "Tarea de registro {0}");
+        Add("Preview cleanup", "预览清理", "預覽清理", "削除内容を確認", "정리 미리 보기", "Previsualizar limpieza");
+        Add("No files qualify for cleanup.", "当前没有可清理的文件。", "目前沒有可清理的檔案。", "削除できるファイルはありません。", "정리할 수 있는 파일이 없습니다.", "No hay archivos que se puedan limpiar.");
+        Add("Delete only these {0} reviewed files?", "确认仅删除下列 {0} 个文件？", "確認僅刪除下列 {0} 個檔案？", "確認した {0} 件のファイルだけ削除しますか？", "확인한 파일 {0}개만 삭제할까요?", "¿Eliminar únicamente estos {0} archivos revisados?");
+        Add("Removed {0} files. Kept {1}.", "已清理 {0} 个文件，保留 {1} 个。", "已清理 {0} 個檔案，保留 {1} 個。", "{0} 件を削除し、{1} 件を保持しました。", "파일 {0}개를 삭제하고 {1}개를 보관했습니다.", "Se eliminaron {0} archivos y se conservaron {1}.");
+        Add("File changed or is now protected.", "文件已变动或现已受到保护。", "檔案已變動或現已受到保護。", "ファイルが変更されたか保護されました。", "파일이 변경되었거나 보호되었습니다.", "El archivo cambió o ahora está protegido.");
+        Add("file_reference_request", "任务输入", "任務輸入", "タスク入力", "작업 입력", "Entrada");
+        Add("file_reference_result", "任务结果", "任務結果", "タスク結果", "작업 결과", "Resultado");
+        Add("file_reference_source", "原始文件", "原始檔案", "元ファイル", "원본 파일", "Archivo original");
+        Add("file_reference_current", "当前轮次", "目前輪次", "現在のターン", "현재 회차", "Turno actual");
+        Add("file_reference_image", "任务图片", "任務圖片", "タスク画像", "작업 이미지", "Imagen de la tarea");
+        Add("file_reference_review", "验收记录", "驗收紀錄", "レビュー記録", "검토 기록", "Registro de revisión");
+        Add("file_reference_submission", "Agent 提交", "Agent 提交", "Agent の提出", "Agent 제출", "Entrega del agente");
+        Add("file_reference_deliverable", "项目交付物", "專案交付物", "プロジェクト成果物", "프로젝트 결과물", "Entregable del proyecto");
+        Add("file_reference_registered", "任务产物", "任務產物", "タスクの成果物", "작업 산출물", "Artefacto de la tarea");
+        Add("file_reference_control", "交接控制", "交接控制", "引き継ぎ制御", "인계 제어", "Control del traspaso");
         Add("Advanced", "高级", "進階", "詳細", "고급", "Avanzado");
         Add("Task timeout", "任务超时", "任務逾時", "タスクのタイムアウト", "작업 제한 시간", "Tiempo límite de la tarea");
         Add("How long Relay waits for an Agent to finish one turn.", "Relay 等待 Agent 完成一轮的时间。", "Relay 等待 Agent 完成一輪的時間。", "Agent が 1 ターンを終えるまで Relay が待つ時間です。", "Agent가 한 차례를 마칠 때까지 Relay가 기다리는 시간입니다.", "Cuánto espera Relay a que un Agente termine un turno.");

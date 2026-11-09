@@ -66,6 +66,7 @@ internal static partial class Program
         await CheckModelDefaults(window,root);
         await CheckHostVisibilitySettings(window,root);
         await CheckRelocationLifecycle(window,root);
+        await CheckWorkspaceFiles(window,root);
         await CheckNotificationDelivery(window,root);
         await CheckBatchTasks(window,root);
         await CheckLongAgentNames(window,root);
@@ -808,7 +809,7 @@ internal static partial class Program
         window.RequestExit();
     }
 
-    private sealed class RelocationClock : TimeProvider
+    private sealed class AdjustableClock : TimeProvider
     {
         private DateTimeOffset now=DateTimeOffset.UtcNow;
         public override DateTimeOffset GetUtcNow()=>now;
@@ -817,7 +818,7 @@ internal static partial class Program
 
     private static async Task CheckRelocationLifecycle(MainWindow owner,string root)
     {
-        var clock=new RelocationClock();
+        var clock=new AdjustableClock();
         var source=Path.Combine(root,"relocation-ui-source");var target=Path.Combine(root,"relocation-ui-target");
         var station=new RelayService(source,clock);station.Initialize();
         station.RegisterManual("source","fixture","Source");station.RegisterManual("target","fixture","Target");
@@ -844,6 +845,68 @@ internal static partial class Program
         await Click(window,"Refresh");
         Check(!Directory.Exists(source)&&File.Exists(file),"The desktop maintenance path removes the expired old station and keeps external source files");
         window.RequestExit();
+    }
+
+    private static async Task CheckWorkspaceFiles(MainWindow owner,string root)
+    {
+        var clock=new AdjustableClock();
+        var station=new RelayService(Path.Combine(root,"workspace-files"),clock);
+        station.Initialize();
+        station.RegisterManual("source","fixture","Source");
+        station.RegisterManual("target","fixture","Target");
+        TaskRecord Create(string name)
+        {
+            var path=Path.Combine(root,name);
+            File.WriteAllText(path,"Isolated workspace file fixture.");
+            return station.CreateFileHandoff(new("source","target",path)).Task;
+        }
+        var active=Create("active-input.md");
+        var completed=Create("finished-input.md");
+        station.Cancel(completed.TaskId,"Finish the fixture");
+        var unregistered=Path.Combine(Path.GetDirectoryName(completed.RequestPath)!,"unregistered.md");
+        File.WriteAllText(unregistered,"User file stored alongside the relay copy.");
+        clock.Advance(TimeSpan.FromDays(4));
+        Appearance.Save(station.Home,new DesktopPreferences("en",NotificationSound:"none"));
+        var window=new MainWindow(station){Owner=owner};window.Show();
+        try
+        {
+            await Wait(()=>Find<ListBox>(window,"Navigation").SelectedIndex>=0);
+            var navigation=Find<ListBox>(window,"Navigation");
+            navigation.SelectedItem=navigation.Items.Cast<ListBoxItem>().Single(item=>(string)item.Tag=="Settings");
+            await Modal<WorkspaceFilesDialog>(window,"Review relay files",async dialog=>
+            {
+                var table=Find<DataGrid>(dialog,"WorkspaceFilesTable");
+                WorkspaceFileEntry FileOf(object row)=>(WorkspaceFileEntry)row.GetType().GetProperty("File")!.GetValue(row)!;
+                table.SelectedItem=table.Items.Cast<object>().Single(row=>FileOf(row).Path==active.RequestPath);
+                var detail=Find<TextBox>(dialog,"WorkspaceFileDetails").Text;
+                Check(detail.Contains(active.TaskId)&&detail.Contains("Relay managed file")&&detail.Contains("In use by a task"),
+                    "Workspace inventory shows the full path, ownership, and active task reference");
+                Check(table.Items.Cast<object>().Select(FileOf).Any(file=>file.Path==active.ManualSourceFile&&file.Owner==WorkspaceFileOwner.User)
+                    &&table.Items.Cast<object>().Select(FileOf).Any(file=>file.Path==unregistered&&file.Owner==WorkspaceFileOwner.Unknown),
+                    "Workspace inventory distinguishes the original from unverified files and Relay copies");
+
+                var cancelled=HandleNextDialog<ThemedMessageBox>(dialog,box=>
+                {
+                    var text=Find<TextBlock>(box,"MessageText").Text;
+                    Check(text.Contains(completed.RequestPath)&&!text.Contains(active.RequestPath)&&!text.Contains(unregistered),
+                        "Cleanup confirmation lists the exact eligible path while excluding protected files");
+                    Press(box,"MessageCancel");return Task.CompletedTask;
+                });
+                Press(dialog,"PreviewWorkspaceCleanup");await cancelled;
+                Check(File.Exists(completed.RequestPath),"Cancelling cleanup keeps the previewed file");
+
+                var accepted=HandleNextDialog<ThemedMessageBox>(dialog,box=>
+                {Press(box,"MessageOk");return Task.CompletedTask;});
+                Press(dialog,"PreviewWorkspaceCleanup");await accepted;
+                Check(!File.Exists(completed.RequestPath)&&File.Exists(active.RequestPath)&&
+                    File.Exists(active.ManualSourceFile)&&File.Exists(completed.ManualSourceFile)&&File.Exists(unregistered),
+                    "Confirming cleanup removes only the previewed Relay copy and keeps all source files");
+                Check(table.Items.Cast<object>().Select(FileOf).Single(file=>file.Path==completed.RequestPath).Status==WorkspaceFileStatus.Removed,
+                    "Workspace inventory refreshes to show the cleaned artifact and retains its task reference");
+                Press(dialog,"CloseWorkspaceFiles");
+            });
+        }
+        finally { window.RequestExit(); }
     }
 
     private static async Task CheckReviewLoopPane(MainWindow owner,string root)
