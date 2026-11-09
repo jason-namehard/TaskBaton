@@ -18,10 +18,10 @@ internal sealed class CollaborationOptionsPanel
     private readonly CheckBox automatic;
     private readonly RadioButton relay;
     private readonly CheckBox independent;
-    private readonly TextBox relaySteps;
-    private readonly CheckBox newSessionEachTurn;
+    private readonly RelayTemplateEditor relayTemplate;
 
-    public CollaborationOptionsPanel(EntryDialogLayout ui, Panel parent, string prefix, int defaultTurnMinutes, bool automaticByDefault)
+    public CollaborationOptionsPanel(EntryDialogLayout ui, Panel parent, string prefix, int defaultTurnMinutes, bool automaticByDefault,
+        ComboBox sender, ComboBox recipient)
     {
         this.ui = ui;
         RadioButton Choice(string text, string name, string group, bool selected)
@@ -35,16 +35,9 @@ internal sealed class CollaborationOptionsPanel
         loop = Choice("Keep revising until the review passes", "Loop", "Mode", false);
         relay = Choice("Fixed relay with a set number of handoffs", "Relay", "Mode", false);
         parent.Children.Add(single); parent.Children.Add(loop); parent.Children.Add(relay);
-        var relayDetails = new StackPanel { Margin = new(18, 4, 0, 8), IsEnabled = false };
+        var relayDetails = new StackPanel { Margin = new(18, 4, 0, 8), Visibility = System.Windows.Visibility.Collapsed };
         parent.Children.Add(relayDetails);
-        relayDetails.Children.Add(ui.Note("Write one step per line: agent=work, agent:test=check the work, agent:modify=apply the test report. Steps are turns, so A→B is 2 steps and 1 handoff, and A→B→A is 3 steps and 2 handoffs. The last step is only the end of the flow; it is not an automatic acceptance or delivery role."));
-        relaySteps = ui.Field(relayDetails, "Steps", prefix + "RelaySteps", multiline: true);
-        relaySteps.Height = 90;
-        relayDetails.Children.Add(ui.Note("Roles are what Relay reports: a modify step that ends the plan after a test step is shown as modified without retest. Relay never guesses a role from the Agent's wording."));
-        newSessionEachTurn = new CheckBox { Name = prefix + "NewSessionEachTurn", Margin = new(0, 6, 0, 6),
-            Content = new TextBlock { Text = ui.T("Start a new conversation for every turn instead of reusing this task's first-turn conversation"), TextWrapping = System.Windows.TextWrapping.Wrap } };
-        AutomationProperties.SetAutomationId(newSessionEachTurn, prefix + "NewSessionEachTurn");
-        relayDetails.Children.Add(newSessionEachTurn);
+        relayTemplate = new RelayTemplateEditor(ui, relayDetails, prefix, sender, recipient, prefix + "NewSessionEachTurn");
         var details = new StackPanel { Margin = new(18, 4, 0, 8), IsEnabled = false };
         parent.Children.Add(details);
         details.Children.Add(ui.Note("The selected final reviewer checks each version against the criteria. The task ends only when that Agent approves with no unresolved issues. The other Agent makes revisions."));
@@ -67,9 +60,9 @@ internal sealed class CollaborationOptionsPanel
             Content = new TextBlock { Text = ui.T("The review must use a new conversation when the reviewer also executed this task. A new conversation still shares the host's global rules and memory."), TextWrapping = System.Windows.TextWrapping.Wrap } };
         AutomationProperties.SetAutomationId(independent, prefix + "IndependentAcceptance");
         details.Children.Add(independent);
-        loop.Checked += (_, _) => { details.IsEnabled = true; relayDetails.IsEnabled = false; };
-        relay.Checked += (_, _) => { details.IsEnabled = false; relayDetails.IsEnabled = true; };
-        single.Checked += (_, _) => { details.IsEnabled = false; relayDetails.IsEnabled = false; };
+        loop.Checked += (_, _) => { details.IsEnabled = true; relayDetails.Visibility = System.Windows.Visibility.Collapsed; };
+        relay.Checked += (_, _) => { details.IsEnabled = false; relayDetails.Visibility = System.Windows.Visibility.Visible; };
+        single.Checked += (_, _) => { details.IsEnabled = false; relayDetails.Visibility = System.Windows.Visibility.Collapsed; };
         turnMinutes = ui.Field(parent, "Time limit per turn (minutes)", prefix + "TurnMinutes", defaultTurnMinutes.ToString(CultureInfo.InvariantCulture));
         automatic = new CheckBox { Name = prefix + "AutoDeliver", IsChecked = automaticByDefault, Margin = new(0, 8, 0, 8),
             Content = new TextBlock { Text = ui.T("Send each next turn through CLI automatically once that Agent's CLI is verified (may incur model charges)"), TextWrapping = System.Windows.TextWrapping.Wrap } };
@@ -89,11 +82,7 @@ internal sealed class CollaborationOptionsPanel
         }
         var minutes = Number(turnMinutes, 1, 43200);
         if (relay.IsChecked == true)
-        {
-            var steps = RelayService.ParseSteps(relaySteps.Text);
-            return new(null, AutoDeliver, minutes, RelayPlan: new RelayPlanOptions(steps,
-                independent.IsChecked == true, minutes, AutoDeliver, newSessionEachTurn.IsChecked == true));
-        }
+            return new(null, AutoDeliver, minutes, RelayPlan: relayTemplate.Build(sender, recipient, minutes, AutoDeliver));
         if(loop.IsChecked==true&&automaticCriteria.IsChecked!=true&&string.IsNullOrWhiteSpace(criteria.Text))
             throw new RelayException("collaboration_criteria_required",ui.T("Enter the acceptance criteria or let the initiating Agent create them."));
         var collaboration = loop.IsChecked == true

@@ -254,7 +254,7 @@ public partial class MainWindow : Window
             var existingIds = service.Tasks().Select(v => v.Task.TaskId).ToHashSet(StringComparer.Ordinal);
             var result = await Task.Run(() => service.CreateFileHandoff(draft,reuseExisting:dialog.ReuseExisting));
             taskId = result.Task.TaskId;
-            if (!existingIds.Contains(taskId)) service.ConfigureFileHandoff(taskId, dialog.Options(draft));
+            if (!existingIds.Contains(taskId)) service.ConfigureFileHandoff(taskId, dialog.Options);
         }, "You copy the prompt into the Agent yourself");
     }
 

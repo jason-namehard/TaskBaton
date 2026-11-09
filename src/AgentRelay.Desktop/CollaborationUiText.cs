@@ -7,6 +7,30 @@ internal static class CollaborationUiText
         void Add(string en,string cn,string tw,string ja,string ko,string es)=>entries[en]=[en,cn,tw,ja,ko,es];
         Add("Collaboration","协作方式","協作方式","進め方","협업 방식","Colaboración");
         Add("Single handoff","单次交接","單次交接","1 回の引き継ぎ","단일 전달","Envío único");
+        Add("Fixed relay with a set number of handoffs","定次接力","定次接力","回数を指定するリレー","횟수가 정해진 릴레이","Relevo con pasos fijos");
+        Add("Relay template","接力模板","接力範本","リレーのテンプレート","릴레이 템플릿","Plantilla de relevo");
+        Add("Custom steps","自定义步骤","自訂步驟","手順を指定","단계 직접 설정","Pasos personalizados");
+        Add("Direct handoff to the recipient","直接交给接收方","直接交給接收方","受信側に直接引き継ぐ","수신자에게 바로 전달","Entrega directa al destinatario");
+        Add("Work then hand off","先处理，再交接","先處理，再交接","作業してから引き継ぐ","작업 후 넘기기","Trabajar y entregar");
+        Add("Test and modify once","测试与修改一次","測試與修改一次","テストと修正を1回","테스트와 수정 1회","Probar y modificar una vez");
+        Add("Test and modify twice","测试与修改两次","測試與修改兩次","テストと修正を2回","테스트와 수정 2회","Probar y modificar dos veces");
+        Add("First Agent","从哪个 Agent 开始","從哪個 Agent 開始","最初に作業する Agent","첫 작업 Agent","Primer agente");
+        Add("Steps","步骤","步驟","手順","단계","Pasos");
+        Add("Work","处理","處理","作業","작업","Trabajo");
+        Add("Test","测试","測試","テスト","테스트","Prueba");
+        Add("Modify","修改","修改","修正","수정","Modificación");
+        Add("Direct to {0} · Ends after this step","直接交给 {0} · 本步完成后结束","直接交給 {0} · 本步完成後結束","{0} に直接渡す · この手順で終了","{0}에게 바로 전달 · 이 단계에서 종료","Directo a {0} · Termina tras este paso");
+        Add("{0} steps · {1} handoffs · Ends with {2}","{0} 步 · 交接 {1} 次 · 由 {2} 完成本步后结束","{0} 步 · 交接 {1} 次 · 由 {2} 完成本步後結束","{0} 手順 · {1} 回の引き継ぎ · {2} で終了","{0}단계 · 전달 {1}회 · {2}에서 종료","{0} pasos · {1} entregas · Termina con {2}");
+        Add("{0} steps · {1} handoff · Ends with {2}","{0} 步 · 交接 {1} 次 · 由 {2} 完成本步后结束","{0} 步 · 交接 {1} 次 · 由 {2} 完成本步後結束","{0} 手順 · {1} 回の引き継ぎ · {2} で終了","{0}단계 · 전달 {1}회 · {2}에서 종료","{0} pasos · {1} entrega · Termina con {2}");
+        Add("Start a new conversation when an Agent works again","同一 Agent 再次接手时新建会话","同一 Agent 再次接手時新建會話","同じ Agent が再び作業するときに新しい会話を開始","같은 Agent가 다시 작업할 때 새 대화 시작","Iniciar otra conversación cuando un agente vuelva a trabajar");
+        Add("Each Agent's first turn uses its chosen conversation. The final step ends the relay.","每个 Agent 首次接手时使用所选会话。最后一步完成后结束接力。","每個 Agent 首次接手時使用所選會話。最後一步完成後結束接力。","各 Agent の初回は選択した会話を使用します。最後の手順が完了すると終了します。","각 Agent의 첫 작업은 선택한 대화를 사용합니다. 마지막 단계가 끝나면 릴레이를 마칩니다.","Cada agente usa su conversación elegida en el primer turno. El relevo termina tras el último paso.");
+        Add("Do the work requested and save the result.","按工作要求处理并保存结果。","按工作要求處理並儲存結果。","依頼された作業を行い、結果を保存してください。","요청된 작업을 수행하고 결과를 저장하세요.","Realiza el trabajo solicitado y guarda el resultado.");
+        Add("Carry out the remaining work using the previous result.","使用上一步的结果完成剩余工作。","使用上一步的結果完成剩餘工作。","前の結果を使って残りの作業を完了してください。","앞 단계 결과를 사용해 남은 작업을 완료하세요.","Completa el trabajo restante usando el resultado anterior.");
+        Add("Test the latest work and record the results and any problems.","测试最新成果，记录测试结果和发现的问题。","測試最新成果，記錄測試結果和發現的問題。","最新の成果をテストし、結果と問題を記録してください。","최신 결과물을 테스트하고 결과와 문제를 기록하세요.","Prueba la versión más reciente y anota los resultados y problemas.");
+        Add("Apply the necessary changes from the test report.","根据测试报告完成必要修改。","根據測試報告完成必要修改。","テスト報告に基づいて必要な修正を行ってください。","테스트 보고서를 바탕으로 필요한 변경을 적용하세요.","Aplica los cambios necesarios según el informe de pruebas.");
+        Add("Write one step per line: agent=work, agent:test=check, or agent:modify=apply the test report.","每行写一步，例如 agent=实现、agent:test=测试、agent:modify=按报告修改。","每行寫一步，例如 agent=實作、agent:test=測試、agent:modify=按報告修改。","1 行に 1 手順を入力します。例：agent=作業、agent:test=テスト、agent:modify=報告に基づく修正。","한 줄에 한 단계를 입력하세요. 예: agent=작업, agent:test=테스트, agent:modify=보고서 반영.","Escribe un paso por línea, por ejemplo agent=trabajo, agent:test=prueba o agent:modify=aplicar el informe.");
+        Add("Leave custom steps empty for a continuous manual handoff.","自定义步骤留空时，任务使用连续手动传递。","自訂步驟留空時，任務使用連續手動傳遞。","手動で引き継ぎ続ける場合は、手順を空欄にしてください。","계속 수동으로 전달하려면 사용자 지정 단계를 비워 두세요.","Deja vacíos los pasos personalizados para continuar el traspaso manual.");
+        Add("Select the sender and recipient from the pasted handoff before applying a template.","请先把上方的发送方和接收方选为粘贴清单中的 Agent，再应用模板。","請先把上方的傳送方和接收方選為貼上清單中的 Agent，再套用範本。","テンプレートを適用する前に、貼り付けた引き継ぎと同じ送信側と受信側を選んでください。","템플릿을 적용하기 전에 붙여넣은 인계에 나온 발신자와 수신자를 선택하세요.","Antes de aplicar la plantilla, elige el emisor y el destinatario del traspaso pegado.");
         Add("Keep revising until the review passes","持续修改与验收，直到通过","持續修改與驗收，直到通過","レビューに通るまで修正を続ける","검토를 통과할 때까지 수정 반복","Revisar hasta que se apruebe");
         Add("The reviewer checks each version. The task finishes only after the reviewer passes it and the author accepts and records the deliverable.",
             "验收者检查每一版。只有验收通过、作者确认接受并写明交付物后，任务才算完成。","驗收者檢查每一版。只有驗收通過、作者確認接受並寫明交付物後，任務才算完成。",

@@ -21,6 +21,7 @@ public sealed partial class RelayService
         if (extension is null || extension.Block is not null) return false;
         var binding = TaskSession(task.TaskId, recipient);
         if (task.Collaboration?.Phase == "criteria" && binding?.SessionId is null) return false;
+        if (task.RelaySteps is not null && recipient == task.RequesterId && binding is null) return false;
         if (binding?.SessionId is not null && CliRecipes.ResumeCommand(extension.Recipe) is null) return false;
         if (binding?.Binding == "ephemeral" || task.ManualTurn > 0 && binding is null) return false;
         return
@@ -119,7 +120,8 @@ public sealed partial class RelayService
             validated = check.Session;
         }
         var command = resume ? CliRecipes.ResumeCommand(extension.Recipe)! : extension.Recipe.Create;
-        if(!resume&&task.CliNewSessionCwd is {} newCwd)command=command with {WorkingDirectory=newCwd};
+        if (!resume && (binding?.Cwd ?? (recipient == task.RecipientId ? task.CliNewSessionCwd : null)) is { } newCwd)
+            command = command with { WorkingDirectory = newCwd };
         if (resume) command = command with { WorkingDirectory = validated?.Cwd ?? binding!.Cwd ?? command.WorkingDirectory };
         if (resume)
         {

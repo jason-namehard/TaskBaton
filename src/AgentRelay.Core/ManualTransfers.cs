@@ -550,7 +550,8 @@ public sealed partial class RelayService
         if (relay is not null)
         {
             // A relay plan is bounded by its own steps; reaching the end is normal, not a round-limit pause.
-            if (task.NewSessionEachTurn) StartFreshSession(s, task, next);
+            if (task.NewSessionEachTurn && relay.Take(task.ManualTurn).Any(step => step.AgentId == next))
+                StartFreshSession(s, task, next);
             return;
         }
         if (!task.ManualContinuous && task.ManualTurn >= limit)
@@ -573,8 +574,7 @@ public sealed partial class RelayService
         if (existing is null) return;
         var agent = Agent(s, agentId);
         SaveTaskSession(s, task, new(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
-            null, null, null, null, "new", "unknown", Now, "operator chose a new session for every turn"));
-        task.CliFileTurn = null; task.CliFileStatus = null; task.CliFileSessionId = null; task.CliFileError = null;
+            null, existing.Cwd, null, null, "new", "unknown", Now, "operator chose a new session for later turns"));
         s.Event(task, "session.new_each_turn", agentId, Now, "turn=" + task.ManualTurn);
     }
 

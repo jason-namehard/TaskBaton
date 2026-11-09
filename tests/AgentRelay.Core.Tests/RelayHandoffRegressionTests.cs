@@ -73,7 +73,8 @@ public sealed class RelayHandoffRegressionTests
         Assert.AreEqual(0, progress.Status.HandoffsDone);
         Assert.AreEqual(2, RelayService.HandoffCount(3));
         Assert.AreEqual(1, RelayService.HandoffCount(2));
-        Assert.AreEqual("修好构建", task.ManualNextAction);
+        StringAssert.Contains(task.ManualNextAction!, "按文件要求处理");
+        StringAssert.Contains(task.ManualNextAction!, "修好构建");
 
         var context = Context(task);
         Assert.AreEqual(1, context.GetProperty("relay_plan").GetProperty("current_step").GetInt32());
@@ -153,7 +154,7 @@ public sealed class RelayHandoffRegressionTests
         Assert.AreEqual("agent-a", task.AwaitingAgentId, "the initiating Agent's own work is step 1, not a criteria draft");
         var context = Context(task);
         Assert.AreEqual("user", context.GetProperty("sender_name").GetString());
-        Assert.AreEqual("先按原始要求实现", context.GetProperty("request").GetString());
+        Assert.AreEqual("按文件要求处理\n\n先按原始要求实现", context.GetProperty("request").GetString());
         Assert.AreEqual(2, service.FileHandoffProgress(task).Status!.HandoffsTotal);
 
         WriteReceipt(task, "agent-a", "done", true, ResultFile("a-work.md"), "请测试");
@@ -575,6 +576,36 @@ public sealed class RelayHandoffRegressionTests
         Assert.AreEqual("unknown", status.Host);
         Assert.AreEqual("none", status.Agent);
         Assert.IsTrue(status.NeedsUser);
+    }
+
+    [TestMethod]
+    public void ARepeatStepKeepsThePreviousDeliveryInFlightWhilePreparingANewConversation()
+    {
+        var task = Manual();
+        service.BindManualTaskSession(task.TaskId, "agent-b", "first-b", cwd: root);
+        service.ConfigureRelayPlan(task.TaskId, new RelayPlanOptions(
+            [new("agent-b", RelayStepRole.Work), new("agent-a", RelayStepRole.Test), new("agent-b", RelayStepRole.Modify)],
+            NewSessionEachTurn: true));
+        WriteReceipt(task, "agent-b", "done", true, ResultFile("work-result.md"));
+        Assert.IsEmpty(Import().Errors);
+        task = Reload(task);
+        new RelayStore(service.Home).Write(s =>
+        {
+            var current = s.Task(task.TaskId);
+            current.CliFileTurn = current.ManualTurn; current.CliFileStatus = "submitting";
+            s.Save(current);
+            return true;
+        });
+        WriteReceipt(task, "agent-a", "done", true, ResultFile("test-result.md"));
+        Assert.IsEmpty(Import().Errors);
+        task = Reload(task);
+        var binding = service.TaskSession(task.TaskId, "agent-b");
+        Assert.AreEqual("new", binding!.Binding);
+        Assert.IsNull(binding.SessionId);
+        Assert.AreEqual(root, binding.Cwd);
+        Assert.AreEqual(2, task.ManualTurn);
+        Assert.AreEqual("running", service.FileHandoffProgress(task).Status!.Host);
+        Assert.IsFalse(service.CanSendFileHandoff(task));
     }
 
     // ---------- D. images ----------

@@ -87,22 +87,24 @@ Requirements: the installer and the desktop app bundle their runtime, including 
 1. Register A and B. **One-click setup** in **New Agent** reads CLI help and non-secret settings, then imports a calling method when one is available. If the local interface cannot run, use the manual fields instead of pasting a configuration block.
 2. Choose **New task → New automatic transfer task**. Select A (and optionally the source conversation; without one, the turn for A is copied manually), select B, and choose a new or existing target conversation. Write the work request; Relay prepares the prompt and calls the selected CLI.
 3. Choose a **single handoff** — it ends when B finishes —, **keep revising until the review passes**, or a **fixed relay** with a set number of handoffs. In review mode you pick the final reviewer, type acceptance criteria or have the initiating Agent prepare them, and can set a review limit; if the reviewer also executed the task and you asked for independent acceptance, the review starts in a new conversation (a new conversation still shares the host's global rules and memory). The reviewer requests concrete changes or approves with no open items. Relay records that decision; it does not independently verify the work.
+4. Create the task. Explicitly allow any direction that is not enabled yet, since automatic sending requires a verified method for that Agent. The board names the current worker, role, round and phase. Later turns resume the exact bound conversation; if that conversation is missing, Relay asks for another choice instead of falling back to the latest one.
 
 ### Fixed relay with a set number of handoffs
 
-Write one step per line: `agent=work`, `agent:test=check the work`, `agent:modify=apply the test report`. Steps are turns, so A→B is 2 steps and **1 handoff**, and A→B→A is 3 steps and **2 handoffs**; "one test-and-modify round" is two handoffs, not one. The last step is only the end of the flow — it does not become an acceptance or delivery role. Each step receives its own duty and the previous hand-over note. Roles are declared by you, so Relay can state truthfully that a plan ended on a modify step after a test step without a retest ("modified without retest") instead of guessing from the Agent's wording.
+Choose **Direct handoff to the recipient**, **Work then hand off**, **Test and modify once**, or **Test and modify twice**. Pick the first Agent for multi-step templates, edit the work for each step, and check the preview for the route and endpoint. A→B has 2 steps and **1 handoff**, A→B→A has 3 steps and **2 handoffs**, and A→B→A→B→A has 5 steps and **4 handoffs**. The relay ends when the final step completes.
 
-Later turns reuse the exact first-turn conversation of that Agent by default, or start a new conversation for every turn if you choose that. Each turn has its own `context.json` and `receipt.json` under `.relay/turn-<n>/`, so an old turn's file can never overwrite the current one; the single attempt-level receipt that 0.3.0 prompts named is still read.
+For **Custom steps**, write one step per line, such as `agent=work`, `agent:test=check the work` or `agent:modify=apply the test report`. Each step receives its own duty and the previous handover note. A final modify step after a test is shown as **Modified without retest**.
+
+Each Agent uses its chosen conversation on its first turn. When the Agent works again, Relay reuses the exact conversation by default, or starts a new one if selected. Without a chosen source conversation, steps assigned to the sender use manual delivery. Each turn keeps its own `context.json` and `receipt.json` under `.relay/turn-<n>/`. Relay also reads the attempt-level receipt used by 0.3.0.
 
 Statuses are separate facts: **sent / delivery unknown / host confirmed delivery**, **Agent declared received / working / submitted**, **host turn ended**, and **flow finished**. A submitted receipt is not proof that the host stopped: while Relay's own call is still running, the next step is not started automatically, and the board says "result submitted · host end unknown". Receipts that name the wrong field or use the wrong type are rejected with the field name, the value found and the accepted form, and the file is kept.
-4. Create the task. Explicitly allow any direction that is not enabled yet, since automatic sending requires a verified method for that Agent. The board names the current worker, role, round and phase. Later turns resume the exact bound conversation; if that conversation is missing, Relay asks for another choice instead of falling back to the latest one.
 
 ![Settings: appearance, notifications and storage in one place](docs/images/ui-settings.png)
 
 ### Manual transfer
 
 1. **New task → New manual transfer task**, choose sender and recipient, write the request. Copy the prompt for the sender and paste it into that session.
-2. Paste the sender's JSON reply back into Relay and parse it to create the task, or pick an existing file.
+2. Paste the sender's JSON reply back into Relay and parse it to create the task, or pick an existing file. Open **Relay template** to choose a fixed route. Leave **Custom steps** empty for a continuous manual handoff.
 3. Copy the next prompt to the Agent the board names. Receipts are read while Relay is running and on refresh; keep passing turns as the work needs, and the task ends only when it is explicitly complete.
 4. Optionally install the one-line handoff rule into the instruction file your host actually reads. Relay never edits that file silently: you see the line before it is written, and detailed instructions are read on demand.
 

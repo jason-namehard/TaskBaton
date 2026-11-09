@@ -144,6 +144,9 @@ public partial class MainWindow
                 :string.Format(CultureInfo.CurrentUICulture,T("Completed steps: {0} · Completed reviews: {1} (limit: {2})"),completed,reviews,c.MaxReviewRounds)});
             steps.Children.Add(RoundBar(c.History.Where(step=>step.Outcome is not "criteria_ready").Select(step=>step.Outcome).ToArray(),!progress.Finished));
         }
+        else if(task.RelaySteps is [{ } onlyStep] && !progress.Finished)
+            steps.Children.Add(new TextBlock{TextWrapping=TextWrapping.Wrap,Text=string.Format(CultureInfo.CurrentUICulture,
+                T("Direct to {0} · Ends after this step"),AgentName(onlyStep.AgentId))});
         else if(task.RelaySteps is {} relaySteps)steps.Children.Add(new TextBlock{TextWrapping=TextWrapping.Wrap,Text=progress.Finished
             ?T(task.State.ToString())
             :string.Format(CultureInfo.CurrentUICulture,T("Step {0} of {1} · {2} handoffs in this relay"),task.ManualTurn+1,relaySteps.Length,

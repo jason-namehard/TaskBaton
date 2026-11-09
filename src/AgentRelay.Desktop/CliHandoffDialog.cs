@@ -79,7 +79,7 @@ public sealed class CliHandoffDialog : Window
         ui.Body.Children.Add(composer);
         ui.Body.Children.Add(ui.Note("Paste or drop images into the work request."));
         composer.AttachmentsChanged+=(_,_)=>ui.Status.Text="";
-        var options=new CollaborationOptionsPanel(ui,ui.Body,"CliTask",service.Settings().TaskTimeoutMinutes,true);
+        var options=new CollaborationOptionsPanel(ui,ui.Body,"CliTask",service.Settings().TaskTimeoutMinutes,true,from,to);
         var permission=new CheckBox{Name="CliTaskEnableDirections",Content=ui.T("Allow enabling the connection directions required by this task"),Margin=new(0,4,0,10)};
         ui.Body.Children.Add(permission);
         ui.Body.Children.Add(ui.Note("This enables required routes that are paused or not yet authorized. It does not add a bridge or sign in to an Agent."));

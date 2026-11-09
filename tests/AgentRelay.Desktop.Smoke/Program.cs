@@ -603,6 +603,35 @@ internal static partial class Program
             && relay.Steps[1].Role==RelayStepRole.Test && relay.Steps[2].Role==RelayStepRole.Modify
             && RelayService.HandoffCount(relay.Steps.Length)==2,
             "A three-step relay is recorded as three steps and two handoffs, with the declared test and modify roles");
+        var templateOptions=new CliHandoffDialog(window,station,"en");
+        await Show(templateOptions,dialog=>
+        {
+            Find<RadioButton>(dialog,"CliTaskRelay").IsChecked=true;
+            var templates=Find<ComboBox>(dialog,"CliTaskRelayTemplate");
+            var start=Find<ComboBox>(dialog,"CliTaskRelayStart");
+            var summary=Find<TextBlock>(dialog,"CliTaskRelaySummary");
+            templates.SelectedIndex=2;
+            Check(summary.Text.Contains("Source → Target")&&summary.Text.Contains("2 steps · 1 handoff · Ends with Target"),
+                "The two-step template previews one handoff and its endpoint");
+            templates.SelectedIndex=3;
+            Check(summary.Text.Contains("Source → Target → Source")&&summary.Text.Contains("3 steps · 2 handoffs"),
+                "The one-test template previews three steps and two handoffs");
+            templates.SelectedIndex=4;
+            start.SelectedIndex=1;
+            dialog.UpdateLayout();
+            Check(summary.Text.Contains("Target → Source → Target → Source → Target")&&summary.Text.Contains("5 steps · 4 handoffs"),
+                "The two-test template updates all five steps and its endpoint when the starting Agent changes");
+            Find<TextBox>(dialog,"CliTaskRelayDuty4Step3").Text="Apply report fixes; leave the unrelated files.";
+            Find<CheckBox>(dialog,"CliTaskNewSessionEachTurn").IsChecked=true;
+            Find<TextBox>(dialog,"CliTaskPrompt").Text="Template fixture work.";
+            Press(dialog,"SendCliTask");
+            return Task.CompletedTask;
+        });
+        Check(templateOptions.Result?.RelayPlan is {Steps.Length:5,NewSessionEachTurn:true} templated
+            &&templated.Steps[0].AgentId=="ui-target"&&templated.Steps[4].AgentId=="ui-target"
+            &&templated.Steps[1].Role==RelayStepRole.Test&&templated.Steps[3].Role==RelayStepRole.Test
+            &&templated.Steps[2].Duty=="Apply report fixes; leave the unrelated files.",
+            "Template duties persist verbatim with their declared roles and session policy");
         await Modal<CliHandoffDialog>(window,"New automatic transfer task",async dialog=>
         {
             Check(Find<RadioButton>(dialog,"CliTaskNewSession").IsChecked==true,"Explicit CLI task entry offers a new target conversation by default");
@@ -632,6 +661,31 @@ internal static partial class Program
         Check(File.Exists(calls)&&task.Mode=="cli"&&task.State==TaskState.Dispatched,"Creating a CLI task invokes the configured CLI through the visible UI path");
         Check(File.ReadAllText(task.RequestPath).Contains("UI fixture: perform this direct work request.",StringComparison.Ordinal),"CLI task persists the user's work request as the actual request document");
         Check(station.TaskSession(task.TaskId,"ui-source")?.SessionId=="exact-source-ui-session"&&station.TaskSession(task.TaskId,"ui-target")?.SessionId=="created-ui-session","CLI UI binds the explicit source and records the returned new target session ID");
+        var manualFile=Path.Combine(root,"direct-template.md");File.WriteAllText(manualFile,"Do one manual handoff.");
+        await Modal<FileHandoffDialog>(window,"New manual transfer task",dialog=>
+        {
+            Expand(dialog);
+            Find<ComboBox>(dialog,"FileHandoffRelayTemplate").SelectedIndex=1;
+            Find<TextBox>(dialog,"FileHandoffReply").Text=RelayJson.Write(new {from="ui-target",to="ui-source",file=manualFile});
+            Press(dialog,"ParseFileHandoff");
+            Check(dialog.Result is null&&station.Tasks().Count==1,"A pasted handoff cannot silently change the template's selected Agents");
+            Find<TextBox>(dialog,"FileHandoffFile").Text=manualFile;
+            Find<TextBox>(dialog,"FileHandoffMessage").Text="Keep the original manual work request.";
+            Press(dialog,"CreateFileHandoff");
+            return Task.CompletedTask;
+        });
+        await Wait(()=>station.Tasks().Any(view=>view.Task.ManualSourceFile==manualFile&&view.Task.RelaySteps is {Length:1}));
+        var direct=station.Tasks().Single(view=>view.Task.ManualSourceFile==manualFile).Task;
+        station.FileHandoffPrompt(direct);
+        using(var context=System.Text.Json.JsonDocument.Parse(File.ReadAllText(station.ManualContextPath(direct))))
+        {
+            Check(context.RootElement.GetProperty("request").GetString()!.Contains("Keep the original manual work request."),
+                "A preset keeps the original manual work request alongside its first step duty");
+            File.WriteAllText(station.ManualReceiptPath(direct),context.RootElement.GetProperty("receipt_template").GetRawText());
+        }
+        await Wait(()=>station.Status(direct.TaskId).Task.State==TaskState.Succeeded);
+        Check(!direct.ManualContinuous&&direct.RelaySteps![0].AgentId=="ui-target",
+            "The direct manual template creates one recipient step and ends with its first completion receipt");
         window.RequestExit();
     }
 

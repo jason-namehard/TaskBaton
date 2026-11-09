@@ -82,6 +82,11 @@ public sealed class CliHandoffCreationTests
         Assert.IsEmpty(service.Tasks());
         Assert.IsEmpty(service.ConnectionPermissions());
         Assert.IsFalse(Directory.Exists(Path.Combine(service.Home, ".cli-drafts")));
+        var invalidPlan = Request() with { RelayPlan = new RelayPlanOptions([new("another-agent", RelayStepRole.Work)]) };
+        Assert.AreEqual("relay_step_agent", Assert.ThrowsExactly<RelayException>(() =>
+            service.CreateCliHandoff(invalidPlan)).Code);
+        Assert.IsEmpty(service.Tasks());
+        Assert.IsFalse(Directory.Exists(Path.Combine(service.Home, ".cli-drafts")));
     }
 
     [TestMethod]
@@ -194,6 +199,54 @@ public sealed class CliHandoffCreationTests
         Assert.AreEqual("agent-a",review.Task.AwaitingAgentId);
         Assert.IsFalse(service.CanSendFileHandoff(review.Task));
         Assert.AreEqual("copy_prompt",service.FileHandoffProgress(review.Task).Delivery);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ARelayUsesBothChosenConversationsBeforeApplyingItsRepeatPolicy(bool newConversation)
+    {
+        var task = service.CreateCliHandoff(Request() with
+        {
+            RelayPlan = new RelayPlanOptions(
+                [new("agent-a", RelayStepRole.Work), new("agent-b", RelayStepRole.Test), new("agent-a", RelayStepRole.Modify)],
+                NewSessionEachTurn: newConversation)
+        }).Task;
+        Assert.HasCount(2, service.ConnectionPermissions().Where(permission => permission.Decision == "allow").ToArray());
+
+        async Task SendAndComplete(string session, bool last = false)
+        {
+            var sent = await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+            Assert.AreEqual("submitted", sent.Task.CliFileStatus);
+            Assert.AreEqual(session, sent.Task.CliFileSessionId);
+            var result = Path.Combine(root, $"relay-output-{task.ManualTurn}.md");
+            File.WriteAllText(result, "Result of this step.");
+            File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId,
+                task.AttemptId, task.AwaitingAgentId!, task.ManualTurn, "done", !last, result)));
+            Assert.IsEmpty(service.ImportManualReceipts().Errors);
+            task = service.Status(task.TaskId).Task;
+        }
+
+        await SendAndComplete("source-a");
+        Assert.AreEqual("selected-b", service.TaskSession(task.TaskId, "agent-b")!.SessionId);
+        await SendAndComplete("selected-b");
+        await SendAndComplete(newConversation ? "created-agent-a" : "source-a", last: true);
+        Assert.AreEqual(TaskState.Succeeded, task.State);
+        Assert.AreEqual("modified_not_retested", task.CompletionNote);
+    }
+
+    [TestMethod]
+    public void StartingWithTheSenderWithoutAChosenSessionUsesManualDelivery()
+    {
+        service.SetPermission("agent-b", "agent-a", "allow");
+        var task = service.CreateCliHandoff(Request() with
+        {
+            OriginSessionId = null,
+            RelayPlan = new RelayPlanOptions([new("agent-a", RelayStepRole.Work), new("agent-b", RelayStepRole.Work)])
+        }).Task;
+        Assert.AreEqual("agent-a", task.AwaitingAgentId);
+        Assert.IsFalse(service.CanSendFileHandoff(task));
+        Assert.AreEqual("copy_prompt", service.FileHandoffProgress(task).Delivery);
     }
 
     [TestMethod]

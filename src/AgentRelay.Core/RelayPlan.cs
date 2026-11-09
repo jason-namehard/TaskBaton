@@ -22,7 +22,7 @@ public sealed partial class RelayService
     /// <summary>Handoffs = steps - 1. "One test-and-modify round" is two handoffs, not one.</summary>
     public static int HandoffCount(int steps) => Math.Max(0, steps - 1);
 
-    internal static void ValidateRelayPlan(RelayPlanOptions options, string requesterId, string recipientId)
+    public static void ValidateRelayPlan(RelayPlanOptions options, string requesterId, string recipientId)
     {
         var steps = options.Steps ?? [];
         if (steps.Length is < 1 or > MaxRelaySteps)
@@ -58,10 +58,12 @@ public sealed partial class RelayService
         task.TurnTimeoutMinutes = options.TurnTimeoutMinutes;
         task.AutoDeliver = options.AutoDeliver;
         task.ManualContinuous = false;
-        // The first step may be the initiating Agent's own work, so its duty becomes the current request.
+        // The first duty supplements the operator's original request, which may be separate from the handoff file.
         var first = options.Steps[0];
         task.AwaitingAgentId = first.AgentId;
-        if (!string.IsNullOrWhiteSpace(first.Duty)) task.ManualNextAction = first.Duty.Trim();
+        if (!string.IsNullOrWhiteSpace(first.Duty))
+            task.ManualNextAction = string.IsNullOrWhiteSpace(task.ManualNextAction)
+                ? first.Duty.Trim() : task.ManualNextAction + "\n\n" + first.Duty.Trim();
         task.DeadlineAt = Now + TurnTimeout(s, task);
         s.Save(task);
         s.Event(task, "handoff.relay_configured", "operator", Now, RelayJson.Write(options));

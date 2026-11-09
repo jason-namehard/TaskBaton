@@ -23,13 +23,16 @@ public sealed partial class RelayService
         _=agents.SingleOrDefault(a=>a.AgentId==request.To)??throw new RelayException("agent_not_found","未找到接收 Agent。");
         var options=new FileHandoffOptions(request.Collaboration,request.AutoDeliver,request.TurnTimeoutMinutes,RelayPlan:request.RelayPlan);
         ValidateFileHandoffOptions(options,request.From,request.To);
+        if (request.RelayPlan is { } relayPlan) ValidateRelayPlan(relayPlan, request.From, request.To);
         // A recipient without a bridge still gets the task; its turns are copied manually.
         var target=CliExtension(request.To);
         if(request.TargetSessionId is not null&&target is not null&&CliRecipes.ResumeCommand(target.Recipe) is null)
             throw new RelayException("session_resume_unsupported","接收 Agent 的调用方案不支持续接已有会话，请选择新建会话或补充续接命令。");
         // Collaboration turns that return to the sender use CLI only when its exact conversation is bound; otherwise they are copied manually.
-        var senderByCli=request.Collaboration is not null&&request.OriginSessionId is not null;
-        if(senderByCli&&(CliExtension(request.From) is not {} senderExtension||CliRecipes.ResumeCommand(senderExtension.Recipe) is null))
+        var planUsesSender=request.Collaboration is not null||request.RelayPlan?.Steps.Any(step=>step.AgentId==request.From)==true;
+        var senderByCli=planUsesSender&&request.OriginSessionId is not null&&
+            CliExtension(request.From) is {} senderExtension&&CliRecipes.ResumeCommand(senderExtension.Recipe) is not null;
+        if(request.Collaboration is not null&&request.OriginSessionId is not null&&!senderByCli)
             throw new RelayException("session_resume_unsupported","发送方需要配置准确会话续接命令，才能通过 CLI 把回稿送回原会话；也可以不选来源会话，改为手动传回。");
         foreach(var cwd in new[]{request.OriginCwd,request.TargetCwd})
             if(cwd is not null&&!Path.IsPathFullyQualified(cwd))throw new RelayException("session_cwd_invalid","会话项目目录需要完整路径。");
@@ -137,7 +140,7 @@ public sealed partial class RelayService
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
                 common.reply_file,common.receipt_file,images,
-                receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",requiredNext is not null?true:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
+                receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",planned?!lastStep:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
                 relay_plan=planned?new
                 {
                     steps=steps.Select((step,index)=>new{step=index+1,agent_id=step.AgentId,name=Name(step.AgentId),role=step.Role.ToString().ToLowerInvariant(),duty=step.Duty}),
