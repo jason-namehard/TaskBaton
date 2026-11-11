@@ -20,6 +20,7 @@ public sealed partial class RelayService
         var extension = CliExtension(recipient);
         if (extension is null || extension.Block is not null) return false;
         var binding = TaskSession(task.TaskId, recipient);
+        if (UsesIndependentReviewSession(task, recipient) && binding is not { IndependentReview: true }) return false;
         if (task.Collaboration?.Phase == "criteria" && binding?.SessionId is null) return false;
         if (task.RelaySteps is not null && recipient == task.RequesterId && binding is null) return false;
         if (binding?.SessionId is not null && CliRecipes.ResumeCommand(extension.Recipe) is null) return false;
@@ -108,6 +109,11 @@ public sealed partial class RelayService
         var extension = CliExtension(recipient)!;
         var binding = TaskSession(taskId, recipient);
         var resume = binding?.SessionId is not null;
+        var independentReview = UsesIndependentReviewSession(task, recipient);
+        var workSessions = independentReview && !resume
+            ? SessionBindings(taskId).Where(session => session.AttemptId == task.AttemptId && session.AgentId == recipient &&
+                !session.IndependentReview && session.SessionId is not null).Select(session => session.SessionId!).ToHashSet()
+            : null;
         SessionRecord? validated = null;
         if (resume)
         {
@@ -167,7 +173,7 @@ public sealed partial class RelayService
         {
             lock (observed)
             {
-                if (string.IsNullOrWhiteSpace(id) || observed.Contains(id)) return;
+                if (string.IsNullOrWhiteSpace(id) || observed.Contains(id) || workSessions?.Contains(id) == true) return;
                 observed.Add(id);
             }
             // Persist immediately: a turn that later times out must still keep the exact conversation id.
@@ -178,13 +184,18 @@ public sealed partial class RelayService
             var process = await CliRecipes.InvokePreparedAsync(command, CliRecipes.OutputFormatFor(extension.Recipe), prompt, binding?.SessionId, Home,
                 budget > MinimumCliTurn ? budget : MinimumCliTurn, cancellationToken, images, Observe);
             var receipt = CliRecipes.Receipt(process, CliRecipes.OutputFormatFor(extension.Recipe));
-            if (receipt is { } received && CliExtension(recipient) is { } current && current.Revision == extension.Revision)
+            var reusedWorkSession = receipt is { SessionId: { } reported } && workSessions?.Contains(reported) == true;
+            var missingReviewSession = independentReview && receipt is { SessionId: null };
+            if (!reusedWorkSession && receipt is { } received && CliExtension(recipient) is { } current && current.Revision == extension.Revision)
                 sidebarSync = ZcodeTaskIndexVisibility.Sync(current, received.SessionId, ZcodeUserDirectory, Home);
-            var matching = receipt is not null && (!resume || receipt.Value.SessionId == binding!.SessionId);
+            var matching = receipt is not null && !reusedWorkSession && !missingReviewSession &&
+                (!resume || receipt.Value.SessionId == binding!.SessionId);
             status = matching ? "submitted" : "unknown";
             session = receipt?.SessionId;
             if (!matching && receipt is null) failure = CliFailureDiagnostics.Classify(process, extension.Recipe);
-            error = matching ? null : resume && receipt is not null
+            error = matching ? null : reusedWorkSession
+                ? "宿主返回了本任务的工作会话 ID，独立验收投递未确认。请检查宿主并使用专用会话。" : missingReviewSession
+                ? "宿主未返回专用验收会话 ID，独立验收投递未确认。请检查宿主。" : resume && receipt is not null
                 ? "续接返回了不同的会话 ID，本轮结果未确认。原绑定保持不变，请检查目标会话，不要重复发送。" : process.TimedOut
                 ? "CLI 已启动但到达本轮时限仍未结束，已停止等待，可能已提交。请检查目标会话，不要重复发送。"
                 : failure!.Message;
@@ -215,7 +226,8 @@ public sealed partial class RelayService
                     resume ? binding!.Binding : session is null ? "ephemeral" : "created",
                     validated?.Visibility ?? binding?.Visibility ?? "unknown", Now,
                     resume ? "adapter resumed the exact bound session" : session is null
-                        ? "CLI completed without a persistent session ID" : "adapter parsed the created session ID");
+                        ? "CLI completed without a persistent session ID" : "adapter parsed the created session ID",
+                    IndependentReview: independentReview);
                 SaveTaskSession(s, current, value);
             }
             if (failure is { Blocking: true } && ReadCliExtension(s, recipient) is { } stored && stored.Revision == extension.Revision)
@@ -260,7 +272,8 @@ public sealed partial class RelayService
         var agent = Agent(s, agentId);
         var value = new TaskSessionBinding(current.TaskId, current.AttemptId, current.ManualTurn, agentId, agent.Host,
             sessionId, cwd ?? existing?.Cwd, existing?.Profile, existing?.SessionPath, "created",
-            existing?.Visibility ?? "unknown", Now, "host reported this session id before the turn finished");
+            existing?.Visibility ?? "unknown", Now, "host reported this session id before the turn finished",
+            IndependentReview: existing?.IndependentReview == true);
         SaveTaskSession(s, current, value);
         s.Event(current, "session.observed_early", agentId, Now, sessionId);
         return true;

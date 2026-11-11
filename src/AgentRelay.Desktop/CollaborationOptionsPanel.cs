@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using AgentRelay.Core;
@@ -38,7 +39,7 @@ internal sealed class CollaborationOptionsPanel
         var relayDetails = new StackPanel { Margin = new(18, 4, 0, 8), Visibility = System.Windows.Visibility.Collapsed };
         parent.Children.Add(relayDetails);
         relayTemplate = new RelayTemplateEditor(ui, relayDetails, prefix, sender, recipient, prefix + "NewSessionEachTurn");
-        var details = new StackPanel { Margin = new(18, 4, 0, 8), IsEnabled = false };
+        var details = new StackPanel { Name = prefix + "ReviewOptions", Margin = new(18, 4, 0, 8), Visibility = Visibility.Collapsed };
         parent.Children.Add(details);
         details.Children.Add(ui.Note("The selected final reviewer checks each version against the criteria. The task ends only when that Agent approves with no unresolved issues. The other Agent makes revisions."));
         details.Children.Add(ui.Note("Final reviewer"));
@@ -54,15 +55,16 @@ internal sealed class CollaborationOptionsPanel
         automaticCriteria.Checked+=(_,_)=>criteria.IsEnabled=false;
         manualCriteria.Checked+=(_,_)=>criteria.IsEnabled=true;
         details.Children.Add(ui.Note("When the initiating Agent creates criteria, Relay first asks it to write the criteria. Select its source conversation for CLI delivery; otherwise copy the prompt to it manually."));
-        rounds = ui.Field(details, "Review limit (0 means no limit)", prefix + "Rounds", "0");
+        rounds = ui.Field(details, "Review limit (0 means no limit)", prefix + "Rounds", "5");
         details.Children.Add(ui.Note("Without a limit, automatic calls may continue and incur model charges until the reviewer approves. No-progress pauses and per-turn time limits still apply."));
         independent = new CheckBox { Name = prefix + "IndependentAcceptance", Margin = new(0, 6, 0, 6),
-            Content = new TextBlock { Text = ui.T("The review must use a new conversation when the reviewer also executed this task. A new conversation still shares the host's global rules and memory."), TextWrapping = System.Windows.TextWrapping.Wrap } };
+            Content = new TextBlock { Text = ui.T("Use a dedicated conversation for independent acceptance"), TextWrapping = TextWrapping.Wrap } };
         AutomationProperties.SetAutomationId(independent, prefix + "IndependentAcceptance");
         details.Children.Add(independent);
-        loop.Checked += (_, _) => { details.IsEnabled = true; relayDetails.Visibility = System.Windows.Visibility.Collapsed; };
-        relay.Checked += (_, _) => { details.IsEnabled = false; relayDetails.Visibility = System.Windows.Visibility.Visible; };
-        single.Checked += (_, _) => { details.IsEnabled = false; relayDetails.Visibility = System.Windows.Visibility.Collapsed; };
+        details.Children.Add(ui.Note("Independent acceptance starts in a new review-only conversation and can continue there in later reviews."));
+        loop.Checked += (_, _) => { details.Visibility = Visibility.Visible; relayDetails.Visibility = Visibility.Collapsed; };
+        relay.Checked += (_, _) => { details.Visibility = Visibility.Collapsed; relayDetails.Visibility = Visibility.Visible; };
+        single.Checked += (_, _) => { details.Visibility = Visibility.Collapsed; relayDetails.Visibility = Visibility.Collapsed; };
         turnMinutes = ui.Field(parent, "Time limit per turn (minutes)", prefix + "TurnMinutes", defaultTurnMinutes.ToString(CultureInfo.InvariantCulture));
         automatic = new CheckBox { Name = prefix + "AutoDeliver", IsChecked = automaticByDefault, Margin = new(0, 8, 0, 8),
             Content = new TextBlock { Text = ui.T("Send each next turn through CLI automatically once that Agent's CLI is verified (may incur model charges)"), TextWrapping = System.Windows.TextWrapping.Wrap } };
@@ -86,7 +88,8 @@ internal sealed class CollaborationOptionsPanel
         if(loop.IsChecked==true&&automaticCriteria.IsChecked!=true&&string.IsNullOrWhiteSpace(criteria.Text))
             throw new RelayException("collaboration_criteria_required",ui.T("Enter the acceptance criteria or let the initiating Agent create them."));
         var collaboration = loop.IsChecked == true
-            ? new CollaborationOptions(senderReviews.IsChecked == true ? recipient : sender, criteria.Text, Number(rounds, 0, RelayService.MaxReviewRounds),
+            ? new CollaborationOptions(senderReviews.IsChecked == true ? recipient : sender,
+                automaticCriteria.IsChecked == true ? null : criteria.Text, Number(rounds, 0, RelayService.MaxReviewRounds),
                 GenerateCriteria:automaticCriteria.IsChecked==true,ReviewerFinal:true,IndependentAcceptance:independent.IsChecked==true)
             : null;
         return new(collaboration, AutoDeliver, minutes);

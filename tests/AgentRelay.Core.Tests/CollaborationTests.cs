@@ -213,6 +213,41 @@ public sealed class CollaborationTests
     }
 
     [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public void FinalAllowedReviewEitherFinishesOrPausesBeforeSendingAnotherRevision(bool approved)
+    {
+        task = service.ConfigureFileHandoff(task.TaskId,
+            new(new CollaborationOptions("agent-b", "Build passes", 1, ReviewerFinal: true))).Task;
+        Cycle(1);
+        Assert.IsNull(service.FileHandoffProgress(task).NextIfPassed);
+        var reviewTurn = task.ManualTurn;
+        if (approved)
+        {
+            Accepted(Send("approved"));
+            Assert.AreEqual(TaskState.Succeeded, task.State);
+            Assert.AreEqual(reviewTurn, task.ManualTurn);
+            Assert.AreEqual(task.Collaboration!.SubmissionPath, task.Collaboration.ApprovedSubmissionPath);
+            return;
+        }
+
+        Accepted(Send("changes_requested", ["Build is still failing"]));
+        Assert.AreEqual(TaskState.Paused, task.State);
+        Assert.AreEqual("round_limit", task.PauseReason);
+        StringAssert.Contains(task.PauseMessage!, "仍有未解决问题");
+        Assert.AreEqual("revise", task.Collaboration!.Phase);
+        CollectionAssert.AreEqual(new[] { "Build is still failing" }, task.Collaboration.OpenItems);
+        Assert.AreEqual(1, task.Collaboration.ReviewRound);
+        Assert.IsFalse(service.CanSendFileHandoff(task));
+        Rejected(Send("submitted", content: "Unrequested revision"), "暂停");
+        task = service.ContinueFileHandoff(task.TaskId, extraRounds: 1).Task;
+        Assert.AreEqual("agent-b", task.AwaitingAgentId);
+        Cycle(2);
+        Accepted(Send("approved"));
+        Assert.AreEqual(TaskState.Succeeded, task.State);
+    }
+
+    [TestMethod]
     public void IdenticalResubmissionPausesForTheUser()
     {
         Loop();

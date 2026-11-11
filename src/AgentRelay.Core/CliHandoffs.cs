@@ -26,13 +26,15 @@ public sealed partial class RelayService
         if (request.RelayPlan is { } relayPlan) ValidateRelayPlan(relayPlan, request.From, request.To);
         // A recipient without a bridge still gets the task; its turns are copied manually.
         var target=CliExtension(request.To);
-        if(request.TargetSessionId is not null&&target is not null&&CliRecipes.ResumeCommand(target.Recipe) is null)
+        var dedicatedTarget=request.Collaboration is {IndependentAcceptance:true} review&&review.AuthorId==request.From;
+        if(!dedicatedTarget&&request.TargetSessionId is not null&&target is not null&&CliRecipes.ResumeCommand(target.Recipe) is null)
             throw new RelayException("session_resume_unsupported","接收 Agent 的调用方案不支持续接已有会话，请选择新建会话或补充续接命令。");
         // Collaboration turns that return to the sender use CLI only when its exact conversation is bound; otherwise they are copied manually.
         var planUsesSender=request.Collaboration is not null||request.RelayPlan?.Steps.Any(step=>step.AgentId==request.From)==true;
-        var senderByCli=planUsesSender&&request.OriginSessionId is not null&&
-            CliExtension(request.From) is {} senderExtension&&CliRecipes.ResumeCommand(senderExtension.Recipe) is not null;
-        if(request.Collaboration is not null&&request.OriginSessionId is not null&&!senderByCli)
+        var dedicatedSender=request.Collaboration is {IndependentAcceptance:true} independent&&independent.AuthorId==request.To;
+        var senderByCli=planUsesSender&&CliExtension(request.From) is {} senderExtension&&
+            (dedicatedSender||request.OriginSessionId is not null&&CliRecipes.ResumeCommand(senderExtension.Recipe) is not null);
+        if(!dedicatedSender&&request.Collaboration is not null&&request.OriginSessionId is not null&&!senderByCli)
             throw new RelayException("session_resume_unsupported","发送方需要配置准确会话续接命令，才能通过 CLI 把回稿送回原会话；也可以不选来源会话，改为手动传回。");
         foreach(var cwd in new[]{request.OriginCwd,request.TargetCwd})
             if(cwd is not null&&!Path.IsPathFullyQualified(cwd))throw new RelayException("session_cwd_invalid","会话项目目录需要完整路径。");
@@ -120,7 +122,7 @@ public sealed partial class RelayService
                     c.Phase is "implement" or "revise"?reply:null,null,allowed[0],c.Phase=="review"?Array.Empty<string>():null,null,
                     AcceptanceCriteria:c.Phase=="criteria"?"Write the actual acceptance criteria here":null),
                 instructions=ImageInstructions(task,images)+duty+(c.ReviewerFinal?" The task finishes only when the chosen reviewer approves with no unresolved items. ":" The task finishes only after the reviewer approves and the author accepts; finishing your part hands it on. ")+
-                    (c.IndependentAcceptance&&c.Phase=="review"?"This review uses a session that was not used for the work it checks. A new session does not isolate the host's global rules or memory. ":"")+
+                    (c.IndependentAcceptance&&c.Phase=="review"?"Use this task's dedicated review conversation. When pasting manually, start a review-only conversation if you have not already created one. A new session does not isolate the host's global rules or memory. ":"")+
                     "Use outcome, open_items and deliverable for the decision; needs_reply may be omitted. If you cannot do the work, write status=failed and explain in next_action. "+ReceiptRules
             };
         }

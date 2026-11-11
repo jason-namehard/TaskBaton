@@ -202,6 +202,72 @@ public sealed class CliHandoffCreationTests
     }
 
     [TestMethod]
+    public async Task IndependentReviewCreatesAndReusesADedicatedConversation()
+    {
+        var task = service.CreateCliHandoff(Request() with
+        {
+            Collaboration = new("agent-a", "Build passes", 2, ReviewerFinal: true, IndependentAcceptance: true)
+        }).Task;
+        Assert.AreEqual("review", task.Collaboration!.Phase);
+        Assert.IsTrue(service.TaskSession(task.TaskId, "agent-b") is { Binding: "new", IndependentReview: true, SessionId: null });
+        Assert.AreEqual("review_session_required", Assert.ThrowsExactly<RelayException>(() =>
+            service.BindManualTaskSession(task.TaskId, "agent-b", "selected-b")).Code);
+        var first = await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        Assert.AreEqual("created-agent-b", first.Task.CliFileSessionId);
+        Assert.IsTrue(service.TaskSession(task.TaskId, "agent-b") is { IndependentReview: true, SessionId: "created-agent-b" });
+        File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId, task.AttemptId,
+            "agent-b", task.ManualTurn, "done", Outcome: "changes_requested", OpenItems: ["Add build output"])));
+        Assert.IsEmpty(service.ImportManualReceipts().Errors);
+
+        task = service.Status(task.TaskId).Task;
+        FinishStep(task, "submitted");
+        task = service.Status(task.TaskId).Task;
+        var second = await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        Assert.AreEqual("created-agent-b", second.Task.CliFileSessionId);
+        CollectionAssert.AreEqual(new[] { "create", "created-agent-b" }, File.ReadLines(Log("agent-b")).Select(line =>
+        {
+            using var call = JsonDocument.Parse(line);
+            return call.RootElement.GetProperty("session").GetString();
+        }).ToArray());
+        FinishStep(task, "approved");
+        Assert.AreEqual(TaskState.Succeeded, service.Status(task.TaskId).Task.State);
+    }
+
+    [TestMethod]
+    public void IndependentSenderCanReviewThroughTheBridgeWithoutAnOriginSession()
+    {
+        var task = service.CreateCliHandoff(Request() with
+        {
+            OriginSessionId = null,
+            Collaboration = new("agent-b", "Build passes", ReviewerFinal: true, IndependentAcceptance: true)
+        }).Task;
+        FinishStep(task, "submitted");
+        task = service.Status(task.TaskId).Task;
+        Assert.IsTrue(service.CanSendFileHandoff(task));
+        Assert.IsTrue(service.TaskSession(task.TaskId, "agent-a") is { IndependentReview: true, SessionId: null });
+    }
+
+    [TestMethod]
+    public async Task AnIndependentReviewDoesNotBindAWorkSessionReturnedByTheHost()
+    {
+        var task = service.CreateCliHandoff(Request() with
+        {
+            OriginSessionId = "created-agent-a",
+            Collaboration = new("agent-b", GenerateCriteria: true, ReviewerFinal: true, IndependentAcceptance: true)
+        }).Task;
+        File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId, task.AttemptId,
+            "agent-a", task.ManualTurn, "done", Outcome: "criteria_ready", AcceptanceCriteria: "Build passes")));
+        Assert.IsEmpty(service.ImportManualReceipts().Errors);
+        FinishStep(service.Status(task.TaskId).Task, "submitted");
+        task = service.Status(task.TaskId).Task;
+
+        var result = await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        Assert.AreEqual("unknown", result.Task.CliFileStatus);
+        StringAssert.Contains(result.Task.CliFileError!, "工作会话 ID");
+        Assert.IsTrue(service.TaskSession(task.TaskId, "agent-a") is { IndependentReview: true, SessionId: null });
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task ARelayUsesBothChosenConversationsBeforeApplyingItsRepeatPolicy(bool newConversation)
@@ -324,10 +390,14 @@ public sealed class CliHandoffCreationTests
     public async Task CliConfiguresTheLoopReportsProgressAndGuardsUnattendedDelivery()
     {
         var task=service.CreateCliHandoff(Request()).Task;
+        var withoutMode=await Invoke("handoff","configure","--task",task.TaskId,"--criteria","测试通过");
+        Assert.AreEqual("collaboration_author",withoutMode.Json.GetProperty("error").GetProperty("code").GetString());
+        var withoutCriteria=await Invoke("handoff","configure","--task",task.TaskId,"--author","agent-b");
+        Assert.AreEqual("collaboration_criteria_required",withoutCriteria.Json.GetProperty("error").GetProperty("code").GetString());
         var configured=await Invoke("handoff","configure","--task",task.TaskId,"--author","agent-b","--criteria","测试通过","--max-rounds","3","--auto-deliver");
         Assert.AreEqual(0,configured.Code);
         task=service.Status(task.TaskId).Task;
-        Assert.AreEqual(3,task.Collaboration!.MaxReviewRounds);Assert.IsTrue(task.AutoDeliver);
+        Assert.IsTrue(task.Collaboration is {MaxReviewRounds:3,ReviewerFinal:true});Assert.IsTrue(task.AutoDeliver);
         var progress=await Invoke("handoff","progress","--task",task.TaskId);
         Assert.AreEqual("implement",progress.Json.GetProperty("data").GetProperty("phase").GetString());
         Assert.AreEqual("agent-b",progress.Json.GetProperty("data").GetProperty("current_agent_id").GetString());

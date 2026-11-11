@@ -161,10 +161,21 @@ public static class RelayCli
         });
         Sync(handoff, "create", "读取短清单，不要求 Agent 查找会话 ID", ["manifest!"],
             (s,v) => s.CreateFileHandoffFromContext(ManualTransfers.Parse(File.ReadAllText(v.Get("manifest")),s.Agents())));
-        Sync(handoff, "configure", "首次投递前设置持续修改与验收、单轮时限和自动投递", ["task!", "author", "criteria", "max-rounds", "turn-timeout-minutes", "auto-deliver?"],
-            (s,v) => s.ConfigureFileHandoff(v.Get("task"), new(v.Optional("author") is { } author
-                ? new CollaborationOptions(author, v.Optional("criteria"), v.Number("max-rounds", 5)) : null,
-                v.Flag("auto-deliver"), v.Optional("turn-timeout-minutes") is null ? null : v.Number("turn-timeout-minutes", 0))));
+        Sync(handoff, "configure", "首次投递前设置单轮时限和自动投递，指定 --author 启用验收模式",
+            ["task!", "author", "criteria", "max-rounds", "generate-criteria?", "independent-acceptance?", "turn-timeout-minutes", "auto-deliver?"],
+            (s,v) =>
+            {
+                var author = v.Optional("author");
+                var criteria = v.Optional("criteria");
+                var generate = v.Flag("generate-criteria");
+                var independent = v.Flag("independent-acceptance");
+                if (author is null && (criteria is not null || v.Optional("max-rounds") is not null || generate || independent))
+                    throw new RelayException("collaboration_author", "请先用 --author 启用验收模式，再配置验收选项。");
+                var collaboration = author is null ? null : new CollaborationOptions(author, generate ? null : criteria,
+                    v.Number("max-rounds", 5), GenerateCriteria: generate, ReviewerFinal: true, IndependentAcceptance: independent);
+                return s.ConfigureFileHandoff(v.Get("task"), new(collaboration, v.Flag("auto-deliver"),
+                    v.Optional("turn-timeout-minutes") is null ? null : v.Number("turn-timeout-minutes", 0)));
+            });
         Sync(handoff, "relay-plan", "设置轻量定次接力：--steps \"b=实现;a:test=测试;b:modify=按报告修改\"", 
             ["task!", "steps!", "turn-timeout-minutes", "independent-acceptance?", "new-session-each-turn?", "auto-deliver?"],
             (s,v) => s.ConfigureRelayPlan(v.Get("task"), new RelayPlanOptions(RelayService.ParseSteps(v.Get("steps")),

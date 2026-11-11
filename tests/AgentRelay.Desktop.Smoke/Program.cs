@@ -573,14 +573,20 @@ internal static partial class Program
         var automaticOptions=new CliHandoffDialog(window,station,"en");
         await Show(automaticOptions,dialog=>
         {
+            Check(Find<StackPanel>(dialog,"CliTaskReviewOptions").Visibility==Visibility.Collapsed,"Single handoff hides reviewer, criteria, and review limit controls");
             Find<RadioButton>(dialog,"CliTaskLoop").IsChecked=true;
             Find<RadioButton>(dialog,"CliTaskAutoCriteria").IsChecked=true;
             Find<RadioButton>(dialog,"CliTaskRecipientReviews").IsChecked=true;
+            Find<CheckBox>(dialog,"CliTaskIndependentAcceptance").IsChecked=true;
             Find<TextBox>(dialog,"CliTaskPrompt").Text="Review the existing work.";
-            Check(!Find<TextBox>(dialog,"CliTaskCriteria").IsEnabled&&Find<TextBox>(dialog,"CliTaskRounds").Text=="0","Automatic criteria and unlimited reviews are clearly selectable");
+            Check(Find<StackPanel>(dialog,"CliTaskReviewOptions").Visibility==Visibility.Visible&&
+                !Find<TextBox>(dialog,"CliTaskCriteria").IsEnabled&&Find<TextBox>(dialog,"CliTaskRounds").Text=="5",
+                "Acceptance mode shows review settings with a five-review default");
+            Find<TextBox>(dialog,"CliTaskRounds").Text="0";
             Press(dialog,"SendCliTask");return Task.CompletedTask;
         });
-        Check(automaticOptions.Result?.Collaboration is {GenerateCriteria:true,ReviewerFinal:true,MaxReviewRounds:0,AuthorId:"ui-source"},"Receiving Agent can be selected as final reviewer with Agent-generated criteria");
+        Check(automaticOptions.Result?.Collaboration is {GenerateCriteria:true,ReviewerFinal:true,MaxReviewRounds:0,AuthorId:"ui-source",IndependentAcceptance:true},
+            "Acceptance supports generated criteria, an explicit unlimited budget, and a dedicated reviewer conversation");
         var manualOptions=new CliHandoffDialog(window,station,"en");
         await Show(manualOptions,dialog=>
         {
@@ -595,6 +601,7 @@ internal static partial class Program
         {
             Check(FindAll<RadioButton>(dialog).Any(r=>r.Name=="CliTaskRelay"),"CLI task offers a fixed relay with a set number of handoffs");
             Find<RadioButton>(dialog,"CliTaskRelay").IsChecked=true;
+            Check(Find<StackPanel>(dialog,"CliTaskReviewOptions").Visibility==Visibility.Collapsed,"Fixed relay hides acceptance configuration");
             Find<TextBox>(dialog,"CliTaskRelaySteps").Text="ui-target=实现\nui-source:test=跑回归\nui-target:modify=按报告修改";
             Find<CheckBox>(dialog,"CliTaskNewSessionEachTurn").IsChecked=true;
             Find<TextBox>(dialog,"CliTaskPrompt").Text="Relay fixture work.";
@@ -915,7 +922,8 @@ internal static partial class Program
         station.RegisterManual("loop-author","manual","Author");station.RegisterManual("loop-reviewer","manual","Reviewer");
         var work=Path.Combine(root,"loop-work.md");File.WriteAllText(work,"Write the release notes.");
         var task=station.CreateFileHandoff(new("loop-reviewer","loop-author",work,"Write and submit")).Task;
-        station.ConfigureFileHandoff(task.TaskId,new(new CollaborationOptions("loop-author","Covers every change",1)));
+        station.ConfigureFileHandoff(task.TaskId,new(new CollaborationOptions("loop-author","Covers every change",1,
+            ReviewerFinal:true,IndependentAcceptance:true)));
         void Receipt(string outcome,string[]? items=null,string? deliverable=null)
         {
             task=station.Status(task.TaskId).Task;
@@ -924,7 +932,7 @@ internal static partial class Program
                 null,outcome=="submitted"?reply:null,null,outcome,items,deliverable)));
             station.ImportManualReceipts();
         }
-        Receipt("submitted");Receipt("changes_requested",["Missing the CLI changes"]);Receipt("submitted");
+        Receipt("submitted");Receipt("changes_requested",["Missing the CLI changes"]);
         new RelayStore(station.Home).Write(s=>
         {
             var current=s.Task(task.TaskId);
@@ -938,7 +946,10 @@ internal static partial class Program
         await Wait(()=>((TextBlock)window.FindName("StatusText")).Text!="Working…");
         var table=Find<DataGrid>(window,"TasksTable");table.SelectedItem=table.Items.Cast<object>().Single();
         await Wait(()=>FindAll<Button>(window).Any(b=>Equals(b.Tag,"Continue with 2 more rounds")));
-        Check(Find<TextBlock>(window,"HandoffRoundSummary").Text=="Completed steps: 3 · Completed reviews: 1 (limit: 1)"&&Find<TextBlock>(window,"HandoffNextRecipient").Text.Contains("Reviewer"),"Compact task summary distinguishes completed steps, completed reviews and the review limit");
+        Check(Find<TextBlock>(window,"HandoffRoundSummary").Text=="Completed steps: 2 · Completed reviews: 1 (limit: 1)"&&Find<TextBlock>(window,"HandoffNextRecipient").Text.Contains("Author"),"At the limit the board shows the completed review and the pending revision");
+        Check(FindAll<TextBlock>(window).Any(text=>text.Text=="Review limit reached · Acceptance pending")&&
+            FindAll<TextBlock>(window).Any(text=>text.Text=="Dedicated review conversation"),
+            "The paused task shows that acceptance is pending and identifies its dedicated review conversation");
         var contents=Find<Expander>(window,"ManualFileContents");
         var contentBlocks=FindAll<TextBlock>(contents).ToHashSet();
         Check(!contents.IsExpanded&&FindAll<TextBlock>(window).Where(t=>t.Text.Contains("LONG_REQUIREMENT")||t.Text.Contains("LONG_NEXT_ACTION")||t.Text.Contains("Covers every change")).All(contentBlocks.Contains),"Long requirements and next actions appear only inside collapsed file contents");
@@ -946,14 +957,15 @@ internal static partial class Program
         contents.IsExpanded=true;window.UpdateLayout();
         Check(Find<TextBox>(window,"ManualFilePreview").Text==File.ReadAllText(station.Status(task.TaskId).Task.ManualCurrentFile!),"Expanding file contents preserves the actual file body separately from metadata");
         contents.IsExpanded=false;
-        Check(!FindAll<Button>(window).Any(b=>Equals(b.Tag,"Copy prompt for Reviewer")),"Paused loop does not offer to hand the next turn on before the user decides");
+        Check(!FindAll<Button>(window).Any(b=>Equals(b.Tag,"Copy prompt for Author")),"A final rejection pauses before another revision can be sent");
         await SaveImage(window,Path.Combine(root,"Review-loop-paused.png"));
         await Click(window,"Continue with 2 more rounds");
         await Wait(()=>station.Status(task.TaskId).Task.State==TaskState.AwaitingReply);
         Check(station.Status(task.TaskId).Task.Collaboration!.MaxReviewRounds==3,"Continuing records the user's extra review rounds");
-        Receipt("approved");Receipt("accepted",deliverable:"Final release notes");
+        Receipt("submitted");Receipt("approved");
         await Click(window,"Refresh");
-        Check(Find<TextBlock>(window,"HandoffRoundSummary").Text=="Completed steps: 5 · Completed reviews: 2 (limit: 3)"&&station.Status(task.TaskId).Task.State==TaskState.Succeeded,"Completed task reports all five steps and only the two reviews actually performed");
+        Check(Find<TextBlock>(window,"HandoffRoundSummary").Text=="Completed steps: 4 · Completed reviews: 2 (limit: 3)"&&station.Status(task.TaskId).Task.State==TaskState.Succeeded,
+            "Acceptance finishes on approval and reports the four completed steps and two reviews");
         window.RequestExit();
     }
 

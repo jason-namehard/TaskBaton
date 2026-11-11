@@ -64,6 +64,8 @@ public sealed partial class RelayService
         if (options.Collaboration is not { } collaboration) return;
         if (collaboration.AuthorId != requesterId && collaboration.AuthorId != recipientId)
             throw new RelayException("collaboration_author", "作者必须是本任务的发送方或接收方。");
+        if (collaboration.ReviewerFinal && !collaboration.GenerateCriteria && string.IsNullOrWhiteSpace(collaboration.Criteria))
+            throw new RelayException("collaboration_criteria_required", "请填写验收标准，或选择由发起方 Agent 拟定。");
         if (collaboration.MaxReviewRounds is < 0 or > MaxReviewRounds)
             throw new RelayException("collaboration_rounds", $"验收轮数为 0–{MaxReviewRounds}，0 表示不设上限。");
     }
@@ -94,6 +96,7 @@ public sealed partial class RelayService
                 SubmissionPath = reviewFirst ? task.RequestPath : null
             };
             if (collaboration.GenerateCriteria) task.AwaitingAgentId = task.RequesterId;
+            EnsureIndependentReviewSession(s, task, task.Collaboration);
         }
         else task.Collaboration = null;
         task.AutoDeliver = options.AutoDeliver;
@@ -171,7 +174,7 @@ public sealed partial class RelayService
         if (collaboration is not null && !finished)
             (passed, changed) = collaboration.Phase switch
             {
-                "review" => (collaboration.AuthorId, collaboration.AuthorId),
+                "review" => (collaboration.ReviewerFinal ? null : collaboration.AuthorId, collaboration.AuthorId),
                 "accept" => (null, collaboration.ReviewerId),
                 _ => (collaboration.ReviewerId, collaboration.ReviewerId)
             };
@@ -305,6 +308,7 @@ public sealed partial class RelayService
                 Record("criteria_ready", null);
                 c.Phase = c.ReviewerId == task.RecipientId ? "review" : "implement";
                 AdvanceFileHandoff(s, task, task.RecipientId, "验收标准已由发起方拟定，请继续处理原任务。");
+                EnsureIndependentReviewSession(s, task, c);
                 break;
             }
             case "submitted":
@@ -337,7 +341,9 @@ public sealed partial class RelayService
                 // Authors revise the submission; review notes are attached only when the reviewer wrote one.
                 if (notes is null && c.SubmissionPath is not null) task.ManualCurrentFile = c.SubmissionPath;
                 AdvanceFileHandoff(s, task, author, receipt.NextAction ?? "请逐条处理 open_items 中的问题后重新提交。");
-                if (repeated)
+                if (c.ReviewerFinal && c.MaxReviewRounds > 0 && c.ReviewRound >= c.MaxReviewRounds)
+                    PauseFileHandoff(s, task, "round_limit", $"已完成 {c.MaxReviewRounds} 轮验收，仍有未解决问题。请决定追加轮数、取消或人工标记完成。", TaskState.AwaitingReply);
+                else if (repeated)
                     PauseFileHandoff(s, task, "no_progress", "验收者提出的问题与上一轮完全相同，说明上次修改未解决。自动传递已暂停，请判断是否继续。", TaskState.AwaitingReply);
                 break;
             }
@@ -369,19 +375,15 @@ public sealed partial class RelayService
         }
     }
 
-    /// <summary>
-    /// When the user asks for independent acceptance and the reviewer also executed or tested this task, the review
-    /// must not continue in the execution conversation. A new session still shares the host's global rules and memory.
-    /// </summary>
+    public static bool UsesIndependentReviewSession(TaskRecord task, string agentId) =>
+        task.Collaboration is { IndependentAcceptance: true, Phase: "review" } review && review.ReviewerId == agentId;
+
     private void EnsureIndependentReviewSession(StoreSession s, TaskRecord task, CollaborationRecord c)
     {
-        if (!c.IndependentAcceptance) return;
-        var participated = c.History.Any(step => step.AgentId == c.ReviewerId && step.Phase is "criteria" or "implement" or "revise");
-        if (!participated) return;
-        if (ReadTaskSession(s, task, c.ReviewerId)?.SessionId is null) return;
-        StartFreshSession(s, task, c.ReviewerId);
-        s.Event(task, "collaboration.independent_session", c.ReviewerId, Now,
-            "review uses a new session because the reviewer also executed this task; host-wide rules and memory are not isolated");
+        if (!UsesIndependentReviewSession(task, c.ReviewerId) ||
+            ReadTaskSession(s, task, c.ReviewerId) is { IndependentReview: true }) return;
+        StartFreshSession(s, task, c.ReviewerId, independentReview: true);
+        s.Event(task, "collaboration.independent_session", c.ReviewerId, Now, "Reserved a dedicated review conversation.");
     }
 
     private ArtifactRecord? KeepReceiptResult(StoreSession s, TaskRecord task, string? file)

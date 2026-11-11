@@ -63,6 +63,8 @@ public partial class MainWindow
 
     private string FileState(TaskRecord task)
     {
+        if(task.State==TaskState.Paused&&task.PauseReason=="round_limit"&&task.Collaboration is not null)
+            return T("Paused · Review limit reached");
         var agent=AgentName(task.AwaitingAgentId??task.RecipientId);
         if(receiptImportErrors.ContainsKey(task.TaskId))return T("Receipt needs attention");
         var progress=task.IsFileHandoff?service.FileHandoffProgress(task):null;
@@ -80,6 +82,7 @@ public partial class MainWindow
         return task.State switch
         {
             TaskState.Paused=>T("Paused · Waiting for your decision"),
+            TaskState.Succeeded when task.Collaboration is {ReviewerFinal:true,ApprovedSubmissionPath:not null}=>T("Acceptance passed"),
             TaskState.Succeeded when task.Collaboration?.Deliverable is not null=>T("Delivered"),
             TaskState.AwaitingManual or TaskState.AwaitingReply when task.Collaboration is {} c=>string.Format(CultureInfo.CurrentUICulture,T("Waiting for {0} · {1}"),agent,Phase(c.Phase)),
             TaskState.Dispatched or TaskState.Acknowledged or TaskState.Running when task.Collaboration is {} c=>string.Format(CultureInfo.CurrentUICulture,T("{0} is processing · {1}"),agent,Phase(c.Phase)),
@@ -111,7 +114,9 @@ public partial class MainWindow
         {
             var recipient=AgentName(task.AwaitingAgentId??task.RecipientId);
             var tone=progress.Delivery=="cli_blocked"?"bad":task.State==TaskState.Paused?"warn":"info";
-            var (_,actions)=Alert(head,tone,null,FileDeliveryHint(task,progress,recipient));
+            var pauseTitle=task.State==TaskState.Paused&&task.PauseReason=="round_limit"&&task.Collaboration is not null
+                ? T("Review limit reached · Acceptance pending") : null;
+            var (_,actions)=Alert(head,tone,pauseTitle,FileDeliveryHint(task,progress,recipient));
             var waitingForReceipt=WaitingForFileReceipt(task)||sendingTasks.Contains(task.TaskId);
             if(task.State==TaskState.Paused&&waitingForReceipt&&task.PauseReason is "turn_timeout" or "delivery_failed")
                 Styled(Add(actions,"Continue waiting",()=>
@@ -162,8 +167,8 @@ public partial class MainWindow
             steps.Children.Add(Muted(T("Modified without retest: the flow ended on a modify step and no later test step ran. The earlier test result is not a retest of this change."),12.5,new(0,8,0,0)));
         if(task.HostWaitSeconds>0)
             steps.Children.Add(Muted(string.Format(CultureInfo.CurrentUICulture,T("Waiting for the host took {0} s and was not counted against this turn's work time."),task.HostWaitSeconds),12.5,new(0,8,0,0)));
-        if(task.IndependentAcceptance&&task.Collaboration is {Phase:"review"})
-            steps.Children.Add(Muted(T("This review uses a conversation that was not used for the work. A new conversation does not isolate the host's global rules or memory."),12.5,new(0,8,0,0)));
+        if(!progress.Finished&&task.Collaboration is {IndependentAcceptance:true,Phase:"review"})
+            steps.Children.Add(Muted(T("For manual delivery, paste the review prompt into this task's dedicated review conversation."),12.5,new(0,8,0,0)));
         if(!progress.Finished)
         {
             var next=Muted(string.Format(CultureInfo.CurrentUICulture,T("Next recipient: {0}"),AgentName(task.AwaitingAgentId??task.RecipientId)),12.5,new(0,8,0,0));

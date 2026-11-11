@@ -2,7 +2,7 @@ namespace AgentRelay.Core;
 
 public sealed record TaskSessionBinding(string TaskId, string AttemptId, int Turn, string AgentId, string Host,
     string? SessionId, string? Cwd, string? Profile, string? SessionPath, string Binding, string Visibility,
-    DateTimeOffset BoundAt, string? Evidence = null);
+    DateTimeOffset BoundAt, string? Evidence = null, bool IndependentReview = false);
 
 public sealed partial class RelayService
 {
@@ -43,6 +43,7 @@ public sealed partial class RelayService
         {
             var task = s.Task(taskId);
             RequireSessionChange(task, agentId);
+            RequireExistingSessionAllowed(task, agentId);
             var agent = Agent(s, agentId);
             var value = new TaskSessionBinding(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
                 session.SessionId, session.Cwd, session.Profile, session.SessionPath, binding, session.Visibility, Now,
@@ -62,8 +63,10 @@ public sealed partial class RelayService
     {
         var task = s.Task(taskId); RequireSessionChange(task, agentId);
         var agent = Agent(s, agentId);
+        var independentReview = UsesIndependentReviewSession(task, agentId);
         SaveTaskSession(s, task, new(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
-            null, null, null, null, "new", "unknown", Now, "operator chose a new session"));
+            null, independentReview ? ReadTaskSession(s, task, agentId)?.Cwd : null, null, null, "new", "unknown", Now,
+            "operator chose a new session", independentReview));
         ResetUncertainFileDelivery(task, agentId); s.Save(task);
         return true;
     });
@@ -76,6 +79,7 @@ public sealed partial class RelayService
 
     private TaskSessionBinding RegisterOriginSession(StoreSession s, TaskRecord task, OriginSession origin)
     {
+        RequireExistingSessionAllowed(task, task.RequesterId);
         RequireOriginContext(origin);
         _ = Agent(s, task.RequesterId);
         var value = new TaskSessionBinding(task.TaskId, task.AttemptId, task.ManualTurn, task.RequesterId,
@@ -122,5 +126,11 @@ public sealed partial class RelayService
     {
         if ((task.AwaitingAgentId ?? task.RecipientId) != agentId || task.CliFileTurn != task.ManualTurn) return;
         task.CliFileTurn = null; task.CliFileStatus = null; task.CliFileSessionId = null; task.CliFileError = null;
+    }
+
+    private static void RequireExistingSessionAllowed(TaskRecord task, string agentId)
+    {
+        if (UsesIndependentReviewSession(task, agentId))
+            throw new RelayException("review_session_required", "独立验收需要任务专用会话，请选择新建会话。");
     }
 }

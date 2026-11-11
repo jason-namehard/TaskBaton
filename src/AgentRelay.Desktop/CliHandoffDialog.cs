@@ -88,11 +88,13 @@ public sealed class CliHandoffDialog : Window
         {
             if(from.SelectedValue is not string sender||to.SelectedValue is not string recipient)throw new RelayException("agent_required",ui.T("Select an Agent."));
             if(sender==recipient)throw new RelayException("manual_same_agent",ui.T("Sender and recipient must be different."));
-            if(existing.IsChecked==true&&Target is null)throw new RelayException("session_selection_required",ui.T("Select a conversation first."));
             var images=composer.Images;
             if(string.IsNullOrWhiteSpace(prompt.Text)&&images.Length==0)throw new RelayException("cli_work_required",ui.T("Enter the work request."));
             var choice=options.Build(sender,recipient);
-            Result=new(sender,recipient,prompt.Text,Origin?.SessionId,existing.IsChecked==true?Target!.SessionId:null,
+            var dedicatedTarget=choice.Collaboration is {IndependentAcceptance:true} review&&review.AuthorId==sender;
+            if(!dedicatedTarget&&existing.IsChecked==true&&Target is null)
+                throw new RelayException("session_selection_required",ui.T("Select a conversation first."));
+            Result=new(sender,recipient,prompt.Text,Origin?.SessionId,existing.IsChecked==true&&!dedicatedTarget?Target!.SessionId:null,
                 permission.IsChecked==true,Origin?.Cwd,existing.IsChecked==true?Target?.Cwd:string.IsNullOrWhiteSpace(newCwd.Text)?null:newCwd.Text.Trim(),
                 choice.Collaboration,choice.AutoDeliver,choice.TurnTimeoutMinutes,images.Length>0?images:null,choice.RelayPlan);
             DialogResult=true;

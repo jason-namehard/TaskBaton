@@ -49,6 +49,19 @@ internal static class CollaborationUiText
         Add("Initiating Agent creates the acceptance criteria","由发起方 Agent 自动拟定验收标准","由發起方 Agent 自動擬定驗收標準","依頼側 Agent が基準を作成","발신 Agent가 기준 작성","El agente emisor prepara los criterios");
         Add("When the initiating Agent creates criteria, Relay first asks it to write the criteria. Select its source conversation for CLI delivery; otherwise copy the prompt to it manually.","自动拟定时，先由发起方 Agent 写入标准，再开始交接。选择来源会话可通过桥接发送；未选来源会话时，请手动复制提示词给它。","自動擬定時，先由發起方 Agent 寫入標準，再開始交接。選擇來源會話可透過橋接傳送；未選來源會話時，請手動複製提示詞給它。","自動作成では依頼側が先に基準を書きます。元の会話がない場合は手動でプロンプトを渡します。","자동 작성 시 발신 Agent가 먼저 기준을 작성합니다. 원본 대화가 없으면 프롬프트를 수동으로 전달하세요.","El agente emisor prepara primero los criterios. Sin conversación de origen, copia el mensaje manualmente.");
         Add("Review limit (0 means no limit)","验收次数上限（0 表示不设上限）","驗收次數上限（0 表示不設上限）","レビュー上限（0 は無制限）","검토 상한 (0은 무제한)","Límite de revisiones (0 sin límite)");
+        Add("Paused · Review limit reached","已暂停 · 验收轮数已用完","已暫停 · 驗收輪數已用完","一時停止 · レビュー上限に到達","일시 중지 · 검토 상한 도달","Pausado · Límite de revisiones alcanzado");
+        Add("Review limit reached · Acceptance pending","验收轮数已用完 · 尚未达标","驗收輪數已用完 · 尚未達標","レビュー上限に到達 · 基準未達","검토 상한 도달 · 기준 미충족","Límite de revisiones alcanzado · Aprobación pendiente");
+        Add("Acceptance passed","验收通过","驗收通過","レビュー合格","검토 통과","Revisión aprobada");
+        Add("Use a dedicated conversation for independent acceptance","独立验收使用专用会话","獨立驗收使用專用會話","独立レビューに専用の会話を使う","독립 검토에 전용 대화 사용","Usar una conversación dedicada para la revisión independiente");
+        Add("Dedicated review conversation","验收专用会话","驗收專用會話","レビュー専用の会話","검토 전용 대화","Conversación dedicada a la revisión");
+        Add("Independent acceptance starts in a new review-only conversation and can continue there in later reviews.",
+            "独立验收首次新建专用会话，后续验收可以在该会话中继续。","獨立驗收首次新建專用會話，後續驗收可以在該會話中繼續。",
+            "独立レビューの初回は専用の会話を作成し、次回以降もその会話を使えます。","독립 검토는 새 전용 대화에서 시작하고 이후 검토도 그 대화에서 이어갈 수 있습니다.",
+            "La revisión independiente empieza en una conversación nueva y puede continuar allí en revisiones posteriores.");
+        Add("For manual delivery, paste the review prompt into this task's dedicated review conversation.",
+            "手动传递时，请将验收提示词粘贴到本任务的验收专用会话。","手動傳遞時，請將驗收提示詞貼到本任務的驗收專用會話。",
+            "手動で渡す場合は、このタスクのレビュー専用の会話にプロンプトを貼り付けてください。","수동으로 전달할 때는 이 작업의 검토 전용 대화에 프롬프트를 붙여넣으세요.",
+            "Para la entrega manual, pega las instrucciones en la conversación dedicada a la revisión de esta tarea.");
         Add("Without a limit, automatic calls may continue and incur model charges until the reviewer approves. No-progress pauses and per-turn time limits still apply.","不设上限时，自动调用可能持续至验收通过并产生模型费用；无进展暂停与单轮时限仍然生效。","不設上限時，自動呼叫可能持續至驗收通過並產生模型費用；無進展暫停與單輪時限仍然生效。","無制限では承認まで自動呼び出しが続き、料金が発生する場合があります。","제한이 없으면 승인까지 자동 호출이 계속되어 비용이 발생할 수 있습니다.","Sin límite, las llamadas pueden continuar hasta la aprobación y generar cargos.");
         Add("Enter the acceptance criteria or let the initiating Agent create them.","请填写验收标准，或选择由发起方 Agent 拟定。","請填寫驗收標準，或選擇由發起方 Agent 擬定。","基準を入力するか依頼側 Agent に作成させてください。","승인 기준을 입력하거나 발신 Agent가 작성하도록 선택하세요.","Introduce los criterios o deja que los prepare el agente emisor.");
         Add("Preparing acceptance criteria","拟定验收标准","擬定驗收標準","受け入れ基準を作成中","승인 기준 작성 중","Preparando criterios");
