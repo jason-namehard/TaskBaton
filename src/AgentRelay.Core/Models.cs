@@ -94,6 +94,7 @@ public sealed class TaskRecord
     public int? MaxTurns { get; set; }
     public int? TurnTimeoutMinutes { get; set; }
     public bool AutoDeliver { get; set; }
+    public UnattendedHandoffRun? UnattendedRun { get; set; }
     public string? PauseReason { get; set; }
     public string? PauseMessage { get; set; }
     public TaskState? PausedFrom { get; set; }

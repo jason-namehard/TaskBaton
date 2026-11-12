@@ -174,6 +174,7 @@ public partial class MainWindow
             var next=Muted(string.Format(CultureInfo.CurrentUICulture,T("Next recipient: {0}"),AgentName(task.AwaitingAgentId??task.RecipientId)),12.5,new(0,8,0,0));
             next.Name="HandoffNextRecipient";steps.Children.Add(next);
         }
+        AddUnattendedHandoff(steps,task,progress);
         AddSessionBindings(DetailSection(card),task);
         AddTaskImages(card,task);
 

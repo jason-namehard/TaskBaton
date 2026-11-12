@@ -34,10 +34,14 @@ public sealed partial class RelayService
     {
         if (task.ManualResendTurn == task.ManualTurn || !CanSendFileHandoff(task)) return false;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
-        var extension = CliExtension(recipient)!;
-        if (extension.Block is not null) return false;
-        return TaskSession(task.TaskId, recipient)?.SessionId is not null ? extension.CanResume : extension.CanCreate;
+        return CliExtension(recipient) is { } extension && AutomaticRouteReady(task, extension,
+            TaskSession(task.TaskId, recipient)?.SessionId is not null);
     }
+
+    private bool AutomaticRouteReady(TaskRecord task, CliExtensionRecord extension, bool resume) =>
+        extension.Block is null && (resume ? extension.CanResume : extension.CanCreate) &&
+        (task.UnattendedRun is null || UnattendedStatus(task) == UnattendedHandoffStatus.Active &&
+            task.DeadlineAt > Now && CliRecipes.OutputFormatFor(extension.Recipe) != "text");
 
     public string? FileDeliveryMessage(TaskRecord task)
     {
@@ -47,7 +51,8 @@ public sealed partial class RelayService
         if (task.CliFileTurn == task.ManualTurn && task.CliFileStatus is "unknown" or "failed") return task.CliFileError;
         if (task.CliFileTurn is not null && task.CliFileStatus == "submitting")
             return "上一轮的投递仍在执行，本轮结果已提交但执行结束未知；确认宿主结束后再自动开始下一步。";
-        if (!task.AutoDeliver || task.ManualResendTurn == task.ManualTurn || extension is null || !CanSendFileHandoff(task)) return null;
+        if (!task.AutoDeliver || task.UnattendedRun is not null || task.ManualResendTurn == task.ManualTurn ||
+            extension is null || !CanSendFileHandoff(task)) return null;
         var resume = TaskSession(task.TaskId, recipient)?.SessionId is not null;
         if (resume ? extension.CanResume : extension.CanCreate) return null;
         return resume
@@ -55,9 +60,14 @@ public sealed partial class RelayService
             : "自动新建会话尚未验证：请完成新建探针并确认可见，或手动发送本轮并等待真实回执。自动投递目前不会启动。";
     }
 
-    public IReadOnlyList<string> AutoDeliveryCandidates() => Tasks()
-        .Where(v => v.Task.IsFileHandoff && v.Task.AutoDeliver && CanAutoDeliver(v.Task))
-        .Select(v => v.Task.TaskId).ToArray();
+    public IReadOnlyList<string> AutoDeliveryCandidates(IEnumerable<string>? receiptErrors = null)
+    {
+        var blocked = receiptErrors?.ToHashSet(StringComparer.Ordinal);
+        return Tasks().Select(view => view.Task)
+            .Where(task => task.IsFileHandoff && task.AutoDeliver &&
+                (task.UnattendedRun is null || blocked?.Contains(task.TaskId) != true) && CanAutoDeliver(task))
+            .Select(task => task.TaskId).ToArray();
+    }
 
     /// <summary>Imports receipts and, when asked, sends every opted-in turn that is ready. GUI, CLI and MCP share this path.</summary>
     public async Task<FileHandoffSyncResult> SyncFileHandoffsAsync(bool deliver, CancellationToken cancellationToken = default)
@@ -65,7 +75,7 @@ public sealed partial class RelayService
         var imported = ImportManualReceipts();
         var sent = new List<string>(); var failures = new List<ManualReceiptError>();
         if (deliver)
-            foreach (var id in AutoDeliveryCandidates())
+            foreach (var id in AutoDeliveryCandidates(imported.Errors.Select(error => error.TaskId)))
             {
                 try
                 {
@@ -105,10 +115,13 @@ public sealed partial class RelayService
         if (CliExtension(task.AwaitingAgentId ?? task.RecipientId)?.Block is {} blocked)
             throw new RelayException("cli_blocked", blocked.Message);
         if (!CanSendFileHandoff(task)) throw new RelayException("file_cli_unavailable", "当前方向未启用 CLI、本轮已发送，或没有可续接的明确会话。请检查连接图和会话选择，必要时手动传递。");
+        var bounded = automatic && task.UnattendedRun is not null;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         var extension = CliExtension(recipient)!;
         var binding = TaskSession(taskId, recipient);
         var resume = binding?.SessionId is not null;
+        if (automatic && (!task.AutoDeliver || !AutomaticRouteReady(task, extension, resume)))
+            throw new RelayException("file_cli_changed", "此任务当前不允许自动投递，请查看任务状态。");
         var independentReview = UsesIndependentReviewSession(task, recipient);
         var workSessions = independentReview && !resume
             ? SessionBindings(taskId).Where(session => session.AttemptId == task.AttemptId && session.AgentId == recipient &&
@@ -119,10 +132,13 @@ public sealed partial class RelayService
         {
             var check = await ValidateDiscoveredSessionAsync(recipient, binding!.SessionId!, cancellationToken);
             // A session this task created was reported by the host itself; resume still has to return the same ID.
-            var created = check.Status == "unsupported" && binding.Binding == "created";
+            var created = !bounded && check.Status == "unsupported" && binding.Binding == "created";
             if (check.Status != "exists" && !created)
-                throw new RelayException("session_rebind_required", check.Message ??
-                    "无法确认绑定会话仍然存在。请重新选择已有会话；不支持会话发现时仍可手动复制提示词。");
+            {
+                var message = check.Message ?? "无法确认绑定会话仍然存在。请重新选择已有会话；不支持会话发现时仍可手动复制提示词。";
+                if (bounded) RecordUnattendedSessionIssue(task, message);
+                throw new RelayException("session_rebind_required", message);
+            }
             validated = check.Session;
         }
         var command = resume ? CliRecipes.ResumeCommand(extension.Recipe)! : extension.Recipe.Create;
@@ -147,7 +163,7 @@ public sealed partial class RelayService
         store.Write(s =>
         {
             var current = s.Task(taskId);
-            if (current.ManualTurn != task.ManualTurn || current.CliFileTurn == current.ManualTurn ||
+            if (current.AttemptId != task.AttemptId || current.ManualTurn != task.ManualTurn || current.CliFileTurn == current.ManualTurn ||
                 automatic && current.ManualResendTurn == current.ManualTurn ||
                 current.CliFileTurn is not null && current.CliFileStatus == "submitting" ||
                 current.State is not (TaskState.AwaitingManual or TaskState.AwaitingReply) ||
@@ -155,8 +171,17 @@ public sealed partial class RelayService
                 ReadTaskSession(s,current,recipient) != binding)
                 throw new RelayException("file_cli_changed", "任务已经变化，本次未重复发送。");
             RequirePermission(s,recipient==current.RecipientId?current.RequesterId:current.RecipientId,recipient);
-            if (ReadCliExtension(s,recipient)?.Block is {} currentBlock)
+            var currentExtension = ReadCliExtension(s, recipient)!;
+            if (currentExtension.Block is {} currentBlock)
                 throw new RelayException("cli_blocked",currentBlock.Message);
+            if (automatic && (!current.AutoDeliver || current.UnattendedRun != task.UnattendedRun ||
+                !AutomaticRouteReady(current, currentExtension, resume)))
+                throw new RelayException("file_cli_changed", "此任务当前不允许自动投递，请查看任务状态。");
+            if (bounded)
+            {
+                var run = current.UnattendedRun!;
+                current.UnattendedRun = run with { SendsStarted = run.SendsStarted + 1 };
+            }
             current.CliFileTurn = current.ManualTurn; current.CliFileStatus = "submitting";
             current.ManualResendTurn = null;
             current.CliFileError = null; current.CliFileSessionId = null; current.Mode = "cli"; current.AdapterId = "cli:" + recipient;

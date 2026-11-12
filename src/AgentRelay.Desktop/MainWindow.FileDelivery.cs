@@ -74,7 +74,8 @@ public partial class MainWindow
     private void StartAutoDeliveries()
     {
         if (demo) return;
-        foreach (var id in service.AutoDeliveryCandidates()) StartCliSend(id,automatic:true);
+        foreach (var id in service.AutoDeliveryCandidates(receiptImportErrors.Keys))
+            if (!sendingTasks.Contains(id)) StartCliSend(id,automatic:true);
     }
 
     /// <summary>Print-mode CLIs return only when the Agent finishes its turn, so sends run off the UI thread.</summary>
