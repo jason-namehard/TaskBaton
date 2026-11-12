@@ -10,6 +10,7 @@ public sealed class AutoDeliveryTests
 {
     private string root = null!;
     private RelayService service = null!;
+    private readonly TestClock clock = new();
 
     // Acts like a print-mode Agent: it reads the handoff context, writes the turn's receipt, then reports its session.
     private const string Agent = """
@@ -33,6 +34,7 @@ public sealed class AutoDeliveryTests
           if($outcome -eq 'accepted'){$r.deliverable='docs/result.md'}
           [IO.File]::WriteAllText($c.receipt_file,($r|ConvertTo-Json -Depth 5))
         }
+        if($mode -eq 'interrupted'){exit 1}
         $id=if($Session -eq 'create'){"created-$Agent"}elseif($mode -eq 'other'){'another-session'}else{$Session}
         @{session_id=$id;reply=$(if($m){$m}else{'accepted'});accepted=$true}|ConvertTo-Json -Compress
         """;
@@ -41,7 +43,7 @@ public sealed class AutoDeliveryTests
     public void Setup()
     {
         root = Path.Combine(Path.GetTempPath(), "AgentRelay.Tests", Guid.NewGuid().ToString());
-        service = new RelayService(Path.Combine(root, "relay")); service.Initialize();
+        service = new RelayService(Path.Combine(root, "relay"), clock); service.Initialize();
         service.RegisterManual("agent-a", "fixture", "甲"); service.RegisterManual("agent-b", "fixture", "乙");
         var script = Path.Combine(root, "agent.ps1"); File.WriteAllText(script, Agent);
         foreach (var id in new[] { "agent-a", "agent-b" })
@@ -101,6 +103,21 @@ public sealed class AutoDeliveryTests
             if (result.UpdatedTaskIds.Length == 0 && result.SentTaskIds.Length == 0) break;
         }
         return service.Status(taskId).Task;
+    }
+
+    [TestMethod]
+    public async Task UnattendedRunContinuesInTheExactVerifiedConversationAfterReopening()
+    {
+        await Verify("agent-a"); await Verify("agent-b");
+        Outcomes("agent-b", "submitted"); Outcomes("agent-a", "approved");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 4, 480);
+        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+
+        service = new RelayService(service.Home, clock);
+        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        CollectionAssert.AreEqual(new[] { "source-a" }, Calls("agent-a"));
+        Assert.AreEqual(2, service.Status(task.TaskId).Task.UnattendedRun!.SendsStarted);
     }
 
     [TestMethod]
@@ -232,5 +249,155 @@ public sealed class AutoDeliveryTests
         task = await SyncUntilSettled(task.TaskId);
         Assert.AreEqual(TaskState.Succeeded, task.State);
         CollectionAssert.AreEqual(new[] { "create", "created-agent-b" }, Calls("agent-b"));
+    }
+
+    [TestMethod]
+    public async Task UnattendedSendLimitSurvivesRestartAndAllowsManualTakeover()
+    {
+        await Verify("agent-a"); await Verify("agent-b");
+        Outcomes("agent-b", "submitted");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 1, 480);
+        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+
+        service = new RelayService(service.Home, clock);
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        task = service.Status(task.TaskId).Task;
+        Assert.AreEqual("agent-a", task.AwaitingAgentId);
+        Assert.AreEqual(1, task.UnattendedRun!.SendsStarted);
+        Assert.AreEqual(UnattendedHandoffStatus.SendLimit, service.UnattendedStatus(task));
+        Assert.IsEmpty(Calls("agent-a"));
+        Assert.IsTrue(service.CanSendFileHandoff(task));
+        Outcomes("agent-a", "approved");
+        await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        CollectionAssert.AreEqual(new[] { "source-a" }, Calls("agent-a"));
+        Assert.AreEqual(1, service.Status(task.TaskId).Task.UnattendedRun!.SendsStarted);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task UnattendedRunCannotSendAfterElapsedDowntimeOrOperatorStop(bool stop)
+    {
+        await Verify("agent-b");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 4, 1);
+        if (stop) service.StopUnattendedHandoff(task.TaskId);
+        else clock.UtcNow = clock.UtcNow.AddMinutes(1);
+
+        service = new RelayService(service.Home, clock);
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        task = service.Status(task.TaskId).Task;
+        Assert.AreEqual(stop ? UnattendedHandoffStatus.Stopped : UnattendedHandoffStatus.TimeLimit,
+            service.UnattendedStatus(task));
+        Assert.AreEqual(0, task.UnattendedRun!.SendsStarted);
+        Assert.IsEmpty(Calls("agent-b"));
+    }
+
+    [TestMethod]
+    public async Task UnattendedRunStopsWhenTheBoundConversationDisappears()
+    {
+        await Verify("agent-a"); await Verify("agent-b");
+        Outcomes("agent-b", "submitted");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 4, 480);
+        await service.SyncFileHandoffsAsync(true);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            { DataSource = Path.Combine(root, "agent-a-sessions", "state.db"), Pooling = false }.ToString()))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM sessions WHERE id='source-a'";
+            command.ExecuteNonQuery();
+        }
+        var result = await service.SyncFileHandoffsAsync(true);
+        Assert.IsEmpty(result.SentTaskIds);
+        Assert.HasCount(1, result.DeliveryErrors);
+        service = new RelayService(service.Home, clock);
+        task = service.Status(task.TaskId).Task;
+        Assert.AreEqual(UnattendedHandoffStatus.SessionUnverified, service.UnattendedStatus(task));
+        Assert.AreEqual(1, task.UnattendedRun!.SendsStarted);
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).DeliveryErrors);
+        Assert.IsEmpty(Calls("agent-a"));
+    }
+
+    [TestMethod]
+    public async Task UnreadableReceiptHoldsUnattendedDeliveryWithoutSpendingTheBudget()
+    {
+        await Verify("agent-b");
+        Outcomes("agent-b", "submitted");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 4, 480);
+        var receipt = service.ManualReceiptPath(task);
+        File.WriteAllText(receipt, "{");
+
+        var result = await service.SyncFileHandoffsAsync(true);
+        Assert.HasCount(1, result.Errors);
+        Assert.IsEmpty(result.SentTaskIds);
+        Assert.AreEqual(0, service.Status(task.TaskId).Task.UnattendedRun!.SendsStarted);
+        Assert.IsEmpty(Calls("agent-b"));
+
+        File.Delete(receipt);
+        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+    }
+
+    [TestMethod]
+    public async Task AValidReceiptWithoutAHostConclusionDoesNotStartTheNextUnattendedTurn()
+    {
+        await Verify("agent-a"); await Verify("agent-b");
+        Outcomes("agent-b", "submitted"); Mode("agent-b", "interrupted");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 4, 480);
+        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+
+        service = new RelayService(service.Home, clock);
+        var result = await service.SyncFileHandoffsAsync(true);
+        Assert.IsEmpty(result.Errors);
+        Assert.IsEmpty(result.SentTaskIds);
+        task = service.Status(task.TaskId).Task;
+        Assert.AreEqual(1, task.ManualTurn);
+        Assert.AreEqual("agent-a", task.AwaitingAgentId);
+        Assert.AreEqual(UnattendedHandoffStatus.HostUnconfirmed, service.UnattendedStatus(task));
+        Assert.IsEmpty(Calls("agent-a"));
+        Assert.IsTrue(service.CanSendFileHandoff(task));
+    }
+
+    [TestMethod]
+    public async Task ExpiredInterruptedSendReleasesManualTakeoverAfterItsReceiptAdvancedTheTurn()
+    {
+        await Verify("agent-a");
+        var task = Loop(autoDeliver: false);
+        service.StartUnattendedHandoff(task.TaskId, 4, 480);
+        new RelayStore(service.Home).Write(s =>
+        {
+            var saved = s.Task(task.TaskId);
+            saved.CliFileTurn = 0;
+            saved.CliFileStatus = "submitting";
+            s.Save(saved);
+            return true;
+        });
+        var reply = service.TurnReplyPath(task);
+        File.WriteAllText(reply, "Late work from the interrupted host.");
+        File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId,
+            task.AttemptId, "agent-b", 0, "done", ResultFile: reply, Outcome: "submitted")));
+
+        service = new RelayService(service.Home, clock);
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        task = service.Status(task.TaskId).Task;
+        Assert.AreEqual(1, task.ManualTurn);
+        Assert.AreEqual("submitting", task.CliFileStatus);
+        clock.UtcNow = clock.UtcNow.AddMinutes(31);
+        Assert.IsEmpty((await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        task = service.ContinueFileHandoff(task.TaskId).Task;
+        Assert.AreEqual("unknown", task.CliFileStatus);
+        Assert.IsTrue(service.CanSendFileHandoff(task));
+        Assert.IsFalse(service.CanAutoDeliver(task));
+        Assert.IsEmpty(Calls("agent-a"));
+    }
+
+    private sealed class TestClock : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 }

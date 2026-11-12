@@ -385,6 +385,7 @@ public static class UiText
         CliTaskUiText.AddTo(entries);
         CollaborationUiText.AddTo(entries);
         DeliveryUiText.AddTo(entries);
+        UnattendedHandoffUiText.AddTo(entries);
         AgentEntryUiText.AddTo(entries);
         ProbeVisibilityUiText.AddTo(entries);
         CompactTaskUiText.AddTo(entries);

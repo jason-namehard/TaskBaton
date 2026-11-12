@@ -255,7 +255,8 @@ public sealed partial class RelayService
 
     private bool RecoverExpiredFileDelivery(StoreSession s, TaskRecord task)
     {
-        if (task.CliFileTurn != task.ManualTurn || task.CliFileStatus != "submitting" || task.DeadlineAt > Now)
+        if (task.CliFileTurn is null || task.CliFileStatus != "submitting" || task.DeadlineAt > Now ||
+            task.CliFileTurn != task.ManualTurn && task.UnattendedRun is null)
             return false;
         // A stopped sender cannot report its outcome; the turn deadline bounds the wait without resending it.
         task.CliFileStatus = "unknown";

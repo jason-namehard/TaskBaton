@@ -22,7 +22,11 @@ public partial class MainWindow
         {
             if (busy) return;
             var drafts = CaptureInputs();
-            await Run(() => Task.CompletedTask, "Ready", refresh: Navigation.SelectedItem is ListBoxItem { Tag: "Settings" },
+            // The periodic pass also catches missed receipt events and elapsed unattended limits after sleep.
+            var refresh = Navigation.SelectedItem is ListBoxItem { Tag: "Settings" } ||
+                Navigation.SelectedItem is ListBoxItem { Tag: "Home" } && taskId is not null &&
+                service.Tasks().Any(view => view.Task.TaskId == taskId && view.Task.UnattendedRun is not null);
+            await Run(() => Task.CompletedTask, "Ready", refresh: refresh,
                 clearError: false, reportStatus: false);
             RestoreInputs(drafts);
         };
