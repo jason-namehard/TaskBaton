@@ -130,6 +130,8 @@ public sealed partial class RelayService
 
     private static void RequireExistingSessionAllowed(TaskRecord task, string agentId)
     {
+        if (task.ParallelGroupId is not null)
+            throw new RelayException("parallel_new_session_required", "并行分工和汇合需要使用独立工作目录的新会话。");
         if (UsesIndependentReviewSession(task, agentId))
             throw new RelayException("review_session_required", "独立验收需要任务专用会话，请选择新建会话。");
     }

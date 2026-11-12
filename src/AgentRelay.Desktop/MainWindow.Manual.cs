@@ -175,6 +175,21 @@ public partial class MainWindow
             next.Name="HandoffNextRecipient";steps.Children.Add(next);
         }
         AddUnattendedHandoff(steps,task,progress);
+        if (task.ParallelGroupId is { } groupId)
+        {
+            var actions = Row(steps);
+            Add(actions, "Parallel results", () =>
+            {
+                var dialog = new ParallelResultsDialog(this, service, groupId, preferences.Language);
+                if (dialog.ShowDialog() == true) taskId = dialog.MergeTaskId;
+                return Task.CompletedTask;
+            });
+            Add(actions, "Open working folder", () =>
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(task.CliNewSessionCwd!) { UseShellExecute = true });
+                return Task.CompletedTask;
+            }, refresh: false);
+        }
         AddSessionBindings(DetailSection(card),task);
         AddTaskImages(card,task);
 

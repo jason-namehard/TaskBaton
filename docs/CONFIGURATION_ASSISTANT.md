@@ -87,6 +87,14 @@ dotnet .\relay.dll --home <中转站目录> handoff allow-resend --task <任务I
 
 `task status` 对文件交接返回 `progress` 对象：`current_agent_id`、`phase`、`waiting_on`（`agent`/`user`/`none`）、`delivery`（`cli_auto`/`cli_ready`/`cli_in_flight`/`agent_working`/`cli_unconfirmed`/`copy_prompt`/`none`）、`turn`、`max_turns`、`review_round`、`max_review_rounds`、`next_if_passed`、`next_if_changed`、`pause_reason`、`pause_message`、`finished` 与 `completion`（`delivered`/`completed`/`operator_completed`/`cancelled`/`failed`/`timed_out`）。
 
+## 并行分工
+
+`relay parallel create --manifest <清单>` 创建普通交接任务和各自的工作文件夹。清单使用 `title`、`from`、`merge_agent_id`、`project_directory`、`input_files`、`work` 和 `merge_instructions`。其中 `input_files` 是项目相对路径数组，`work` 至少有两项，每项填写 `agent_id` 和 `instructions`。同一个接收 Agent 可以重复出现。
+
+用普通交接入口投递各任务。Agent 应在上下文的 `parallel.working_directory` 里编辑副本，并在 `reply_file` 写总结，回执填 `result_file` 为该总结路径以及 `needs_reply:false`。成功回执会保存此时的文件变化及成果归属。
+
+用 `relay parallel status --group <组ID>` 查看分工、冲突及可用成果。把确认过的响应 `data` 对象保存为预览文件，再运行 `relay parallel merge --preview <预览文件>`。有分工未提供可用成果时须明确传 `--allow-partial`，有冲突时须明确传 `--review-conflicts`。如果预览已变化，重新查看后确认。汇合任务的 `parallel.merge_manifest` 列出各版本及归属，版本路径相对于清单所在目录。
+
 ## A 输出文件交接 JSON
 
 让 A 先写好文件，再输出如下对象供用户粘贴。`from`、`to` 是已登记 ID 或唯一名称；`file` 是存在且可读的绝对路径；`message` 为可选的一句工作要求，不放完整正文。

@@ -205,6 +205,20 @@ public static class RelayCli
         Sync(handoff, "allow-resend", "确认本轮未送达后允许手动再发送一次", ["task!", "reason!", "approve?"],
             (s,v) => s.AllowFileHandoffResend(v.Get("task"), v.Get("reason"), v.Flag("approve")));
 
+        var parallel = Group("parallel", "创建隔离分工、检查结果与冲突、确认汇合");
+        Sync(parallel, "create", "从 JSON 清单创建分工，各自使用独立项目副本", ["manifest!"],
+            (s,v) =>
+            {
+                var draft = RelayJson.Read<ParallelHandoffDraft>(File.ReadAllText(v.Get("manifest")));
+                s.Initialize();
+                return s.CreateParallelHandoff(draft);
+            });
+        Sync(parallel, "status", "查看分工状态、成果和冲突", ["group!"],
+            (s,v) => s.ReviewParallelHandoff(v.Get("group")));
+        Sync(parallel, "merge", "确认已预览的分工并创建汇合交接", ["preview!", "allow-partial?", "review-conflicts?"],
+            (s,v) => s.CreateParallelMerge(RelayJson.Read<ParallelReview>(File.ReadAllText(v.Get("preview"))),
+                v.Flag("allow-partial"), v.Flag("review-conflicts")));
+
         var cliRecipe = Group("cli-recipe", "保存已有 CLI 调用方案，不执行或启用");
         Sync(cliRecipe, "import", "从 JSON 保存指定 Agent 的调用方案", ["agent!", "manifest!"],
             (s, v) => s.ImportCliRecipe(v.Get("agent"), File.ReadAllText(v.Get("manifest"))));

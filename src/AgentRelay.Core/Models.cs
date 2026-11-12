@@ -95,6 +95,8 @@ public sealed class TaskRecord
     public int? TurnTimeoutMinutes { get; set; }
     public bool AutoDeliver { get; set; }
     public UnattendedHandoffRun? UnattendedRun { get; set; }
+    public string? ParallelGroupId { get; set; }
+    public bool IsParallelMerge { get; set; }
     public string? PauseReason { get; set; }
     public string? PauseMessage { get; set; }
     public TaskState? PausedFrom { get; set; }

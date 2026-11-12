@@ -262,13 +262,7 @@ public sealed partial class RelayService
                 task.RequestPath = artifact.Path; task.ManualCurrentFile = artifact.Path;
                 if (images is { Length: > 0 }) task.Images = KeepTaskImages(s, task, images, now, settings.ArtifactTtlDays);
                 task.ResultPath = Path.Combine(workspace.AttemptDirectory(task.TaskId, task.AttemptId), "reply.md");
-                EnsureTurnControl(task);
-                var input = new DispatchRequest(task.RequesterId, task.RecipientId, normalized.Message, "manual", "manual-file", task.TaskId);
-                s.Execute("INSERT INTO tasks VALUES($id,$from,$key,$input,$json)", ("$id", task.TaskId), ("$from", task.RequesterId),
-                    ("$key", task.TaskId), ("$input", RelayJson.Write(input)), ("$json", RelayJson.Write(task)));
-                if (origin is not null) RegisterOriginSession(s, task, origin);
-                s.Event(task, "task.created", task.RequesterId, now);
-                s.Notify(task, "waiting", "请复制交接提示词给接收方，等待读取并回报。", now);
+                InsertFileHandoff(s, task, origin);
                 return ManualView(task);
             }
             catch
@@ -281,6 +275,18 @@ public sealed partial class RelayService
                 throw;
             }
         });
+    }
+
+    private void InsertFileHandoff(StoreSession s, TaskRecord task, OriginSession? origin = null)
+    {
+        EnsureTurnControl(task);
+        var input = new DispatchRequest(task.RequesterId, task.RecipientId, task.ManualNextAction ?? "",
+            "manual", "manual-file", task.TaskId);
+        s.Execute("INSERT INTO tasks VALUES($id,$from,$key,$input,$json)", ("$id", task.TaskId), ("$from", task.RequesterId),
+            ("$key", task.TaskId), ("$input", RelayJson.Write(input)), ("$json", RelayJson.Write(task)));
+        if (origin is not null) RegisterOriginSession(s, task, origin);
+        s.Event(task, "task.created", task.RequesterId, task.CreatedAt);
+        s.Notify(task, "waiting", "请复制交接提示词给接收方，等待读取并回报。", task.CreatedAt);
     }
 
     /// <summary>Per-turn receipt files first, then the single attempt-level file that 0.3.0 prompts named.</summary>
@@ -527,7 +533,8 @@ public sealed partial class RelayService
             throw new RelayException("manual_receipt_reply", plannedNext
                 ? "本轮处理完成，但交接计划仍有后续步骤，不能结束任务。请提供真实回稿 result_file 和具体 next_action，再按当前上下文重写回执。"
                 : "需要对方继续时，必须给出回稿文件和具体的下一步工作；已确认或寒暄无需回传。");
-        KeepReceiptResult(s, task, receipt.ResultFile);
+        if (task.ParallelGroupId is not null && receipt.Status == "done") AcceptParallelReceipt(s, task, receipt);
+        else KeepReceiptResult(s, task, receipt.ResultFile);
         if (receipt.Status == "failed")
         {
             task.State = TaskState.Failed; task.ErrorCode = "manual_agent_failed";

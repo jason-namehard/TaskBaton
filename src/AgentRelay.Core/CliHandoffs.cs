@@ -132,6 +132,18 @@ public sealed partial class RelayService
         else
         {
             var steps=Steps(task);
+            var parallel = task.ParallelGroupId is null ? null : new
+            {
+                working_directory = ParallelWorkingDirectory(task),
+                merge_manifest = task.IsParallelMerge ? ParallelMergeManifest(task) : null
+            };
+            var parallelInstructions = parallel is null ? "" :
+                "Work only in parallel.working_directory. It contains copies of the selected project files. " +
+                "Save proposed file changes there and a summary in reply_file. Keep the original project and other work directories untouched. " +
+                (task.IsParallelMerge
+                    ? "Read parallel.merge_manifest. Paths in it are relative to the manifest directory. Review each named conflict and preserve the source versions while resolving it in your working directory. List missing branches in your summary. If a conflict remains unresolved, write status=failed and explain it in next_action. "
+                    : "") +
+                "On completion set needs_reply=false and result_file=reply_file. ";
             var planned=steps.Length>0;
             var lastStep=planned&&task.ManualTurn+1>=steps.Length;
             var requiredNext=planned?lastStep?null:steps[task.ManualTurn+1].AgentId:task.HandoffPlan is {} plan&&task.ManualTurn+1<plan.Length?plan[task.ManualTurn+1]:null;
@@ -144,7 +156,7 @@ public sealed partial class RelayService
             document=new
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
-                common.reply_file,common.receipt_file,images,
+                common.reply_file,common.receipt_file,images,parallel,
                 receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",planned?!lastStep:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
                 relay_plan=planned?new
                 {
@@ -153,7 +165,7 @@ public sealed partial class RelayService
                 }:null,
                 handoff_plan=task.HandoffPlan,required_next_agent=requiredNext,
                 remaining_handoffs=remaining,
-                instructions=ImageInstructions(task,images)+stepText+
+                instructions=ImageInstructions(task,images)+parallelInstructions+stepText+
                     (string.IsNullOrWhiteSpace(duty)?"":"This step's declared duty: "+duty+" ")+
                     "Read current_file and perform the request. "+
                     (requiredNext is not null?"The plan still requires required_next_agent: this task is not finished; save a real result_file, set needs_reply=true and give a concrete next_action for that Agent. ":"")+

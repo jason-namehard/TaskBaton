@@ -41,7 +41,7 @@ public partial class MainWindow
             value.Children.Add(actions);
             section.Children.Add(row);
             if(finished||(id==(task.AwaitingAgentId??task.RecipientId)&&WaitingForFileReceipt(task)))continue;
-            if(!dedicatedReview) StyleLink(Add(actions,service.SessionDiscoverySupported(id)?"Change conversation":"Enter Session ID manually",()=>
+            if(!dedicatedReview && task.ParallelGroupId is null) StyleLink(Add(actions,service.SessionDiscoverySupported(id)?"Change conversation":"Enter Session ID manually",()=>
             {
                 var picker=new SessionPickerDialog(this,service,id,preferences.Language,binding?.Cwd);
                 if(picker.ShowDialog()==true)service.BindTaskSession(task.TaskId,id,picker.SelectedSession!,picker.Binding);

@@ -75,7 +75,7 @@ public sealed partial class RelayService
         var task = s.Task(taskId);
         if (!task.IsFileHandoff || task.State != TaskState.AwaitingManual || task.ManualTurn != 0 ||
             task.ManualReceiptJson is not null || task.CliFileTurn is not null || task.HandoffPlan is not null ||
-            task.RelaySteps is not null)
+            task.RelaySteps is not null || task.ParallelGroupId is not null)
             throw new RelayException("handoff_options_started", "协作方式只能在首次投递和回执之前设置。");
         ValidateFileHandoffOptions(options, task.RequesterId, task.RecipientId);
         if (options.RelayPlan is { } relayPlan)

@@ -58,6 +58,7 @@ public sealed class RelayStore
             CREATE TABLE IF NOT EXISTS migrations (id TEXT PRIMARY KEY, json TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS migration_events (seq INTEGER PRIMARY KEY AUTOINCREMENT,
                 migration_id TEXT NOT NULL, json TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS parallel_handoffs (id TEXT PRIMARY KEY, json TEXT NOT NULL);
             """;
         command.ExecuteNonQuery();
         using var insert = connection.CreateCommand();

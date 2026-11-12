@@ -243,6 +243,14 @@ public partial class MainWindow : Window
         PageActions.Children.Add(trigger);
         var menu = Flyout(trigger, PageActions);
         MenuItem(menu, "New automatic transfer task", "Bolt", NewCliHandoff, "Relay delivers each turn through the Agent bridge");
+        MenuItem(menu, "New parallel handoff", "Copy", async () =>
+        {
+            if (service.Agents().Count < 2) throw new RelayException("agents_required", T("Add at least two Agents first."));
+            var dialog = new NewParallelHandoffDialog(this, service, preferences.Language);
+            if (dialog.ShowDialog() != true) { reviewCancelled = true; return; }
+            var group = await Task.Run(() => service.CreateParallelHandoff(dialog.Result!));
+            taskId = group.Workers[0].TaskId;
+        }, "Create independent assignments and review their results together.");
         MenuItem(menu, "New manual transfer task", "Copy", async () =>
         {
             var agents = service.Agents().Select(a => new HandoffAgentOption(a.AgentId, a.DisplayName ?? a.AgentId)).ToArray();
