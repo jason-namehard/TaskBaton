@@ -75,6 +75,7 @@ internal static partial class Program
         await CheckBlockedDeliveryUi(window,root);
         await CheckRejectedReceipt(window,root);
         await CheckHandoffRecovery(window,root);
+        await CheckStageOneWorkflow(window,root);
         await CheckFileCancellation(window,root);
         Check(navigation.Items.Cast<ListBoxItem>().Select(i=>(string)i.Tag).SequenceEqual(new[]{"Home","Agents","Connections","Settings"}),"Exactly four main pages");
         Check(Find<DataGrid>(window,"TasksTable").Items.Count==2,"Board combines all handoffs");

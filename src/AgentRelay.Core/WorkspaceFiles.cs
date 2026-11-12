@@ -87,7 +87,7 @@ public sealed partial class RelayService
         });
     }
 
-    private static WorkspaceIndex ReadWorkspaceIndex(StoreSession s, DateTimeOffset now)
+    private WorkspaceIndex ReadWorkspaceIndex(StoreSession s, DateTimeOffset now)
     {
         var tasks = s.Query("SELECT json FROM tasks", row => RelayJson.Read<TaskRecord>(row.GetString(0)))
             .ToDictionary(task => task.TaskId, StringComparer.Ordinal);
@@ -104,6 +104,7 @@ public sealed partial class RelayService
             .Where(entry => entry.LeaseUntil > now && (entry.State == "in_flight" || entry.DesktopState == "in_flight"))
             .Select(entry => (entry.TaskId, entry.AttemptId)));
 
+        var cliDraftDirectory = CliDraftDirectory;
         var references = new Dictionary<string, List<WorkspaceTaskReference>>(WorkspacePaths);
         var userDirectories = new List<(string Path, WorkspaceTaskReference Reference)>();
         foreach (var task in tasks.Values)
@@ -113,6 +114,8 @@ public sealed partial class RelayService
                 // Deliverable fields also accept a description. Only complete filesystem paths are references.
                 if (value is null || !Path.IsPathFullyQualified(value) || value.IndexOfAny(Path.GetInvalidPathChars()) >= 0) return;
                 var path = Path.GetFullPath(value);
+                // Earlier CLI tasks kept a source reference to the temporary draft after publishing the request.
+                if (use == "source" && WorkspacePaths.Equals(Path.GetDirectoryName(path), cliDraftDirectory) && !File.Exists(path)) return;
                 var reference = new WorkspaceTaskReference(task.TaskId, task.AttemptId, task.State, use,
                     active.Contains((task.TaskId, task.AttemptId)));
                 if (!references.TryGetValue(path, out var list)) references.Add(path, list = []);

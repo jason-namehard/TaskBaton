@@ -52,6 +52,29 @@ public sealed class WorkspaceFileTests
     }
 
     [TestMethod]
+    public void CliRequestKeepsItsPublishedCopyWithoutListingTheTemporaryDraft()
+    {
+        var task = service.CreateCliHandoff(new("a", "b", "Work request.")).Task;
+        Assert.IsNull(task.ManualSourceFile);
+        var draft = Path.Combine(service.Home, ".cli-drafts", Path.GetFileName(task.RequestPath));
+        Assert.IsFalse(File.Exists(draft));
+        new RelayStore(service.Home).Write(s =>
+        {
+            var saved = s.Task(task.TaskId);
+            saved.ManualSourceFile = draft;
+            s.Save(saved);
+            return true;
+        });
+
+        var files = service.WorkspaceFiles();
+        Assert.IsFalse(files.Any(file => file.Path == draft));
+        var request = files.Single(file => file.Path == task.RequestPath);
+        Assert.AreEqual(WorkspaceFileOwner.Relay, request.Owner);
+        Assert.AreEqual(WorkspaceFileStatus.InUse, request.Status);
+        Assert.AreEqual("Work request.", File.ReadAllText(request.Path));
+    }
+
+    [TestMethod]
     public void ApplyingAPreviewKeepsNewlyEligibleChangedAndNewlyReferencedFiles()
     {
         var removable = Create("remove.md");

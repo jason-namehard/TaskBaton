@@ -9,6 +9,8 @@ public sealed record CliHandoffRequest(string From,string To,string Prompt,strin
 
 public sealed partial class RelayService
 {
+    private string CliDraftDirectory => Path.Combine(Home, ".cli-drafts");
+
     public TaskView CreateCliHandoff(CliHandoffRequest request)
     {
         if(string.IsNullOrWhiteSpace(request.Prompt)&&request.Images is not {Length:>0})
@@ -45,7 +47,7 @@ public sealed partial class RelayService
             if(!permissions.Any(p=>p.From==from&&p.To==to&&p.Decision=="allow")&&!request.EnableDirection)
                 throw new RelayException("cli_direction_disabled","此 CLI 任务需要的连接方向尚未启用。请在连接图启用，或明确勾选允许本次启用所需方向。");
 
-        var drafts=Path.Combine(Home,".cli-drafts");Directory.CreateDirectory(drafts);
+        var drafts=CliDraftDirectory;Directory.CreateDirectory(drafts);
         var source=Path.Combine(drafts,"work-"+Guid.NewGuid().ToString("N")+".md");
         TaskView created;
         try
@@ -64,6 +66,7 @@ public sealed partial class RelayService
         store.Write(s=>
         {
             var task=s.Task(taskId);task.Mode=target is null?"manual":"cli";task.AdapterId=target is null?"manual-file":"cli:"+request.To;
+            task.ManualSourceFile=null;
             task.CliNewSessionCwd=request.TargetSessionId is null?request.TargetCwd:null;
             s.Save(task);s.Event(task,"cli_handoff.created","operator",Now);
             return true;
