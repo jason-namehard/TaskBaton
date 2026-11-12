@@ -302,6 +302,28 @@ public sealed class CliHandoffCreationTests
     }
 
     [TestMethod]
+    [DataRow(null, 2)]
+    [DataRow(5, 5)]
+    public async Task CliRelayUsesTheTaskTimeoutUnlessThePlanSetsItsOwn(int? planTimeout, int expectedTimeout)
+    {
+        var request = Request() with
+        {
+            TurnTimeoutMinutes = 2,
+            RelayPlan = new([new("agent-b", RelayStepRole.Work), new("agent-a", RelayStepRole.Test)],
+                TurnTimeoutMinutes: planTimeout)
+        };
+        var before = DateTimeOffset.UtcNow;
+        var result = await Invoke("handoff", "cli-create", "--manifest", Manifest(request));
+        var after = DateTimeOffset.UtcNow;
+
+        Assert.AreEqual(0, result.Code);
+        var task = RelayJson.Read<TaskRecord>(result.Json.GetProperty("data").GetProperty("task").GetRawText());
+        Assert.AreEqual(expectedTimeout, task.TurnTimeoutMinutes);
+        Assert.IsTrue(task.DeadlineAt >= before.AddMinutes(expectedTimeout) &&
+            task.DeadlineAt <= after.AddMinutes(expectedTimeout));
+    }
+
+    [TestMethod]
     public void StartingWithTheSenderWithoutAChosenSessionUsesManualDelivery()
     {
         service.SetPermission("agent-b", "agent-a", "allow");

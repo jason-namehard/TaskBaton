@@ -78,7 +78,11 @@ public sealed partial class RelayService
             task.RelaySteps is not null)
             throw new RelayException("handoff_options_started", "协作方式只能在首次投递和回执之前设置。");
         ValidateFileHandoffOptions(options, task.RequesterId, task.RecipientId);
-        if (options.RelayPlan is { } relayPlan) return ConfigureRelayPlan(s, task, relayPlan);
+        if (options.RelayPlan is { } relayPlan)
+            return ConfigureRelayPlan(s, task, relayPlan with
+            {
+                TurnTimeoutMinutes = relayPlan.TurnTimeoutMinutes ?? options.TurnTimeoutMinutes
+            });
         task.AwaitingAgentId = task.RecipientId;
         if (options.Collaboration is { } collaboration)
         {
