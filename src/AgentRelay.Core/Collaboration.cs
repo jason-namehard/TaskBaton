@@ -31,7 +31,9 @@ public sealed class CollaborationRecord
 public sealed record HandoffProgress(string? CurrentAgentId, string? Phase, string WaitingOn, string Delivery,
     int Turn, int? MaxTurns, int? ReviewRound, int? MaxReviewRounds, string? NextIfPassed, string? NextIfChanged,
     string? PauseReason, string? PauseMessage, bool Finished, string? Completion, string? DeliveryMessage = null,
-    RelayStatus? Status = null);
+    RelayStatus? Status = null, RelayTestConditionProgress? TestCondition = null);
+
+public sealed record RelayTestConditionProgress(int Step, string ContinueWithAgentId, string? Outcome);
 
 /// <summary>
 /// Separate facts, in the order they become true: Relay sent, the host confirmed the turn, the Agent declared it
@@ -186,7 +188,9 @@ public sealed partial class RelayService
             collaboration is null && !task.ManualContinuous ? task.MaxTurns ?? MaxManualTurns : null,
             collaboration?.ReviewRound, collaboration?.MaxReviewRounds, passed, changed,
             task.PauseReason, task.PauseMessage, finished, completion, finished ? null : FileDeliveryMessage(task),
-            RelayStatusOf(task, finished, delivery));
+            RelayStatusOf(task, finished, delivery),
+            task.StopIfTestPassesAtStep is { } testStep
+                ? new(testStep, task.RelaySteps![testStep].AgentId, task.RelayTestOutcome) : null);
     }
 
     /// <summary>Delivery, host turn, Agent declarations and flow state are reported separately, never merged.</summary>

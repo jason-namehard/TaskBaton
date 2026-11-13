@@ -466,8 +466,11 @@ public sealed partial class RelayService
         }
         // The same status reported again (same file or a byte-identical copy) changes nothing.
         if (alreadyRecorded) return ReceiptOutcome.None;
-        // Single handoffs are decided by needs_reply; review-loop fields an Agent adds there carry no decision.
-        if (task.Collaboration is null) receipt = receipt with { Outcome = null, OpenItems = null, Deliverable = null };
+        var conditionalTest = AtRelayTestCondition(task);
+        if (task.Collaboration is null)
+            receipt = receipt with { Outcome = conditionalTest ? receipt.Outcome : null, OpenItems = null, Deliverable = null };
+        if (conditionalTest && receipt.Status != "done" && receipt.Outcome is not null)
+            throw new RelayException("relay_test_outcome", "仅在测试实际完成时用 status=done 提交 outcome=passed 或 failed。");
         if (task.State == TaskState.Paused)
         {
             // A late receipt for the timed-out or unconfirmed-send turn is still the Agent's real result.
@@ -488,7 +491,22 @@ public sealed partial class RelayService
             if (receipt.Status == "received") task.AcknowledgedAt ??= Now; else task.WorkingAt ??= Now;
         }
         else if (task.Collaboration is { } collaboration) ApplyCollaborationOutcome(s, task, collaboration, receipt);
-        else ApplyPlainOutcome(s, task, receipt);
+        else
+        {
+            if (conditionalTest && receipt.Status == "done")
+            {
+                if (receipt.Outcome is not ("passed" or "failed"))
+                    throw new RelayException("relay_test_outcome", "条件流转需要明确的 outcome：passed（通过）或 failed（未通过）。请更正当前轮回执。");
+                if (string.IsNullOrWhiteSpace(receipt.ResultFile))
+                    throw new RelayException("relay_test_report", "请在回执的 result_file 填写测试报告文件路径。");
+                task.RelayTestOutcome = receipt.Outcome;
+                // The configured condition determines the route, including when a host sends needs_reply.
+                receipt = receipt.Outcome == "failed"
+                    ? receipt with { NeedsReply = true }
+                    : receipt with { NeedsReply = false, NextAction = null };
+            }
+            ApplyPlainOutcome(s, task, receipt);
+        }
         var recordedSource = source is null ? "handoff status" : Path.GetFileName(source);
         task.TurnStatuses.Add(new(receipt.Turn, receipt.Sender, receipt.Status, Now, recordedSource, hash));
         if (task.ManualResendTurn == receipt.Turn) task.ManualResendTurn = null;
@@ -512,7 +530,7 @@ public sealed partial class RelayService
         var relay = task.RelaySteps is { Length: > 0 } ? task.RelaySteps : null;
         var steps = relay ?? [];
         var finalStep = relay is not null && task.ManualTurn + 1 >= relay.Length;
-        var plannedNext = receipt.Status == "done" && (relay is not null ? !finalStep
+        var plannedNext = receipt.Status == "done" && (relay is not null ? !finalStep && !(AtRelayTestCondition(task) && task.RelayTestOutcome == "passed")
             : task.HandoffPlan is { } legacy && task.ManualTurn + 1 < legacy.Length);
         if (receipt.Status == "failed" && needsReply)
             throw new RelayException("manual_receipt_reply", "失败回执不能自动开启下一轮。");

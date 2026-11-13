@@ -29,7 +29,7 @@ public sealed class AutoDeliveryTests
           $queue=Join-Path $Root "$Agent.outcomes";$lines=@(Get-Content $queue);$outcome=$lines[0]
           Set-Content $queue @($lines|Select-Object -Skip 1)
           $r=$c.receipt_template;$r.outcome=$outcome
-          if($outcome -eq 'submitted'){[IO.File]::WriteAllText($c.reply_file,"work "+[guid]::NewGuid());$r.result_file=$c.reply_file}
+          if($outcome -eq 'submitted' -or $c.relay_plan){[IO.File]::WriteAllText($c.reply_file,"work "+[guid]::NewGuid());$r.result_file=$c.reply_file}
           if($outcome -eq 'changes_requested'){$r.open_items=@("issue "+[guid]::NewGuid())}
           if($outcome -eq 'accepted'){$r.deliverable='docs/result.md'}
           [IO.File]::WriteAllText($c.receipt_file,($r|ConvertTo-Json -Depth 5))
@@ -103,6 +103,33 @@ public sealed class AutoDeliveryTests
             if (result.UpdatedTaskIds.Length == 0 && result.SentTaskIds.Length == 0) break;
         }
         return service.Status(taskId).Task;
+    }
+
+    [TestMethod]
+    public async Task AutomaticConditionalRelayWaitsForAValidOutcomeBeforeSendingTheFallback()
+    {
+        await Verify("agent-a"); await Verify("agent-b");
+        Outcomes("agent-b", "invalid");
+        Outcomes("agent-a", "modified");
+        var task = service.CreateCliHandoff(new("agent-a", "agent-b", "Run the fixture tests",
+            OriginSessionId: "source-a", EnableDirection: true, OriginCwd: root, TargetCwd: root,
+            RelayPlan: new([new("agent-b", RelayStepRole.Test), new("agent-a", RelayStepRole.Modify)],
+                AutoDeliver: true, StopIfTestPassesAtStep: 1))).Task;
+        Assert.HasCount(1, (await service.SyncFileHandoffsAsync(true)).SentTaskIds);
+        var rejected = await service.SyncFileHandoffsAsync(true);
+        Assert.HasCount(1, rejected.Errors);
+        Assert.IsEmpty(rejected.SentTaskIds);
+        Assert.IsEmpty(Calls("agent-a"));
+        Assert.HasCount(1, Calls("agent-b"));
+        var path = service.ManualReceiptPath(task);
+        var receipt = ManualTransfers.ParseReceipt(File.ReadAllText(path));
+        File.WriteAllText(path, RelayJson.Write(receipt with { Outcome = "failed" }));
+        var finished = await SyncUntilSettled(task.TaskId);
+        Assert.AreEqual(TaskState.Succeeded, finished.State);
+        Assert.AreEqual("failed", finished.RelayTestOutcome);
+        Assert.AreEqual("modified_not_retested", finished.CompletionNote);
+        CollectionAssert.AreEqual(new[] { "source-a" }, Calls("agent-a"));
+        Assert.HasCount(1, Calls("agent-b"));
     }
 
     [TestMethod]

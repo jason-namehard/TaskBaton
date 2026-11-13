@@ -65,7 +65,7 @@ public sealed partial class RelayService
         var blocked = receiptErrors?.ToHashSet(StringComparer.Ordinal);
         return Tasks().Select(view => view.Task)
             .Where(task => task.IsFileHandoff && task.AutoDeliver &&
-                (task.UnattendedRun is null || blocked?.Contains(task.TaskId) != true) && CanAutoDeliver(task))
+                (task.UnattendedRun is null && !AtRelayTestCondition(task) || blocked?.Contains(task.TaskId) != true) && CanAutoDeliver(task))
             .Select(task => task.TaskId).ToArray();
     }
 

@@ -149,6 +149,20 @@ public partial class MainWindow
                 :string.Format(CultureInfo.CurrentUICulture,T("Completed steps: {0} · Completed reviews: {1} (limit: {2})"),completed,reviews,c.MaxReviewRounds)});
             steps.Children.Add(RoundBar(c.History.Where(step=>step.Outcome is not "criteria_ready").Select(step=>step.Outcome).ToArray(),!progress.Finished));
         }
+        else if(progress.TestCondition is { } condition)
+        {
+            var route = string.Format(CultureInfo.CurrentUICulture, T("Test condition at step {0}"), condition.Step) +
+                " · " + string.Format(CultureInfo.CurrentUICulture, T("If tests pass, stop. If tests fail, continue with {0}."),
+                    AgentName(condition.ContinueWithAgentId));
+            var outcome = condition.Outcome switch
+            {
+                "passed" => "Agent reported tests passed. Relay ended at the test step.",
+                "failed" => "Agent reported tests did not pass. Relay chose the remaining steps.",
+                _ when progress.Finished => "No test result was accepted before this task ended.",
+                _ => "Awaiting a structured test result."
+            };
+            steps.Children.Add(new TextBlock{Name="RelayTestCondition",TextWrapping=TextWrapping.Wrap,Text=route + "\n" + T(outcome)});
+        }
         else if(task.RelaySteps is [{ } onlyStep] && !progress.Finished)
             steps.Children.Add(new TextBlock{TextWrapping=TextWrapping.Wrap,Text=string.Format(CultureInfo.CurrentUICulture,
                 T("Direct to {0} · Ends after this step"),AgentName(onlyStep.AgentId))});
@@ -161,7 +175,7 @@ public partial class MainWindow
             :string.Format(CultureInfo.CurrentUICulture,T("Turn {0} of at most {1}"),task.ManualTurn+1,progress.MaxTurns)});
         if(task.RelaySteps is {} relay)
             steps.Children.Add(Muted(T("Relay steps")+": "+string.Join(" → ",relay.Select(step=>AgentName(step.AgentId)+(step.Role==RelayStepRole.Work?"":" ["+T(step.Role.ToString())+"]")))
-                +" · "+T("Current step")+" "+(task.ManualTurn+1)+"/"+relay.Length,12.5,new(0,8,0,0)));
+                +(progress.Finished ? "" : " · "+T("Current step")+" "+(task.ManualTurn+1)+"/"+relay.Length),12.5,new(0,8,0,0)));
         if(task.HandoffPlan is {} plan)steps.Children.Add(Muted(T("Planned steps")+": "+string.Join(" → ",plan.Select(AgentName))+" · "+T("Current step")+" "+(task.ManualTurn+1)+"/"+plan.Length,12.5,new(0,8,0,0)));
         if(task.CompletionNote=="modified_not_retested")
             steps.Children.Add(Muted(T("Modified without retest: the flow ended on a modify step and no later test step ran. The earlier test result is not a retest of this change."),12.5,new(0,8,0,0)));

@@ -78,6 +78,7 @@ internal static partial class Program
         await CheckStageOneWorkflow(window,root);
         await CheckUnattendedHandoff(window,root);
         await CheckParallelHandoff(window,root);
+        await CheckConditionalHandoff(window,root);
         await CheckFileCancellation(window,root);
         Check(navigation.Items.Cast<ListBoxItem>().Select(i=>(string)i.Tag).SequenceEqual(new[]{"Home","Agents","Connections","Settings"}),"Exactly four main pages");
         Check(Find<DataGrid>(window,"TasksTable").Items.Count==2,"Board combines all handoffs");

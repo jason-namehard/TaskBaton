@@ -13,7 +13,8 @@ public sealed record RelayStep(string AgentId, RelayStepRole Role, string? Duty 
 /// The last step is only the end of the flow; it is not an automatic acceptance or delivery role.
 /// </summary>
 public sealed record RelayPlanOptions(RelayStep[] Steps, bool IndependentAcceptance = false,
-    int? TurnTimeoutMinutes = null, bool AutoDeliver = false, bool NewSessionEachTurn = false);
+    int? TurnTimeoutMinutes = null, bool AutoDeliver = false, bool NewSessionEachTurn = false,
+    int? StopIfTestPassesAtStep = null);
 
 public sealed partial class RelayService
 {
@@ -39,6 +40,9 @@ public sealed partial class RelayService
             throw new RelayException("relay_step_agent", "单步接力没有交接，请改用单次交接。");
         if (options.TurnTimeoutMinutes is < 1 or > 43200)
             throw new RelayException("handoff_turn_timeout", "单轮时限为 1–43200 分钟。");
+        if (options.StopIfTestPassesAtStep is { } testStep &&
+            (testStep < 1 || testStep >= steps.Length || steps[testStep - 1].Role != RelayStepRole.Test))
+            throw new RelayException("relay_test_condition_step", "条件流转必须指定一个后面还有步骤的测试步骤（从第 1 步开始计数）。");
     }
 
     /// <summary>The user sets the plan before the first delivery; it is not inferred from the ledger.</summary>
@@ -53,6 +57,7 @@ public sealed partial class RelayService
             throw new RelayException("handoff_options_started", "接力步骤只能在首次投递和回执之前设置，且不能与验收循环同时使用。");
         ValidateRelayPlan(options, task.RequesterId, task.RecipientId);
         task.RelaySteps = options.Steps;
+        task.StopIfTestPassesAtStep = options.StopIfTestPassesAtStep;
         task.IndependentAcceptance = options.IndependentAcceptance;
         task.NewSessionEachTurn = options.NewSessionEachTurn;
         task.TurnTimeoutMinutes = options.TurnTimeoutMinutes;
@@ -76,9 +81,13 @@ public sealed partial class RelayService
 
     internal static int HandoffsDone(TaskRecord task) => Math.Max(0, task.ManualTurn);
 
+    internal static bool AtRelayTestCondition(TaskRecord task) => task.StopIfTestPassesAtStep == task.ManualTurn + 1;
+
     internal static int? HandoffsTotal(TaskRecord task)
     {
-        // Only a relay plan the user defined has a fixed handoff count; legacy plans keep their round budget.
+        if (task.StopIfTestPassesAtStep is not null && task.RelayTestOutcome != "failed")
+            return task.RelayTestOutcome == "passed" ? HandoffsDone(task) : null;
+        // A fixed relay has a known handoff count; legacy plans keep their round budget.
         if (task.RelaySteps is { Length: > 0 } steps) return HandoffCount(steps.Length);
         return task.Collaboration is null && !task.ManualContinuous ? task.MaxTurns ?? MaxManualTurns : null;
     }
@@ -89,7 +98,7 @@ public sealed partial class RelayService
     /// </summary>
     internal static string? CompletionNote(TaskRecord task)
     {
-        var steps = Steps(task);
+        var steps = Steps(task).Take(task.ManualTurn + 1).ToArray();
         if (steps.Length == 0) return null;
         var last = steps[^1];
         if (last.Role != RelayStepRole.Modify) return null;

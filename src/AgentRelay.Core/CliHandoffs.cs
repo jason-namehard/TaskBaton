@@ -148,7 +148,8 @@ public sealed partial class RelayService
                 "and add next_action with the reason. Use only these receipt fields. ";
             var planned=steps.Length>0;
             var lastStep=planned&&task.ManualTurn+1>=steps.Length;
-            var requiredNext=planned?lastStep?null:steps[task.ManualTurn+1].AgentId:task.HandoffPlan is {} plan&&task.ManualTurn+1<plan.Length?plan[task.ManualTurn+1]:null;
+            var conditionalTest = AtRelayTestCondition(task);
+            var requiredNext=planned?lastStep||conditionalTest?null:steps[task.ManualTurn+1].AgentId:task.HandoffPlan is {} plan&&task.ManualTurn+1<plan.Length?plan[task.ManualTurn+1]:null;
             var duty=planned?StepDuty(task,task.ManualTurn):"";
             int? remaining=task.ManualContinuous?null:planned?Math.Max(0,HandoffCount(steps.Length)-task.ManualTurn-1)
                 :Math.Max(0,(task.MaxTurns??MaxManualTurns)-task.ManualTurn-1);
@@ -162,7 +163,16 @@ public sealed partial class RelayService
                 receipt_template=parallel is not null
                     ? (object)new { task.TaskId, task.AttemptId, sender = current, turn = task.ManualTurn,
                         status = "done", needs_reply = false, result_file = reply }
+                    : conditionalTest
+                    ? new { task.TaskId, task.AttemptId, sender = current, turn = task.ManualTurn,
+                        status = "done", result_file = reply, outcome = (string?)null }
                     : new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",planned?!lastStep:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
+                test_condition=conditionalTest?new
+                {
+                    allowed_outcomes = new[] { "passed", "failed" },
+                    if_passed = "stop",
+                    if_failed = steps[task.ManualTurn + 1].AgentId
+                }:null,
                 relay_plan=planned?new
                 {
                     steps=steps.Select((step,index)=>new{step=index+1,agent_id=step.AgentId,name=Name(step.AgentId),role=step.Role.ToString().ToLowerInvariant(),duty=step.Duty}),
@@ -175,7 +185,9 @@ public sealed partial class RelayService
                     "Read current_file and perform the request. "+
                     (requiredNext is not null?"The plan still requires required_next_agent: this task is not finished; save a real result_file, set needs_reply=true and give a concrete next_action for that Agent. ":"")+
                     (lastStep?"This is the last step of the plan: finish the work, set needs_reply=false and stop. Do not add an acceptance or delivery role that the plan did not give you. ":"")+
-                    "Set needs_reply=true only when the other Agent must do concrete further work; then provide result_file and next_action. Set needs_reply=false when no required work remains, and never ask for further work in next_action at the same time. "+
+                    (conditionalTest
+                        ? "Run the specified tests and save the report to reply_file. If testing completed, use the done receipt template and replace outcome with exactly passed or failed. Relay ends on passed and sends the report to test_condition.if_failed on failed. If you could not complete testing, report status=failed with needs_reply=false and explain in next_action. Omit outcome in that case. "
+                        : "Set needs_reply=true only when the other Agent must do concrete further work; then provide result_file and next_action. Set needs_reply=false when no required work remains, and never ask for further work in next_action at the same time. ")+
                     (task.ManualContinuous?"This is a manual continuous transfer with no preset round limit. A done receipt completes only this turn. Set task_complete=true and needs_reply=false only after the whole original task has no work left for either Agent. Intermediate turns use needs_reply=true, task_complete=false, result_file and concrete next_action. ":$"At most {remaining} more handoffs are allowed before Relay pauses for the user. ")+ReceiptRules
             };
         }

@@ -13,6 +13,7 @@ internal sealed class RelayTemplateEditor
     private readonly TextBox custom;
     private readonly CheckBox newConversation;
     private readonly List<(StackPanel Panel, RelayStepRole[] Roles, Label[] Labels, TextBox[] Duties)> presets = [];
+    private bool Conditional => templates.SelectedIndex == presets.Count;
 
     public RelayTemplateEditor(EntryDialogLayout ui, Panel parent, string prefix, ComboBox sender, ComboBox recipient,
         string sessionOptionName)
@@ -27,7 +28,7 @@ internal sealed class RelayTemplateEditor
         }
 
         templates = Choice("Relay template", "RelayTemplate", "Custom steps", "Direct handoff to the recipient",
-            "Work then hand off", "Test and modify once", "Test and modify twice");
+            "Work then hand off", "Test and modify once", "Test and modify twice", "Stop if tests pass");
         start = Choice("First Agent", "RelayStart", "Sender", "Recipient");
         var startLabel = parent.Children[parent.Children.Count - 2];
         var summary = ui.Note("");
@@ -64,6 +65,7 @@ internal sealed class RelayTemplateEditor
         Preset(work, (RelayStepRole.Work, "Carry out the remaining work using the previous result."));
         Preset(work, check, modify);
         Preset(work, check, modify, check, modify);
+        Preset(work, check, modify);
 
         newConversation = new CheckBox
         {
@@ -97,7 +99,10 @@ internal sealed class RelayTemplateEditor
             for (var i = 0; i < roles.Length; i++)
                 labels[i].Content = $"{i + 1}. {route[i]} · {ui.T(roles[i].ToString())}";
             var culture = CultureInfo.CurrentUICulture;
-            summary.Text = roles.Length == 1
+            summary.Text = Conditional
+                ? string.Join(" → ", route.Take(2)) + "\n" + string.Format(culture,
+                    ui.T("If tests pass, stop. If tests fail, continue with {0}."), route[2])
+                : roles.Length == 1
                 ? string.Format(culture, ui.T("Direct to {0} · Ends after this step"), to)
                 : string.Join(" → ", route) + "\n" + string.Format(culture,
                     ui.T(roles.Length == 2 ? "{0} steps · {1} handoff · Ends with {2}" : "{0} steps · {1} handoffs · Ends with {2}"),
@@ -127,7 +132,7 @@ internal sealed class RelayTemplateEditor
         }
         else steps = RelayService.ParseSteps(custom.Text);
         var plan = new RelayPlanOptions(steps, TurnTimeoutMinutes: minutes, AutoDeliver: autoDeliver,
-            NewSessionEachTurn: newConversation.IsChecked == true);
+            NewSessionEachTurn: newConversation.IsChecked == true, StopIfTestPassesAtStep: Conditional ? 2 : null);
         RelayService.ValidateRelayPlan(plan, sender, recipient);
         return plan;
     }

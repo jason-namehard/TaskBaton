@@ -34,7 +34,7 @@ internal sealed class CollaborationOptionsPanel
         parent.Children.Add(ui.Note("Collaboration"));
         var single = Choice("Single handoff", "Single", "Mode", true);
         loop = Choice("Keep revising until the review passes", "Loop", "Mode", false);
-        relay = Choice("Fixed relay with a set number of handoffs", "Relay", "Mode", false);
+        relay = Choice("Relay with planned steps", "Relay", "Mode", false);
         parent.Children.Add(single); parent.Children.Add(loop); parent.Children.Add(relay);
         var relayDetails = new StackPanel { Margin = new(18, 4, 0, 8), Visibility = System.Windows.Visibility.Collapsed };
         parent.Children.Add(relayDetails);

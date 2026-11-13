@@ -104,6 +104,8 @@ public sealed class TaskRecord
     public List<TurnStatusEntry> TurnStatuses { get; set; } = [];
     // Lightweight fixed-count relay chosen by the user; null keeps the single-handoff or review-loop behaviour.
     public RelayStep[]? RelaySteps { get; set; }
+    public int? StopIfTestPassesAtStep { get; set; }
+    public string? RelayTestOutcome { get; set; }
     public bool IndependentAcceptance { get; set; }
     public bool NewSessionEachTurn { get; set; }
     // Images travel with the first turn by default; a later turn only receives the images the user selected for it.

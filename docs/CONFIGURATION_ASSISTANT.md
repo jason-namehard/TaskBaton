@@ -87,6 +87,12 @@ dotnet .\relay.dll --home <中转站目录> handoff allow-resend --task <任务I
 
 `task status` 对文件交接返回 `progress` 对象：`current_agent_id`、`phase`、`waiting_on`（`agent`/`user`/`none`）、`delivery`（`cli_auto`/`cli_ready`/`cli_in_flight`/`agent_working`/`cli_unconfirmed`/`copy_prompt`/`none`）、`turn`、`max_turns`、`review_round`、`max_review_rounds`、`next_if_passed`、`next_if_changed`、`pause_reason`、`pause_message`、`finished` 与 `completion`（`delivered`/`completed`/`operator_completed`/`cancelled`/`failed`/`timed_out`）。
 
+## 按测试结果流转
+
+在首次投递前用 `handoff relay-plan --task <任务ID> --steps "b=实现;a:test=跑回归;b:modify=按报告修改" --stop-if-test-passes-at-step 2` 配置。编号从 1 开始，每个任务可选一个后面还有步骤的 `test` 步骤。用 `handoff cli-create` 时也可在 JSON 的 `relay_plan` 中设置 `stop_if_test_passes_at_step`。
+
+条件步骤的上下文给出 `test_condition.allowed_outcomes`、`if_passed` 和 `if_failed`。测试完成时写 `status: "done"`、真实测试报告 `result_file` 和 `outcome: "passed"` 或 `"failed"`。Relay 按这个结构化结果决定停止或继续，报告正文只作为交接内容。测试未能执行完毕时写 `status: "failed"`、`needs_reply: false` 和说明原因的 `next_action`。用 `handoff progress` 查看 `test_condition` 的步骤、后续 Agent 和已采纳的结果。
+
 ## 并行分工
 
 `relay parallel create --manifest <清单>` 创建普通交接任务和各自的工作文件夹。清单使用 `title`、`from`、`merge_agent_id`、`project_directory`、`input_files`、`work` 和 `merge_instructions`。其中 `input_files` 是项目相对路径数组，`work` 至少有两项，每项填写 `agent_id` 和 `instructions`。同一个接收 Agent 可以重复出现。

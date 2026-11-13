@@ -41,10 +41,11 @@ public sealed class RelayHandoffRegressionTests
     private int receiptSequence;
 
     private void WriteReceipt(TaskRecord task, string sender, string status, bool? needsReply = null,
-        string? resultFile = null, string? nextAction = null, string fileName = "receipt.json", int? turn = null)
+        string? resultFile = null, string? nextAction = null, string fileName = "receipt.json", int? turn = null,
+        string? outcome = null)
     {
         var receipt = new ManualReceipt(task.TaskId, task.AttemptId, sender, turn ?? task.ManualTurn, status,
-            needsReply, resultFile, nextAction);
+            needsReply, resultFile, nextAction, Outcome: outcome);
         var path = Path.Combine(service.TurnControlDirectory(task), fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, RelayJson.Write(receipt));
@@ -102,6 +103,114 @@ public sealed class RelayHandoffRegressionTests
         Assert.AreEqual("modified_not_retested", task.CompletionNote);
         StringAssert.Contains(service.Status(task.TaskId).Prompt, "修改后未复测");
         Assert.AreEqual(2, service.FileHandoffProgress(task).Status!.HandoffsDone);
+    }
+
+    [TestMethod]
+    [DataRow("passed", true)]
+    [DataRow("failed", false)]
+    public void StructuredTestOutcomeDecidesTheRouteEvenIfNeedsReplyDisagrees(string outcome, bool needsReply)
+    {
+        var task = service.ConfigureRelayPlan(Manual().TaskId, new RelayPlanOptions(
+        [
+            new("agent-b", RelayStepRole.Work),
+            new("agent-a", RelayStepRole.Test, "Run the regression tests."),
+            new("agent-b", RelayStepRole.Modify, "Apply the test report.")
+        ], StopIfTestPassesAtStep: 2)).Task;
+        WriteReceipt(task, "agent-b", "done", true, ResultFile("work-result.md"), outcome: "passed");
+        Assert.IsEmpty(Import().Errors);
+        task = Reload(task);
+        Assert.AreEqual(1, task.ManualTurn);
+        var progress = service.FileHandoffProgress(task);
+        Assert.IsNull(progress.TestCondition!.Outcome);
+        Assert.IsNull(progress.Status!.HandoffsTotal);
+        var context = Context(task);
+        Assert.AreEqual("agent-b", context.GetProperty("test_condition").GetProperty("if_failed").GetString());
+        Assert.AreEqual(JsonValueKind.Null, context.GetProperty("required_next_agent").ValueKind);
+        var template = context.GetProperty("receipt_template");
+        Assert.IsFalse(template.TryGetProperty("needs_reply", out _));
+        Assert.AreEqual(service.TurnReplyPath(task), template.GetProperty("result_file").GetString());
+
+        WriteReceipt(task, "agent-a", "done", needsReply, ResultFile("test-report.md"), "Review the report.", outcome: outcome);
+        Assert.IsEmpty(Import().Errors);
+        service = new RelayService(service.Home);
+        var accepted = Reload(task);
+        Assert.AreEqual(outcome, service.FileHandoffProgress(accepted).TestCondition!.Outcome);
+        StringAssert.Contains(File.ReadAllText(accepted.ResultPath), "test-report.md");
+        Assert.IsEmpty(Import().UpdatedTaskIds);
+        Assert.AreEqual(1, service.Audit(task.TaskId).Count(entry =>
+            entry.Event == "manual.done" && entry.Detail == "turn=1 outcome=" + outcome));
+
+        if (outcome == "passed")
+        {
+            Assert.AreEqual(TaskState.Succeeded, accepted.State);
+            Assert.AreEqual(1, accepted.ManualTurn);
+            Assert.AreEqual(1, service.FileHandoffProgress(accepted).Status!.HandoffsTotal);
+            Assert.IsNull(accepted.CompletionNote);
+            return;
+        }
+        Assert.AreEqual(TaskState.AwaitingReply, accepted.State);
+        Assert.AreEqual("agent-b", accepted.AwaitingAgentId);
+        Assert.AreEqual(2, accepted.ManualTurn);
+        StringAssert.Contains(accepted.ManualNextAction!, "Apply the test report.");
+        Assert.AreEqual(JsonValueKind.Null, Context(accepted).GetProperty("test_condition").ValueKind);
+        WriteReceipt(accepted, "agent-b", "done", false, outcome: "passed");
+        Assert.IsEmpty(Import().Errors);
+        var finished = Reload(task);
+        Assert.AreEqual(TaskState.Succeeded, finished.State);
+        Assert.AreEqual("failed", finished.RelayTestOutcome);
+        Assert.AreEqual("modified_not_retested", finished.CompletionNote);
+    }
+
+    [TestMethod]
+    public void InvalidResultKeepsTheCurrentTurnAndValidLateResultCanRecoverIt()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var clock = new TestClock { UtcNow = now };
+        service = new RelayService(service.Home, clock);
+        var task = service.ConfigureRelayPlan(Manual().TaskId, new RelayPlanOptions(
+            [new("agent-b", RelayStepRole.Test), new("agent-a", RelayStepRole.Modify)],
+            TurnTimeoutMinutes: 1, StopIfTestPassesAtStep: 1)).Task;
+        var report = ResultFile("tests-passed-in-prose.md");
+        foreach (var (outcome, file) in new[] { (null, report), ("PASS", report), ("passed", null) })
+        {
+            WriteReceipt(task, "agent-b", "done", false, file, outcome: outcome);
+            Assert.HasCount(1, Import().Errors);
+            var pending = Reload(task);
+            Assert.AreEqual(TaskState.AwaitingManual, pending.State);
+            Assert.AreEqual(0, pending.ManualTurn);
+            Assert.IsNull(pending.RelayTestOutcome);
+            Assert.IsEmpty(pending.TurnStatuses);
+        }
+        clock.UtcNow = now.AddMinutes(2);
+        Assert.HasCount(1, Import().Errors);
+        Assert.AreEqual("turn_timeout", Reload(task).PauseReason);
+        WriteReceipt(task, "agent-b", "done", resultFile: report, outcome: "failed");
+        Assert.IsEmpty(Import().Errors);
+        var resumed = Reload(task);
+        Assert.AreEqual(TaskState.AwaitingReply, resumed.State);
+        Assert.AreEqual("agent-a", resumed.AwaitingAgentId);
+        Assert.IsNull(resumed.PauseReason);
+        Assert.AreEqual("failed", resumed.RelayTestOutcome);
+    }
+
+    [TestMethod]
+    public void ConditionalStepValidationAndExecutionFailureDoNotSelectTheFallback()
+    {
+        var task = Manual();
+        var steps = new[] { new RelayStep("agent-b", RelayStepRole.Test), new RelayStep("agent-a", RelayStepRole.Modify) };
+        Assert.AreEqual("relay_test_condition_step", Assert.ThrowsExactly<RelayException>(() =>
+            service.ConfigureRelayPlan(task.TaskId, new(steps, StopIfTestPassesAtStep: 2))).Code);
+        Assert.IsNull(Reload(task).RelaySteps);
+        task = service.ConfigureRelayPlan(task.TaskId, new(steps, StopIfTestPassesAtStep: 1)).Task;
+        WriteReceipt(task, "agent-b", "working", outcome: "passed");
+        Assert.HasCount(1, Import().Errors);
+        WriteReceipt(task, "agent-b", "failed", false, nextAction: "Test runner unavailable");
+        Assert.IsEmpty(Import().Errors);
+        var failed = Reload(task);
+        Assert.AreEqual(TaskState.Failed, failed.State);
+        Assert.AreEqual("Test runner unavailable", failed.ErrorMessage);
+        Assert.AreEqual(0, failed.ManualTurn);
+        Assert.IsNull(failed.RelayTestOutcome);
     }
 
     [TestMethod]
@@ -707,6 +816,12 @@ public sealed class RelayHandoffRegressionTests
     }
 
     // ---------- helpers ----------
+
+    private sealed class TestClock : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; }
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+    }
 
     private JsonElement Context(TaskRecord task)
     {
