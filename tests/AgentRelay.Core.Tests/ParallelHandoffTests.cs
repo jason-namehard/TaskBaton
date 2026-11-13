@@ -94,6 +94,17 @@ public sealed class ParallelHandoffTests
         Assert.AreEqual("reviewer", merge.RecipientId);
         service.FileHandoffPrompt(merge);
         using var context = JsonDocument.Parse(File.ReadAllText(service.ManualContextPath(merge)));
+        var template = context.RootElement.GetProperty("receipt_template");
+        CollectionAssert.AreEquivalent(new[] { "task_id", "attempt_id", "sender", "turn", "status", "needs_reply", "result_file" },
+            template.EnumerateObject().Select(field => field.Name).ToArray());
+        var receipt = ManualTransfers.ParseReceipt(template.GetRawText());
+        Assert.AreEqual(merge.TaskId, receipt.TaskId);
+        Assert.AreEqual(merge.AttemptId, receipt.AttemptId);
+        Assert.AreEqual(merge.RecipientId, receipt.Sender);
+        Assert.AreEqual(merge.ManualTurn, receipt.Turn);
+        Assert.AreEqual("done", receipt.Status);
+        Assert.IsFalse(receipt.NeedsReply);
+        Assert.AreEqual(service.TurnReplyPath(merge), receipt.ResultFile);
         var manifestPath = context.RootElement.GetProperty("parallel").GetProperty("merge_manifest").GetString()!;
         var folder = Path.GetDirectoryName(manifestPath)!;
         using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
@@ -108,7 +119,9 @@ public sealed class ParallelHandoffTests
 
         var mergeMember = service.ReviewParallelHandoff(group.GroupId).Merge!;
         File.WriteAllText(Path.Combine(mergeMember.WorkingDirectory, "shared.txt"), "Reviewed A and B");
-        Finish(mergeMember, true);
+        File.WriteAllText(receipt.ResultFile!, "Reconciled both versions.");
+        File.WriteAllText(service.ManualReceiptPath(merge), template.GetRawText());
+        Assert.IsEmpty(service.ImportManualReceipts().Errors);
         Assert.AreEqual("Edited by user", File.ReadAllText(shared.FullName));
         Assert.AreEqual("Retire", File.ReadAllText(Path.Combine(project, "retire.txt")));
         var final = service.ReviewParallelHandoff(group.GroupId).Merge!;

@@ -143,7 +143,9 @@ public sealed partial class RelayService
                 (task.IsParallelMerge
                     ? "Read parallel.merge_manifest. Paths in it are relative to the manifest directory. Review each named conflict and preserve the source versions while resolving it in your working directory. List missing branches in your summary. If a conflict remains unresolved, write status=failed and explain it in next_action. "
                     : "") +
-                "On completion set needs_reply=false and result_file=reply_file. ";
+                "Write all delivery details in reply_file. For success, copy receipt_template as-is. " +
+                "For failure, keep the identity fields, set status=failed and needs_reply=false, omit result_file, " +
+                "and add next_action with the reason. Use only these receipt fields. ";
             var planned=steps.Length>0;
             var lastStep=planned&&task.ManualTurn+1>=steps.Length;
             var requiredNext=planned?lastStep?null:steps[task.ManualTurn+1].AgentId:task.HandoffPlan is {} plan&&task.ManualTurn+1<plan.Length?plan[task.ManualTurn+1]:null;
@@ -157,7 +159,10 @@ public sealed partial class RelayService
             {
                 common.sender_name,common.recipient_name,common.current_file,common.original_request_file,common.request,
                 common.reply_file,common.receipt_file,images,parallel,
-                receipt_template=new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",planned?!lastStep:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
+                receipt_template=parallel is not null
+                    ? (object)new { task.TaskId, task.AttemptId, sender = current, turn = task.ManualTurn,
+                        status = "done", needs_reply = false, result_file = reply }
+                    : new ManualReceipt(task.TaskId,task.AttemptId,current,task.ManualTurn,"done",planned?!lastStep:task.ManualContinuous?false:null,TaskComplete:task.ManualContinuous?false:null),
                 relay_plan=planned?new
                 {
                     steps=steps.Select((step,index)=>new{step=index+1,agent_id=step.AgentId,name=Name(step.AgentId),role=step.Role.ToString().ToLowerInvariant(),duty=step.Duty}),
