@@ -1,0 +1,129 @@
+{
+  "protocol": "handoff/1",
+  "generated": "2026-11-13",
+  "notes": "L1 = schema validity. L2-L5 are semantic; see README.md.",
+  "cases": [
+    {
+      "id": "handoff-minimal",
+      "file": "cases/valid/minimal.handoff.json",
+      "kind": "handoff",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "handoff-full",
+      "file": "cases/valid/full.handoff.json",
+      "kind": "handoff",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "receipt-done",
+      "file": "cases/valid/receipt.done.json",
+      "kind": "receipt",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "receipt-changes-requested",
+      "file": "cases/valid/receipt.changes-requested.json",
+      "kind": "receipt",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "receipt-approved",
+      "file": "cases/valid/receipt.approved.json",
+      "kind": "receipt",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "receipt-accepted",
+      "file": "cases/valid/receipt.accepted.json",
+      "kind": "receipt",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "receipt-received",
+      "file": "cases/valid/receipt.received.json",
+      "kind": "receipt",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "receipt-failed",
+      "file": "cases/valid/receipt.failed.json",
+      "kind": "receipt",
+      "level": "L1",
+      "expect": "valid"
+    },
+    {
+      "id": "handoff-missing-task-id",
+      "file": "cases/invalid/handoff.missing-task-id.json",
+      "kind": "handoff",
+      "level": "L1",
+      "expect": "invalid",
+      "error": "handoff.task_id_required"
+    },
+    {
+      "id": "handoff-session-latest",
+      "file": "cases/invalid/handoff.session-latest.json",
+      "kind": "handoff",
+      "level": "L4",
+      "expect": "invalid",
+      "error": "handoff.session_exact_required"
+    },
+    {
+      "id": "receipt-done-needs-reply-without-next",
+      "file": "cases/invalid/receipt.done-needs-reply-without-next.json",
+      "kind": "receipt",
+      "level": "L2",
+      "expect": "invalid",
+      "error": "receipt.next_action_required"
+    },
+    {
+      "id": "receipt-failed-without-error",
+      "file": "cases/invalid/receipt.failed-without-error.json",
+      "kind": "receipt",
+      "level": "L2",
+      "expect": "invalid",
+      "error": "receipt.error_required"
+    },
+    {
+      "id": "receipt-changes-requested-without-open-items",
+      "file": "cases/invalid/receipt.changes-requested-without-open-items.json",
+      "kind": "receipt",
+      "level": "L2",
+      "expect": "invalid",
+      "error": "receipt.open_items_required"
+    },
+    {
+      "id": "receipt-accepted-without-deliverable",
+      "file": "cases/invalid/receipt.accepted-without-deliverable.json",
+      "kind": "receipt",
+      "level": "L2",
+      "expect": "invalid",
+      "error": "receipt.deliverable_required"
+    },
+    {
+      "id": "receipt-duplicate",
+      "file": "cases/edge/receipt.duplicate.json",
+      "kind": "receipt",
+      "level": "L3",
+      "expect": "valid",
+      "semantic": "duplicate",
+      "error": "receipt.duplicate_idempotent"
+    },
+    {
+      "id": "receipt-late",
+      "file": "cases/edge/receipt.late.json",
+      "kind": "receipt",
+      "level": "L3",
+      "expect": "valid",
+      "semantic": "late",
+      "error": "receipt.late_accepted"
+    }
+  ]
+}

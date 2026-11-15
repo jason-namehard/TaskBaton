@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taskbaton.dev/schemas/receipt-1.json",
+  "title": "TaskBaton receipt (handoff/1)",
+  "type": "object",
+  "required": [
+    "handoff_version",
+    "handoff_id",
+    "task_id",
+    "attempt_id",
+    "turn",
+    "sender",
+    "status",
+    "written_at",
+    "idempotency_key"
+  ],
+  "properties": {
+    "handoff_version": { "const": "1" },
+    "handoff_id": { "type": "string", "format": "uuid" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "attempt_id": { "type": "string", "format": "uuid" },
+    "turn": { "type": "integer", "minimum": 0 },
+    "sender": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["received", "working", "done", "failed"] },
+    "outcome": {
+      "enum": ["submitted", "changes_requested", "approved", "accepted"]
+    },
+    "needs_reply": { "type": "boolean" },
+    "result": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "summary": { "type": "string" }
+      }
+    },
+    "deliverable": { "type": "string", "minLength": 1 },
+    "open_items": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "next_action": { "type": ["string", "null"] },
+    "verification": {
+      "type": "object",
+      "required": ["passed"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "side_effects_possible": { "type": ["boolean", "null"] },
+    "session": { "$ref": "#/$defs/session" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "written_at": { "type": "string", "format": "date-time" },
+    "idempotency_key": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["outcome"] },
+      "then": { "properties": { "status": { "const": "done" } } }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "done" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["needs_reply"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "done" },
+          "needs_reply": { "const": true }
+        },
+        "required": ["status", "needs_reply"]
+      },
+      "then": {
+        "required": ["result", "next_action"],
+        "properties": {
+          "next_action": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "done" },
+          "needs_reply": { "const": false }
+        },
+        "required": ["status", "needs_reply"]
+      },
+      "then": {
+        "properties": { "next_action": { "type": "null" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "outcome": { "const": "changes_requested" } },
+        "required": ["outcome"]
+      },
+      "then": {
+        "required": ["open_items"],
+        "properties": { "open_items": { "minItems": 1 } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "outcome": { "const": "approved" } },
+        "required": ["outcome"]
+      },
+      "then": {
+        "properties": { "open_items": { "maxItems": 0 } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": { "enum": ["submitted", "accepted"] }
+        },
+        "required": ["outcome"]
+      },
+      "then": { "required": ["result"] }
+    },
+    {
+      "if": {
+        "properties": { "outcome": { "const": "accepted" } },
+        "required": ["outcome"]
+      },
+      "then": { "required": ["deliverable"] }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "failed" } },
+        "required": ["status"]
+      },
+      "then": { "required": ["error"] }
+    }
+  ],
+  "$defs": {
+    "session": {
+      "type": "object",
+      "required": ["host", "session_id"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["latest", "recent", "*"] }
+        },
+        "cwd": { "type": "string" },
+        "profile": { "type": ["string", "null"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["path", "role"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "role": {
+          "enum": ["request", "input", "result", "evidence"]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

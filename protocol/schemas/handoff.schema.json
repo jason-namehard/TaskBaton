@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taskbaton.dev/schemas/handoff-1.json",
+  "title": "TaskBaton handoff request frontmatter (handoff/1)",
+  "type": "object",
+  "required": [
+    "handoff_version",
+    "handoff_id",
+    "task_id",
+    "attempt_id",
+    "turn",
+    "from",
+    "to",
+    "created_at",
+    "idempotency_key",
+    "receipt_path"
+  ],
+  "properties": {
+    "handoff_version": { "const": "1" },
+    "handoff_id": { "type": "string", "format": "uuid" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "attempt_id": { "type": "string", "format": "uuid" },
+    "turn": { "type": "integer", "minimum": 0 },
+    "from": { "type": "string", "minLength": 1 },
+    "to": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "idempotency_key": { "type": "string", "minLength": 1 },
+    "receipt_path": { "type": "string", "minLength": 1 },
+    "reply_to": { "type": ["string", "null"] },
+    "deadline_at": { "type": "string", "format": "date-time" },
+    "session": { "$ref": "#/$defs/session" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "session": {
+      "type": "object",
+      "required": ["host", "session_id"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "not": { "enum": ["latest", "recent", "*"] }
+        },
+        "cwd": { "type": "string" },
+        "profile": { "type": ["string", "null"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["path", "role"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "role": {
+          "enum": ["request", "input", "result", "evidence"]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

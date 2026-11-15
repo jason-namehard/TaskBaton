@@ -1,0 +1,11 @@
+{
+  "handoff_version": "1",
+  "handoff_id": "6f1c2f0e-6a4a-4a6e-9d6e-2f6b1a8c9d10",
+  "task_id": "task-2026-11-13-001",
+  "attempt_id": "0b6f5a2e-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+  "turn": 0,
+  "sender": "writer",
+  "written_at": "2026-11-13T02:12:00Z",
+  "idempotency_key": "task-2026-11-13-001/turn-0/receipt",
+  "status": "failed"
+}
