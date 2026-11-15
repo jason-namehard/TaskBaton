@@ -296,9 +296,9 @@ public static class RelayCli
         Sync(guidance, "refresh", "刷新稳定入口中的节点目录和当前中转站位置", [], (s, _) =>
         { s.RefreshGuidance(); return new { status = "updated" }; });
 
-        var permission = Group("permission", "有向通信权限，未配置默认拒绝");
-        Sync(permission, "set", "只改变指定方向", ["from!", "to!", "decision!"], (s, v) => s.SetPermission(v.Get("from"), v.Get("to"), v.Get("decision")));
-        Sync(permission, "list", "显示显式权限", [], (s, _) => s.Permissions());
+        var permission = Group("permission", "历史连接方向记录；不再阻断任务，仅供查看");
+        Sync(permission, "set", "写入历史方向记录；不影响投递（保留用于旧数据兼容）", ["from!", "to!", "decision!"], (s, v) => s.SetPermission(v.Get("from"), v.Get("to"), v.Get("decision")));
+        Sync(permission, "list", "显示历史方向记录；Relay 不再按方向暂停投递", [], (s, _) => s.Permissions());
 
         var settings = Group("settings", "Relay 自身配置");
         Sync(settings, "show", "显示当前保留和时限配置", [], (s, _) => s.Settings());

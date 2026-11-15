@@ -33,7 +33,7 @@ public static class EntryText
         ["Delivery"] = ["交接方式", "交接方式", "送信方法", "전달 방법", "Método de envío"],
         ["Manual copy"] = ["手动复制提示词", "手動複製提示詞", "手動コピー", "수동 복사", "Copia manual"],
         ["Automatic CLI"] = ["自动通过 CLI 通知", "自動透過 CLI 通知", "CLI で自動通知", "CLI 자동 알림", "Aviso automático por CLI"],
-        ["Automatic delivery is unavailable or paused. You can still hand off manually."] = ["此方向缺少调用方案或已暂停，仍可手动交接。", "此方向缺少呼叫方案或已暫停，仍可手動交接。", "この方向の自動送信は未接続または一時停止中です。手動で引き継げます。", "이 방향의 자동 연결이 없거나 일시 중지되었습니다. 수동 전달은 가능합니다.", "El envío automático no está conectado o está pausado. Puedes enviarlo manualmente."],
+        ["Automatic delivery is unavailable or paused. You can still hand off manually."] = ["此方向缺少调用方案；仍可手动交接。", "此方向缺少呼叫方案；仍可手動交接。", "この方向には呼び出し方法がありません。手動で引き継げます。", "이 방향에는 호출 설정이 없습니다. 수동 전달은 가능합니다.", "Esta dirección no tiene método de llamada; puedes entregar a mano."],
         ["Generate with an Agent"] = ["让 Agent 生成交接内容", "讓 Agent 產生交接內容", "Agent に内容を作成してもらう", "Agent로 전달 내용 생성", "Generar con un agente"],
         ["Copy this prompt to any Agent, describe the handoff, then parse its reply. Parsing does not send."] = ["将提示词发给任意 Agent，告诉它谁给谁、交接什么，再把完整回复粘贴解析。解析不会发送。", "將提示詞傳給任意 Agent，告訴它誰給誰、交接什麼，再把完整回覆貼上解析。解析不會傳送。", "任意の Agent に送信元・送信先と内容を伝え、返信全文を解析します。解析では送信しません。", "아무 Agent에게 프롬프트를 보내고 발신자, 수신자와 내용을 알려주세요. 전체 응답을 분석해도 전송되지 않습니다.", "Envía el prompt a cualquier agente e indica quién envía, quién recibe y el contenido. Analizar la respuesta no envía el mensaje."],
         ["Create handoff"] = ["创建交接", "建立交接", "引き継ぎを作成", "전달 만들기", "Crear envío"],

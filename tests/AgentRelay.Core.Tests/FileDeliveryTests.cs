@@ -77,6 +77,48 @@ public sealed class FileDeliveryTests
     }
 
     [TestMethod]
+    public async Task ReceiptWrittenWhileRelayWasClosedAdvancesOnceAfterReopen()
+    {
+        await Verify("agent-b");
+        var task = Create();
+        task = service.ConfigureFileHandoff(task.TaskId, new(AutoDeliver: false)).Task;
+        await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        Assert.AreEqual(1, Calls("agent-b"));
+        var result = Path.Combine(root, "closed-reply.md"); File.WriteAllText(result, "done");
+        File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId,
+            task.AttemptId, "agent-b", 0, "done", NeedsReply: true, ResultFile: result, NextAction: "Continue with the review.")));
+        service = new RelayService(service.Home, clock);
+        var first = await service.SyncFileHandoffsAsync(false);
+        Assert.HasCount(1, first.UpdatedTaskIds);
+        Assert.AreEqual("agent-a", service.Status(task.TaskId).Task.AwaitingAgentId);
+        var second = await service.SyncFileHandoffsAsync(false);
+        Assert.IsEmpty(second.UpdatedTaskIds);
+        Assert.AreEqual("agent-a", service.Status(task.TaskId).Task.AwaitingAgentId);
+    }
+
+    [TestMethod]
+    public async Task LateReceiptAfterDeadlineDoesNotAutoSendTheNextTurn()
+    {
+        await Verify("agent-a");
+        await Verify("agent-b");
+        var task = Create();
+        task = service.ConfigureFileHandoff(task.TaskId, new(AutoDeliver: true)).Task;
+        await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        Assert.AreEqual(1, Calls("agent-b"));
+        clock.Advance(TimeSpan.FromMinutes(31));
+        await service.RecoverAsync(task.TaskId);
+        Assert.AreEqual(TaskState.Paused, service.Status(task.TaskId).Task.State);
+        var result = Path.Combine(root, "late-reply.md"); File.WriteAllText(result, "done");
+        File.WriteAllText(service.ManualReceiptPath(task), RelayJson.Write(new ManualReceipt(task.TaskId,
+            task.AttemptId, "agent-b", 0, "done", NeedsReply: true, ResultFile: result, NextAction: "Continue after the late receipt.")));
+        await service.SyncFileHandoffsAsync(true);
+        var after = service.Status(task.TaskId).Task;
+        Assert.AreEqual("agent-a", after.AwaitingAgentId);
+        Assert.AreEqual(0, Calls("agent-a"));
+        Assert.IsFalse(service.CanAutoDeliver(after));
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task InterruptedSendTimesOutWithoutResendingAndCanBeExplicitlyRetried(bool recover)

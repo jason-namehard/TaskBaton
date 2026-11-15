@@ -209,7 +209,7 @@ public partial class MainWindow : Window
     {
         ["Home"] = ("Handoffs between your Agents and their progress", "Relay stores collaboration messages, requests and temporary replies. Keep final deliverables and long-term references in your project folder; relay files expire under the retention policy."),
         ["Agents"] = ("Registered Agents and how Relay reaches them", "One-click setup is for a new node. To change an existing node, select it and use Edit Agent. An Agent bridge connects Relay to the Agent through ACP or its CLI; ACP is used when the host supports it. Without a bridge you copy prompts by hand."),
-        ["Connections"] = ("One line per pair of Agents; each direction is enabled separately", "A → B means A can deliver files through Relay and notify B by CLI. A double arrow means both calling directions have a recipe. Green ends are enabled; red ends are paused or not enabled. A direction without an arrow has no recipe. Manual copy remains available; switches only control Relay routes."),
+        ["Connections"] = ("One line per pair of Agents; the graph is read-only", "A → B means the recipient has a calling recipe. A double arrow means both directions have one. Green means available; gray means no recipe. Relay chooses automatic delivery from the recipient's verified bridge; manual copy always works, and the graph never pauses a direction."),
         ["Settings"] = ("Appearance, notifications, relay storage and advanced options", null)
     };
 

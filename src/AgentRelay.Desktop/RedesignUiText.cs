@@ -11,7 +11,7 @@ internal static class RedesignUiText
         Add("Tasks", "任务", "任務", "タスク", "작업", "Tareas");
         Add("Handoffs between your Agents and their progress", "Agent 之间的交接与进度", "Agent 之間的交接與進度", "Agent 間の引き継ぎと進捗", "Agent 간 인계와 진행 상황", "Traspasos entre tus Agentes y su progreso");
         Add("Registered Agents and how Relay reaches them", "已登记的 Agent 和它们的桥接方式", "已登記的 Agent 與其橋接方式", "登録済みの Agent と接続方法", "등록된 Agent와 연결 방식", "Agentes registrados y cómo los alcanza Relay");
-        Add("One line per pair of Agents; each direction is enabled separately", "每对 Agent 一条线，两个方向分别启用", "每對 Agent 一條線，兩個方向分別啟用", "Agent の組ごとに 1 本の線。方向ごとに有効化します", "Agent 쌍마다 선 하나, 방향마다 따로 활성화", "Una línea por pareja de Agentes; cada sentido se activa por separado");
+        Add("One line per pair of Agents; the graph is read-only", "每对 Agent 一条线；连接图只读", "每對 Agent 一條線；連線圖唯讀", "Agent の組ごとに1本の線。図は読み取り専用", "Agent 쌍마다 선 하나, 그래프는 읽기 전용", "Una línea por pareja de Agentes; el gráfico es de solo lectura");
         Add("Appearance, notifications, relay storage and advanced options", "外观、通知、中转站与高级选项", "外觀、通知、中轉站與進階選項", "外観、通知、中継フォルダー、詳細設定", "모양, 알림, 중계 폴더, 고급 옵션", "Apariencia, avisos, almacenamiento y opciones avanzadas");
         Add("Watching · {0} Agents", "正在监听回执 · {0} 个 Agent", "正在監聽回執 · {0} 個 Agent", "監視中 · Agent {0} 件", "대기 중 · Agent {0}개", "Activo · {0} Agentes");
         Add("Desktop notification unavailable", "桌面通知不可用", "桌面通知無法使用", "デスクトップ通知を利用できません", "데스크톱 알림을 사용할 수 없음", "Avisos de escritorio no disponibles");
@@ -85,8 +85,8 @@ internal static class RedesignUiText
 
         // Connections
         Add("Set up a bridge for {0}", "为 {0} 配置桥接", "為 {0} 設定橋接", "{0} のブリッジを設定", "{0}의 브리지 설정", "Configurar un puente para {0}");
-        Add("Switches only control Relay's automatic delivery. Copying a prompt by hand always works.", "开关只影响 Relay 的自动传递，手动复制提示词始终可用。", "開關只影響 Relay 的自動傳遞，手動複製提示詞始終可用。",
-            "スイッチは Relay の自動配信だけを切り替えます。手動でのコピーはいつでも使えます。", "스위치는 Relay 자동 전달만 제어합니다. 프롬프트 직접 복사는 항상 가능합니다.", "Los interruptores solo controlan la entrega automática de Relay. Copiar el prompt a mano siempre funciona.");
+        Add("This graph is informational. Relay chooses automatic delivery from the recipient's verified bridge; manual copy always works.", "连接图仅作示意。自动投递取决于接收方已验证的桥接；手动复制始终可用。", "連線圖僅作示意。自動投遞取決於接收方已驗證的橋接；手動複製始終可用。",
+            "この図は情報表示です。自動送信は受信側の検証済みブリッジに従い、手動コピーは常に可能です。", "이 그래프는 정보용입니다. 자동 전송은 수신자의 검증된 브리지에 따르며 수동 복사는 항상 가능합니다.", "Este gráfico es informativo. El envío automático depende del puente verificado del receptor; la copia manual siempre funciona.");
 
         // Settings
         Add("Theme", "主题", "主題", "テーマ", "테마", "Tema");
