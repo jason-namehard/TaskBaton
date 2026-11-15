@@ -87,6 +87,50 @@ public sealed class CollaborationTests
     }
 
     [TestMethod]
+    public void ThirdPartyReviewerWithTheRequesterAsAuthorStartsWithTheAuthor()
+    {
+        service.RegisterManual("agent-c", "manual", "丙");
+        task = service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-a", "页面可用", 3,
+            ReviewerFinal: true, ReviewerId: "agent-c"))).Task;
+        Assert.AreEqual("implement", task.Collaboration!.Phase);
+        Assert.AreEqual("agent-a", task.AwaitingAgentId);
+
+        Accepted(Send("submitted", content: "版本 1"));
+        Assert.AreEqual("review", task.Collaboration!.Phase);
+        Assert.AreEqual("agent-c", task.AwaitingAgentId);
+        var context = Context(task);
+        Assert.AreEqual("reviewer", context.GetProperty("collaboration").GetProperty("role").GetString());
+        Assert.AreEqual("甲", context.GetProperty("sender_name").GetString());
+    }
+
+    [TestMethod]
+    public void ReviewPurposeDoesNotOverwriteTheReviewersWorkConversation()
+    {
+        service.BindManualTaskSession(task.TaskId, "agent-a", "origin-work");
+        task = service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-b", "页面可用", 3,
+            ReviewerFinal: true, ReviewerId: "agent-a"))).Task;
+        service.UseNewTaskSession(task.TaskId, "agent-a", "review");
+        Assert.IsNull(service.TaskSession(task.TaskId, "agent-a", "review")!.SessionId);
+        Assert.AreEqual("origin-work", service.TaskSession(task.TaskId, "agent-a", "work")!.SessionId);
+        Assert.IsTrue(service.TaskSession(task.TaskId, "agent-a", "review")!.IndependentReview);
+    }
+
+    private JsonElement Context(TaskRecord task)
+    {
+        service.FileHandoffPrompt(task);
+        return JsonDocument.Parse(File.ReadAllText(service.ManualContextPath(task))).RootElement.Clone();
+    }
+
+    [TestMethod]
+    public void ThirdPartyReviewerCannotBeRemovedWhileTheTaskIsActive()
+    {
+        service.RegisterManual("agent-c", "manual", "丙");
+        task = service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-b", "页面可用", 3,
+            ReviewerFinal: true, ReviewerId: "agent-c"))).Task;
+        Assert.AreEqual("agent_busy", Assert.ThrowsExactly<RelayException>(() => service.RemoveAgent("agent-c")).Code);
+    }
+
+    [TestMethod]
     public void ReviewerMustBeRegisteredAndDifferentFromTheAuthor()
     {
         Assert.AreEqual("collaboration_reviewer", Assert.ThrowsExactly<RelayException>(() =>

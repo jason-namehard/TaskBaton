@@ -600,7 +600,7 @@ public sealed partial class RelayService
         if (existing is null && !independentReview) return;
         var agent = Agent(s, agentId);
         SaveTaskSession(s, task, new(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
-            null, existing?.Cwd, null, null, "new", "unknown", Now,
+            null, existing?.Cwd ?? (independentReview ? task.CliNewSessionCwd : null), null, null, "new", "unknown", Now,
             independentReview ? "dedicated review conversation" : "operator chose a new session for later turns",
             independentReview, purpose));
         s.Event(task, "session.new_each_turn", agentId, Now, "turn=" + task.ManualTurn);

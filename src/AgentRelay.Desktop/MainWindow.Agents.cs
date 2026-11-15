@@ -15,7 +15,7 @@ public partial class MainWindow
 
     private HashSet<string> ActiveAgentIds() => service.Tasks()
         .Where(view => view.Task.State is not (TaskState.Succeeded or TaskState.Failed or TaskState.TimedOut or TaskState.Cancelled))
-        .SelectMany(view => new[] { view.Task.RequesterId, view.Task.RecipientId }).ToHashSet(StringComparer.Ordinal);
+        .SelectMany(view => RelayService.Participants(view.Task)).ToHashSet(StringComparer.Ordinal);
 
     private FrameworkElement AgentsPage()
     {
@@ -46,9 +46,12 @@ public partial class MainWindow
                 var command = priorRecipe is null
                     ? new CliCommand(cli.Executable, cli.Arguments, cli.Input, cli.WorkingDirectory, cli.Environment)
                     : priorRecipe.Create with { Executable = cli.Executable, Arguments = cli.Arguments, Input = cli.Input, WorkingDirectory = cli.WorkingDirectory, Environment = cli.Environment };
+                var resume = cli.ResumeExecutable is { Length: > 0 } resumeExecutable
+                    ? new CliCommand(resumeExecutable, cli.ResumeArguments ?? [], cli.ResumeInput, cli.WorkingDirectory, cli.Environment)
+                    : null;
                 var recipe = priorRecipe is null
-                    ? new CliRecipe(1, draft.Name + " CLI", draft.Host, command, null, [], "", "manual", "", "", cli.OutputFormat)
-                    : priorRecipe with { Create = command, Resume = priorRecipe.Resume is { } resume ? resume with { Environment = cli.Environment } : null, OutputFormat = cli.OutputFormat };
+                    ? new CliRecipe(1, draft.Name + " CLI", draft.Host, command, resume, [], "", "manual", "", "", cli.OutputFormat)
+                    : priorRecipe with { Create = command, Resume = resume, OutputFormat = cli.OutputFormat };
                 if (priorRecipe is null || RelayJson.Write(recipe) != RelayJson.Write(priorRecipe))
                     service.ImportCliRecipe(id, RelayJson.Write(recipe));
             }

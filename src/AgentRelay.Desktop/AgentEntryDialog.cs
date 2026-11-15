@@ -8,7 +8,8 @@ namespace AgentRelay.Desktop;
 public sealed record AgentEntryDraft(string Name, string Host, string ConfigPath, string? CliPath,
     string? HostVersion, string[] InstructionPaths);
 public sealed record AgentCliDraft(string Executable, string[] Arguments, string? Input, string OutputFormat, string? WorkingDirectory,
-    Dictionary<string, string>? Environment = null);
+    Dictionary<string, string>? Environment = null, string? ResumeExecutable = null, string[]? ResumeArguments = null,
+    string? ResumeInput = null);
 
 public sealed class AgentEntryDialog : Window
 {
@@ -34,6 +35,14 @@ public sealed class AgentEntryDialog : Window
         var cliSection = new Expander { Header = ui.T("CLI calling method (optional)"), Content = cliPanel, Margin = new(0, 4, 0, 12) };
         ui.Body.Children.Add(cliSection);
         cliPanel.Children.Add(ui.Note("Record a program alone, or add arguments containing {prompt} to save a testable calling method. Put one argument on each line."));
+        var preset = new ComboBox { Name = "AgentEntryPreset", MinHeight = 40, ItemsSource = CliRecipePresetCatalog.All,
+            DisplayMemberPath = "Name", SelectedValuePath = "Id" };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(preset, preset.Name);
+        cliPanel.Children.Add(new Label { Content = ui.T("Preset (optional)"), Target = preset, Padding = new(0, 0, 0, 2) });
+        cliPanel.Children.Add(preset);
+        var presetNote = ui.Note("Choose a preset to fill the command fields, then review them before saving. A preset is not a verified connection; the doctor or a probe still decides what actually works.");
+        presetNote.Name = "AgentEntryPresetNote";
+        cliPanel.Children.Add(presetNote);
         var priorRecipe = existing is null ? null : service?.CliExtension(existing.AgentId)?.Recipe;
         var cli = ui.Field(cliPanel, "CLI executable path", "AgentEntryCli", priorRecipe?.Create.Executable ?? existing?.CliPath ?? "");
         var arguments = ui.Field(cliPanel, "CLI arguments (one per line)", "AgentEntryCliArguments",
@@ -49,6 +58,27 @@ public sealed class AgentEntryDialog : Window
         cliPanel.Children.Add(ui.Note("Some desktop Agents keep their models, providers and API keys apart from their command line. Point the command line at the desktop's own configuration here (for example a provider file or data folder) so it uses the same models; only if the command line truly stores keys separately does it need the key once more."));
         var environment = ui.Field(cliPanel, "Environment variables (NAME=value, one per line)", "AgentEntryEnvironment",
             priorRecipe?.Create.Environment is { } prior ? string.Join(Environment.NewLine, prior.Select(p => p.Key + "=" + p.Value)) : "", true);
+        var resumePanel = new StackPanel { Margin = new(10) };
+        cliPanel.Children.Add(new Expander { Header = ui.T("Same-session resume (optional)"), Content = resumePanel, Margin = new(0, 4, 0, 8) });
+        resumePanel.Children.Add(ui.Note("Resume must receive the exact {session_id}; leave it empty when the host cannot resume by ID."));
+        var resumeExecutable = ui.Field(resumePanel, "Resume executable", "AgentEntryResumeExecutable", priorRecipe?.Resume?.Executable ?? "");
+        var resumeArguments = ui.Field(resumePanel, "Resume arguments (one per line)", "AgentEntryResumeArguments",
+            priorRecipe?.Resume is { } resume ? string.Join(Environment.NewLine, resume.Arguments) : "", true);
+        var resumeInput = ui.Field(resumePanel, "Resume standard input template (optional)", "AgentEntryResumeInput", priorRecipe?.Resume?.Input ?? "", true);
+        preset.SelectionChanged += (_, _) =>
+        {
+            if (preset.SelectedItem is not CliRecipePreset selected) return;
+            cli.Text = selected.Executable;
+            arguments.Text = string.Join(Environment.NewLine, selected.Arguments);
+            resumeExecutable.Text = selected.ResumeExecutable ?? "";
+            resumeArguments.Text = selected.ResumeArguments is null ? "" : string.Join(Environment.NewLine, selected.ResumeArguments);
+            input.Text = "";
+            resumeInput.Text = "";
+            outputFormat.SelectedItem = selected.OutputFormat;
+            presetNote.Text = selected.Description + "\n" + selected.Notes + "\n" +
+                string.Format(System.Globalization.CultureInfo.CurrentUICulture, "Requires: {0} · Source: {1} · {2}",
+                    string.Join(", ", selected.Requires), selected.Source, selected.License);
+        };
         advanced.IsExpanded = existing is not null && new[] { config.Text, version.Text, instructions.Text }
             .Any(value => !string.IsNullOrWhiteSpace(value));
         cliSection.IsExpanded = existing is not null && !string.IsNullOrWhiteSpace(cli.Text);
@@ -62,6 +92,20 @@ public sealed class AgentEntryDialog : Window
                 (!string.IsNullOrWhiteSpace(working.Text) && !Path.IsPathFullyQualified(working.Text.Trim())))
                 throw new RelayException("agent_path_required", "Use a full path for optional configuration and executable files.");
             var commandArguments = arguments.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var resumePath = resumeExecutable.Text.Trim();
+            var resumeCommands = resumeArguments.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var resumeInputText = resumeInput.Text.Trim();
+            if (resumePath.Length > 0)
+            {
+                if (!resumeCommands.Any(argument => argument.Contains("{session_id}", StringComparison.Ordinal)) &&
+                    !resumeInputText.Contains("{session_id}", StringComparison.Ordinal))
+                    throw new RelayException("cli_resume_session_required", ui.T("The resume command must include {session_id}."));
+                if (!resumeCommands.Any(argument => argument.Contains("{prompt}", StringComparison.Ordinal)) &&
+                    !resumeInputText.Contains("{prompt}", StringComparison.Ordinal))
+                    throw new RelayException("cli_resume_prompt_required", ui.T("The resume command must include {prompt}."));
+            }
+            else if (resumeCommands.Length > 0)
+                throw new RelayException("cli_resume_executable_required", ui.T("Enter a resume executable before its arguments."));
             if (cliPath.Length > 0 && !Path.IsPathFullyQualified(cliPath) && commandArguments.Length == 0 && string.IsNullOrWhiteSpace(input.Text))
                 throw new RelayException("cli_arguments_required", ui.T("A PATH command needs calling arguments; to record only a program, use its full path."));
             if (commandArguments.Length > 0 || !string.IsNullOrWhiteSpace(input.Text))
@@ -77,7 +121,9 @@ public sealed class AgentEntryDialog : Window
                     variables[line[..split].Trim()] = line[(split + 1)..].Trim();
                 }
                 CliResult = new(cliPath, commandArguments, string.IsNullOrWhiteSpace(input.Text) ? null : input.Text, (string)outputFormat.SelectedItem,
-                    string.IsNullOrWhiteSpace(working.Text) ? null : working.Text.Trim(), variables.Count == 0 ? null : variables);
+                    string.IsNullOrWhiteSpace(working.Text) ? null : working.Text.Trim(), variables.Count == 0 ? null : variables,
+                    resumePath.Length == 0 ? null : resumePath, resumeCommands.Length == 0 ? null : resumeCommands,
+                    string.IsNullOrWhiteSpace(resumeInputText) ? null : resumeInputText);
             }
             Result = new(name.Text.Trim(), existing?.Host ?? "manual", configPath,
                 cliPath.Length > 0 && Path.IsPathFullyQualified(cliPath) ? cliPath : null,

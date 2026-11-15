@@ -151,4 +151,29 @@ public sealed class SessionRegistryTests
         Assert.IsNull(service.TaskSession(task.TaskId,"a"));Assert.IsNull(service.TaskSession(task.TaskId,"b"));
         Assert.HasCount(2,service.SessionBindings(task.TaskId));
     }
+
+    [TestMethod]
+    public void InitializeBackfillsLegacyIndependentReviewPurpose()
+    {
+        var home = Path.Combine(root, "legacy-review"); Directory.CreateDirectory(home);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(home, "relay.db"), Pooling = false }.ToString()))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE task_session_bindings (task_id TEXT NOT NULL, attempt_id TEXT NOT NULL,
+                    turn INTEGER NOT NULL, agent_id TEXT NOT NULL, json TEXT NOT NULL,
+                    PRIMARY KEY(task_id,attempt_id,turn,agent_id));
+                INSERT INTO task_session_bindings VALUES('t','a',0,'r','{"task_id":"t","attempt_id":"a","turn":0,"agent_id":"r","host":"fixture","session_id":null,"binding":"new","visibility":"unknown","independent_review":true}');
+                """;
+            command.ExecuteNonQuery();
+        }
+        var legacy = new RelayService(home); legacy.Initialize();
+        legacy.Initialize();
+        using var check = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(home, "relay.db"), Pooling = false }.ToString());
+        check.Open();
+        using var query = check.CreateCommand();
+        query.CommandText = "SELECT purpose FROM task_session_bindings WHERE agent_id='r'";
+        Assert.AreEqual("review", query.ExecuteScalar());
+    }
 }

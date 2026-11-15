@@ -96,7 +96,10 @@ public sealed partial class RelayService
             else if(task.CliFileStatus=="submitting")
             {title="正在投递给 "+waiting;instruction="CLI 调用尚未返回；请等待本轮投递结果，不要重复发送。";}
         }
-        return new("Agent Relay · "+title,"任务 "+task.TaskId.Split('-')[0]+" · "+Name(task.RequesterId)+" → "+Name(task.RecipientId)+"\n"+instruction);
+        var route=Name(task.RequesterId)+" → "+Name(task.RecipientId);
+        if(task.Collaboration is {} collaboration&&collaboration.ReviewerId!=task.RequesterId&&collaboration.ReviewerId!=task.RecipientId)
+            route+=" · 验收 "+Name(collaboration.ReviewerId);
+        return new("Agent Relay · "+title,"任务 "+task.TaskId.Split('-')[0]+" · "+route+"\n"+instruction);
     }
 
     public async Task<object> ConfigureDesktopAsync(string executable, CancellationToken cancellationToken = default)

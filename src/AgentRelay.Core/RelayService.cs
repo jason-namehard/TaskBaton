@@ -90,7 +90,7 @@ public sealed partial class RelayService
     {
         Agent(s, id);
         if (s.Query("SELECT json FROM tasks", r=>RelayJson.Read<TaskRecord>(r.GetString(0)))
-            .Any(t=>(t.RequesterId==id || t.RecipientId==id) && !Terminal(t.State)))
+            .Any(t=>!Terminal(t.State) && Participants(t).Contains(id, StringComparer.Ordinal)))
             throw new RelayException("agent_busy", "该 Agent 仍有进行中的交接，请先完成或取消交接。");
         s.Execute("DELETE FROM cli_extensions WHERE agent_id=$id", ("$id",id));
         s.Execute("DELETE FROM session_discovery_sources WHERE agent_id=$id", ("$id",id));

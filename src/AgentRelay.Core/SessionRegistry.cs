@@ -48,7 +48,7 @@ public sealed partial class RelayService
             ? "review" : "work";
 
     public TaskSessionBinding BindTaskSession(string taskId, string agentId, SessionRecord session,
-        string binding = "user_selected")
+        string binding = "user_selected", string? purpose = null)
     {
         if (binding is not ("user_selected" or "manual"))
             throw new RelayException("session_binding_invalid", "已有会话只能由用户明确选择或手动输入。");
@@ -58,15 +58,15 @@ public sealed partial class RelayService
         {
             var task = s.Task(taskId);
             RequireSessionChange(task, agentId);
-            RequireExistingSessionAllowed(task, agentId);
+            var resolvedPurpose = purpose ?? SessionPurpose(task, agentId);
+            RequireExistingSessionAllowed(task, agentId, resolvedPurpose);
             var agent = Agent(s, agentId);
-            var purpose = SessionPurpose(task, agentId);
             var value = new TaskSessionBinding(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
                 session.SessionId, session.Cwd, session.Profile, session.SessionPath, binding, session.Visibility, Now,
                 binding == "manual" ? "operator supplied an exact session ID" : "operator selected an existing session",
-                Purpose: purpose);
+                resolvedPurpose == "review", resolvedPurpose);
             SaveTaskSession(s, task, value);
-            ResetUncertainFileDelivery(task, agentId);
+            ResetUncertainFileDelivery(task, agentId, resolvedPurpose);
             s.Save(task);
             return value;
         });
@@ -76,16 +76,16 @@ public sealed partial class RelayService
         string? cwd = null, string? profile = null, string? sessionPath = null) =>
         BindTaskSession(taskId, agentId, new SessionRecord(sessionId, null, cwd, profile, sessionPath, "unknown", null), "manual");
 
-    public void UseNewTaskSession(string taskId, string agentId) => store.Write(s =>
+    public void UseNewTaskSession(string taskId, string agentId, string? purpose = null) => store.Write(s =>
     {
         var task = s.Task(taskId); RequireSessionChange(task, agentId);
         var agent = Agent(s, agentId);
-        var purpose = SessionPurpose(task, agentId);
+        purpose ??= SessionPurpose(task, agentId);
         var independentReview = purpose == "review";
         SaveTaskSession(s, task, new(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
             null, independentReview ? ReadTaskSession(s, task, agentId, purpose)?.Cwd : null, null, null, "new", "unknown", Now,
             "operator chose a new session", independentReview, purpose));
-        ResetUncertainFileDelivery(task, agentId); s.Save(task);
+        ResetUncertainFileDelivery(task, agentId, purpose); s.Save(task);
         return true;
     });
 
@@ -97,7 +97,7 @@ public sealed partial class RelayService
 
     private TaskSessionBinding RegisterOriginSession(StoreSession s, TaskRecord task, OriginSession origin)
     {
-        RequireExistingSessionAllowed(task, task.RequesterId);
+        RequireExistingSessionAllowed(task, task.RequesterId, SessionPurpose(task, task.RequesterId));
         RequireOriginContext(origin);
         _ = Agent(s, task.RequesterId);
         var value = new TaskSessionBinding(task.TaskId, task.AttemptId, task.ManualTurn, task.RequesterId,
@@ -143,17 +143,18 @@ public sealed partial class RelayService
             throw new RelayException("session_delivery_active", "本轮已投递，请先等待结果，不要在处理期间更换会话。");
     }
 
-    private static void ResetUncertainFileDelivery(TaskRecord task, string agentId)
+    private static void ResetUncertainFileDelivery(TaskRecord task, string agentId, string purpose)
     {
-        if ((task.AwaitingAgentId ?? task.RecipientId) != agentId || task.CliFileTurn != task.ManualTurn) return;
+        if ((task.AwaitingAgentId ?? task.RecipientId) != agentId || task.CliFileTurn != task.ManualTurn ||
+            SessionPurpose(task, agentId) != purpose) return;
         task.CliFileTurn = null; task.CliFileStatus = null; task.CliFileSessionId = null; task.CliFileError = null;
     }
 
-    private static void RequireExistingSessionAllowed(TaskRecord task, string agentId)
+    private static void RequireExistingSessionAllowed(TaskRecord task, string agentId, string purpose)
     {
         if (task.ParallelGroupId is not null)
             throw new RelayException("parallel_new_session_required", "并行分工和汇合需要使用独立工作目录的新会话。");
-        if (UsesIndependentReviewSession(task, agentId))
+        if (purpose == "review" || UsesIndependentReviewSession(task, agentId))
             throw new RelayException("review_session_required", "独立验收需要任务专用会话，请选择新建会话。");
     }
 }

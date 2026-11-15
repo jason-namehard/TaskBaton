@@ -12,7 +12,8 @@ public partial class MainWindow
         Caption(section,"Conversations");
         var finished=task.State is TaskState.Succeeded or TaskState.Cancelled or TaskState.TimedOut or TaskState.Failed;
         var participants = new List<(string Id, string Purpose)> { (task.RequesterId, "work"), (task.RecipientId, "work") };
-        if (task.Collaboration is { } collaboration)
+        if (task.Collaboration is { } collaboration &&
+            RelayService.SessionPurpose(task, collaboration.ReviewerId) == "review")
             participants.Add((collaboration.ReviewerId, "review"));
         foreach(var (id,purpose) in participants.Distinct())
         {
@@ -47,14 +48,14 @@ public partial class MainWindow
             if(!dedicatedReview && task.ParallelGroupId is null) StyleLink(Add(actions,service.SessionDiscoverySupported(id)?"Change conversation":"Enter Session ID manually",()=>
             {
                 var picker=new SessionPickerDialog(this,service,id,preferences.Language,binding?.Cwd);
-                if(picker.ShowDialog()==true)service.BindTaskSession(task.TaskId,id,picker.SelectedSession!,picker.Binding);
+                if(picker.ShowDialog()==true)service.BindTaskSession(task.TaskId,id,picker.SelectedSession!,picker.Binding,purpose);
                 else reviewCancelled=true;
                 return Task.CompletedTask;
             }));
             var fresh=Add(actions,"New conversation",()=>
             {
                 if(ThemedMessageBox.Show(this,T("Create a new conversation on the next CLI delivery? The previous conversation is kept."),T("New conversation"),MessageBoxButton.OKCancel)==MessageBoxResult.OK)
-                    service.UseNewTaskSession(task.TaskId,id);
+                    service.UseNewTaskSession(task.TaskId,id,purpose);
                 else reviewCancelled=true;
                 return Task.CompletedTask;
             });

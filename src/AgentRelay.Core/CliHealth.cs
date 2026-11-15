@@ -67,6 +67,11 @@ public sealed partial class RelayService
         }
         if (format == "dsh-jsonl")
             yield return new("host.parity.dsh", "warn", "DSH 命令行（headless）与桌面的工具集不同：它不能续接桌面建的会话；Relay 新建的会话在桌面继续时，第一轮会整段重新计费，之后再命中缓存。改用 dsh-desktop 调用方案，可由运行中的 DSH 桌面执行回合，两边请求一致。");
+        if (format == "acp" && Path.GetFileNameWithoutExtension(recipe.Create.Executable)
+                .Equals("codex-acp", StringComparison.OrdinalIgnoreCase))
+            yield return ResolveExecutable("codex") is null
+                ? new("host.codex.cli", "fail", "Codex ACP 适配器还需要 Codex CLI 本体。请先安装 Codex，再重新检查。")
+                : new("host.codex.cli", "pass", "已找到 Codex CLI；ACP 适配器会把它接到 Relay 的 ACP 接口。");
         if (format == "dsh-desktop")
         {
             var dshHome = recipe.Create.Environment?.GetValueOrDefault("DSH_HOME");

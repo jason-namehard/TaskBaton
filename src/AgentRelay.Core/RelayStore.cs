@@ -62,6 +62,7 @@ public sealed class RelayStore
             """;
         command.ExecuteNonQuery();
         MigrateSessionBindingPurpose(connection);
+        BackfillReviewSessionPurpose(connection);
         using var insert = connection.CreateCommand();
         insert.CommandText = "INSERT OR IGNORE INTO settings VALUES(1,$json)";
         insert.Parameters.AddWithValue("$json", RelayJson.Write(new RelaySettings()));
@@ -90,6 +91,24 @@ public sealed class RelayStore
             COMMIT;
             """;
         migrate.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Older dedicated review bindings carried only IndependentReview in JSON. Backfill their purpose on every start so
+    /// an upgraded or partially migrated ledger keeps the work and review conversations separate.
+    /// </summary>
+    private static void BackfillReviewSessionPurpose(SqliteConnection connection)
+    {
+        using var backfill = connection.CreateCommand();
+        backfill.CommandText = """
+            UPDATE task_session_bindings
+               SET purpose = 'review'
+             WHERE purpose = 'work'
+               AND json LIKE '%"independent_review"%true%'
+               AND json NOT LIKE '%"purpose": "review"%'
+               AND json NOT LIKE '%"purpose":"review"%'
+            """;
+        backfill.ExecuteNonQuery();
     }
 
     public SqliteConnection Open(bool readOnly = false)

@@ -134,6 +134,28 @@ public sealed class CliExtensionTests
     }
 
     [TestMethod]
+    public void PresetsAreReviewableAndCoverCodexClaudeGeminiAndOpenCode()
+    {
+        var presets = CliRecipePresetCatalog.All;
+        Assert.IsTrue(new[] { "codex-acp", "claude-code", "gemini-cli", "opencode" }.All(id => presets.Any(preset => preset.Id == id)));
+        foreach (var preset in presets)
+        {
+            Assert.IsFalse(string.IsNullOrWhiteSpace(preset.Executable), preset.Id + " executable");
+            if (preset.OutputFormat is not ("acp" or "dsh-desktop"))
+                Assert.IsTrue(preset.Arguments.Any(argument => argument.Contains("{prompt}", StringComparison.Ordinal)), preset.Id + " prompt placeholder");
+            Assert.Contains(preset.OutputFormat, CliRecipes.OutputFormats, preset.Id + " output format");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(preset.Source), preset.Id + " source");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(preset.License), preset.Id + " license");
+            if (preset.ResumeExecutable is not null && preset.OutputFormat is not ("acp" or "dsh-desktop"))
+            {
+                Assert.IsNotNull(preset.ResumeArguments, preset.Id + " resume arguments");
+                Assert.IsTrue(preset.ResumeArguments!.Any(argument => argument.Contains("{session_id}", StringComparison.Ordinal)), preset.Id + " session placeholder");
+                Assert.IsTrue(preset.ResumeArguments.Any(argument => argument.Contains("{prompt}", StringComparison.Ordinal)), preset.Id + " resume prompt");
+            }
+        }
+    }
+
+    [TestMethod]
     public async Task VerifiedTargetReceivesAutomaticHandoffWithoutUnrelatedConfigPaths()
     {
         Import();

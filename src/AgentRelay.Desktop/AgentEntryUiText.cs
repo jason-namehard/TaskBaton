@@ -21,6 +21,16 @@ internal static class AgentEntryUiText
             "선택 사항인 전달 규칙: Agent를 추가한 뒤 전달 규칙 설치를 누르세요. Relay가 배포 프롬프트를 복사하거나 사용자가 지침 파일을 직접 선택할 수 있습니다. 파일과 규칙을 확인한 뒤에만 설치합니다.",
             "Regla de entrega opcional: después de añadir un agente, elige instalar la regla. Relay puede copiar un prompt de despliegue o puedes elegir tú el archivo de instrucciones; no se escribe nada hasta confirmar el archivo y la regla.");
         Add("Check rule status", "检查规则状态", "檢查規則狀態", "ルール状態を確認", "규칙 상태 확인", "Comprobar estado de la regla");
+        Add("Preset (optional)", "预设方案（选填）", "預設方案（選填）", "プリセット（任意）", "프리셋(선택)", "Preset (opcional)");
+        Add("Choose a preset to fill the command fields, then review them before saving. A preset is not a verified connection; the doctor or a probe still decides what actually works.","选择预设可填入命令字段，保存前请检查。预设不等于已接通；实际能力仍由 doctor 或探针决定。","選擇預設可填入命令欄位，儲存前請檢查。預設不等於已接通；實際能力仍由 doctor 或探針決定。","プリセットを選ぶとコマンド欄に入力されます。保存前に確認してください。プリセットは接続確認ではありません。実際の可否は doctor かプローブで決まります。","프리셋을 선택하면 명령 필드가 채워집니다. 저장 전에 검토하세요. 프리셋은 연결 확인이 아니며 실제 가능 여부는 doctor나 프로브가 결정합니다.","Elige un preset para rellenar los campos de comando y revísalos antes de guardar. Un preset no es una conexión verificada; el doctor o una prueba deciden qué funciona.");
+        Add("Same-session resume (optional)", "同会话续接（选填）", "同會話續接（選填）", "同じ会話の再開（任意）", "같은 세션 이어가기(선택)", "Reanudar la misma sesión (opcional)");
+        Add("Resume must receive the exact {session_id}; leave it empty when the host cannot resume by ID.","续接命令必须收到准确的 {session_id}；宿主不能按 ID 续接时请留空。","續接命令必須收到準確的 {session_id}；宿主不能按 ID 續接時請留空。","再開コマンドには正確な {session_id} が必要です。ID で再開できない場合は空欄にしてください。","이어가기 명령에는 정확한 {session_id}가 필요합니다. ID로 이어갈 수 없으면 비워 두세요.","La reanudación debe recibir el {session_id} exacto; déjalo vacío si el host no puede reanudar por ID.");
+        Add("Resume executable", "续接程序", "續接程式", "再開実行ファイル", "이어가기 실행 파일", "Ejecutable de reanudación");
+        Add("Resume arguments (one per line)", "续接参数（每行一个）", "續接參數（每行一個）", "再開引数（1行に1つ）", "이어가기 인수(줄당 하나)", "Argumentos de reanudación (uno por línea)");
+        Add("Resume standard input template (optional)", "续接标准输入模板（选填）", "續接標準輸入模板（選填）", "再開標準入力テンプレート（任意）", "이어가기 표준 입력 템플릿(선택)", "Plantilla de entrada estándar de reanudación (opcional)");
+        Add("The resume command must include {session_id}.", "续接命令必须包含 {session_id}。", "續接命令必須包含 {session_id}。", "再開コマンドには {session_id} が必要です。", "이어가기 명령에는 {session_id}가 필요합니다.", "El comando de reanudación debe incluir {session_id}.");
+        Add("The resume command must include {prompt}.", "续接命令必须包含 {prompt}。", "續接命令必須包含 {prompt}。", "再開コマンドには {prompt} が必要です。", "이어가기 명령에는 {prompt}가 필요합니다.", "El comando de reanudación debe incluir {prompt}.");
+        Add("Enter a resume executable before its arguments.", "请先填写续接程序，再填写续接参数。", "請先填寫續接程式，再填寫續接參數。", "再開引数の前に実行ファイルを入力してください。", "이어가기 인수보다 먼저 실행 파일을 입력하세요.", "Introduce un ejecutable de reanudación antes de sus argumentos.");
         Add("Copied. Paste it into the matching Agent to finish setup. One prompt works for one Agent only; copy a new prompt for each additional Agent.",
             "已复制，请粘贴给对应 Agent 完成配置；同一份提示词只能用于一个 Agent，新增其他 Agent 请重新复制。",
             "已複製，請貼給對應 Agent 完成設定；同一份提示詞只能用於一個 Agent，新增其他 Agent 請重新複製。",

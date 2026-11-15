@@ -100,7 +100,8 @@ public partial class MainWindow
     {
         if (cache.TryGetValue(id, out var text)) return text;
         var task = service.Status(id).Task;
-        return cache[id] = string.Join(" ", new[] { task.RequesterId, task.RecipientId }.Select(agent => service.TaskSession(id, agent)?.SessionId));
+        return cache[id] = string.Join(" ", RelayService.Participants(task).Select(agent =>
+            service.TaskSession(id, agent, RelayService.SessionPurpose(task, agent))?.SessionId));
     }
 
     private (Grid Host, TextBox Box) SearchBox(string name, string placeholder)
@@ -122,7 +123,10 @@ public partial class MainWindow
         var state = task.IsFileHandoff || task.Mode == "manual" ? FileState(task) : T(task.State.ToString());
         var (tone, group) = Classify(task);
         var (back, fore) = ToneKeys(tone);
-        return new TaskRow(task.TaskId, AgentName(task.RequesterId) + " → " + AgentName(task.RecipientId),
+        var route = AgentName(task.RequesterId) + " → " + AgentName(task.RecipientId);
+        if (task.Collaboration is { } collaboration && collaboration.ReviewerId != task.RequesterId && collaboration.ReviewerId != task.RecipientId)
+            route += " · " + T("Review") + " " + AgentName(collaboration.ReviewerId);
+        return new TaskRow(task.TaskId, route,
             T(task.Mode == "manual" ? "Manual transfer" : "Automatic transfer"), state, task.CreatedAt, task.State.ToString(),
             AgentName(task.RequesterId), AgentName(task.RecipientId), Theme(AvatarKey(task.RequesterId)), Theme(AvatarKey(task.RecipientId)),
             TaskTitle(task), tone, group, Theme(back), Theme(fore));

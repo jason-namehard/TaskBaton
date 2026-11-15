@@ -600,6 +600,21 @@ internal static partial class Program
         Appearance.Save(station.Home,new DesktopPreferences("en",NotificationSound:"none"));
         var window=new MainWindow(station){Owner=owner};window.Show();
         await Wait(()=>((TextBlock)window.FindName("StatusText")).Text!="Working…");
+        await Show(new AgentEntryDialog(window,"en",null,station),dialog=>
+        {
+            Expand(dialog);
+            var preset=Find<ComboBox>(dialog,"AgentEntryPreset");
+            preset.SelectedValue="claude-code";
+            Check(Find<TextBox>(dialog,"AgentEntryCli").Text=="claude"&&
+                Find<TextBox>(dialog,"AgentEntryResumeArguments").Text.Contains("{session_id}",StringComparison.Ordinal)&&
+                (string?)Find<ComboBox>(dialog,"AgentEntryOutputFormat").SelectedItem=="claude-json",
+                "A Claude Code preset fills a reviewable create and exact-resume command without claiming it is verified");
+            preset.SelectedValue="codex-acp";
+            Check(Find<TextBox>(dialog,"AgentEntryCli").Text=="codex-acp"&&
+                (string?)Find<ComboBox>(dialog,"AgentEntryOutputFormat").SelectedItem=="acp",
+                "The Codex ACP preset is available as a reviewable starting point");
+            dialog.Close();return Task.CompletedTask;
+        });
         var automaticOptions=new CliHandoffDialog(window,station,"en");
         await Show(automaticOptions,dialog=>
         {

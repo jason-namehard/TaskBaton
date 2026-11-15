@@ -79,8 +79,11 @@ public sealed partial class RelayService
         var receipt=ManualReceiptPath(task);
         var context=ManualContextPath(task);
         var current=task.AwaitingAgentId??task.RecipientId;
+        // After criteria or a review, the last speaker is the actual sender; the author/reviewer pair alone is wrong
+        // once a third Agent has taken part.
         var other=task.Collaboration is {} loop
-            ?current==loop.ReviewerId?loop.AuthorId:loop.ReviewerId
+            ?(task.ManualTurn>0?loop.History.LastOrDefault()?.AgentId:null)
+                ??(current==loop.ReviewerId?loop.AuthorId:loop.ReviewerId)
             :current==task.RequesterId?task.RecipientId:task.RequesterId;
         var reply=TurnReplyPath(task);
         var images=ImagesForTurn(task);

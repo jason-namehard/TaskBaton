@@ -111,7 +111,13 @@ public sealed partial class RelayService
                 // When the sender already holds the work, the original request file is the first submission.
                 SubmissionPath = reviewFirst ? task.RequestPath : null
             };
-            if (collaboration.GenerateCriteria) task.AwaitingAgentId = task.RequesterId;
+            // The first turn follows the phase: criteria to the initiator, a first review to the reviewer, otherwise the author.
+            task.AwaitingAgentId = task.Collaboration.Phase switch
+            {
+                "criteria" => task.RequesterId,
+                "review" => task.Collaboration.ReviewerId,
+                _ => task.Collaboration.AuthorId
+            };
             EnsureIndependentReviewSession(s, task, task.Collaboration);
         }
         else task.Collaboration = null;
@@ -326,7 +332,8 @@ public sealed partial class RelayService
                 c.Criteria = receipt.AcceptanceCriteria.Trim();
                 Record("criteria_ready", null);
                 c.Phase = c.ReviewerId == task.RecipientId ? "review" : "implement";
-                AdvanceFileHandoff(s, task, task.RecipientId, "验收标准已由发起方拟定，请继续处理原任务。");
+                AdvanceFileHandoff(s, task, c.Phase == "review" ? c.ReviewerId : c.AuthorId,
+                    "验收标准已由发起方拟定，请继续处理原任务。");
                 EnsureIndependentReviewSession(s, task, c);
                 break;
             }
@@ -392,6 +399,20 @@ public sealed partial class RelayService
                 break;
             }
         }
+    }
+
+    /// <summary>Every Agent that can hold a turn or a conversation for this task.</summary>
+    public static IReadOnlyList<string> Participants(TaskRecord task)
+    {
+        var ids = new List<string> { task.RequesterId, task.RecipientId };
+        if (task.Collaboration is { } collaboration)
+        {
+            ids.Add(collaboration.AuthorId);
+            ids.Add(collaboration.ReviewerId);
+        }
+        if (task.RelaySteps is { Length: > 0 } steps) ids.AddRange(steps.Select(step => step.AgentId));
+        if (task.HandoffPlan is { Length: > 0 } plan) ids.AddRange(plan);
+        return ids.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToArray();
     }
 
     public static bool UsesIndependentReviewSession(TaskRecord task, string agentId) =>
