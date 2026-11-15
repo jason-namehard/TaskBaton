@@ -26,7 +26,7 @@ public static class DesktopLocalizedContent
         {
             var available = artifacts.Any(a => a.Path == task.ResultPath && a.State == "available" && a.ExpiresAt > DateTimeOffset.UtcNow) && File.Exists(task.ResultPath);
             return available
-                ? Format("Continue Agent Relay task {0}, state {1}. Request: {2}; result: {3}. Read the result and verification details, then continue the original task; no repeated dispatch is needed.",
+                ? Format("Continue TaskBaton task {0}, state {1}. Request: {2}; result: {3}. Read the result and verification details, then continue the original task; no repeated dispatch is needed.",
                     task.TaskId, task.State, task.RequestPath, task.ResultPath)
                 : Format("The result file for task {0} has expired or is missing. Inspect the task record and decide whether to regenerate it.", task.TaskId);
         }

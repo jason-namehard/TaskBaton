@@ -1,6 +1,6 @@
 ---
 name: relay-cache-parity
-description: Use when registering or checking an Agent's call recipe for Agent Relay, or when Relay-continued sessions burn noticeably more tokens. Aligns the request Relay sends when it continues a session (through the command line or ACP) with the request the Agent's own desktop sends, so switching between them keeps hitting the provider's prompt cache.
+description: Use when registering or checking an Agent's call recipe for TaskBaton, or when Relay-continued sessions burn noticeably more tokens. Aligns the request Relay sends when it continues a session (through the command line or ACP) with the request the Agent's own desktop sends, so switching between them keeps hitting the provider's prompt cache.
 ---
 
 # Cache parity for continued sessions

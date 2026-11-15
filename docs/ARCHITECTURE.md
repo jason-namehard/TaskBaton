@@ -1,6 +1,10 @@
-# Agent Relay 架构
+# TaskBaton（原 Agent Relay）架构
 
 状态：Phase 5 已落地。实际能力见 [PHASE1](PHASE1.md) 至 [PHASE5](PHASE5.md)。协议字段和状态以 [PROTOCOL](PROTOCOL.md) 为准。
+
+## 协议层
+
+可移植的交接契约以 [`protocol/HANDOFF.md`](../protocol/HANDOFF.md) 为准（`handoff/1` 草案，附 schema 与一致性测试样本），`AgentRelay.Protocol` 的校验器提供可执行检查。本机任务账本、状态机与 CLI/MCP 契约见 [PROTOCOL](PROTOCOL.md)。前者定义“交接什么、什么算有效回执”，后者定义本应用如何落账。内部标识、路径与程序集名中的 `AgentRelay` 保留不变。
 
 ## 组件与依赖方向
 

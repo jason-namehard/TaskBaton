@@ -46,11 +46,11 @@ internal static class SimplifiedText
         Add("Import completed reply", "导入已完成回稿", "匯入已完成回稿", "完了した返信を取り込む", "완료된 응답 가져오기", "Importar respuesta terminada");
         Add("Confirm that the recipient finished this handoff and this file is its reply.", "请确认接收方已完成此次交接，此文件是它的回稿。", "請確認接收方已完成此次交接，此檔案是它的回稿。", "受信側が完了し、このファイルがその返信であることを確認してください。", "수신자가 전달 작업을 완료했고 이 파일이 해당 응답인지 확인하세요.", "Confirma que el destinatario terminó y que este archivo es su respuesta.");
         Add("Relay stores collaboration messages, requests and temporary replies. Keep final deliverables and long-term references in your project folder; relay files expire under the retention policy.",
-            "Agent Relay 用于中转 Agent 之间的协作消息、请求与临时回稿，并展示交接进度。请将最终成果及需要长期引用的文件保存在项目目录中；中转站文件会按保留策略清理。",
-            "Agent Relay 用於中轉 Agent 之間的協作訊息、請求與暫存回稿，並顯示交接進度。請將最終成果及需要長期引用的檔案保存在專案目錄中；中轉站檔案會依保留策略清理。",
-            "Agent Relay は Agent 間のメッセージ・依頼・一時的な返信を中継し、進捗を表示します。最終成果と長期保存するファイルはプロジェクトフォルダーに保存してください。中継ファイルは保持期間に従い削除されます。",
-            "Agent Relay는 Agent 간 메시지, 요청 및 임시 응답을 전달하고 진행 상황을 표시합니다. 최종 결과와 장기 보관 파일은 프로젝트 폴더에 저장하세요. 중계 파일은 보관 정책에 따라 정리됩니다.",
-            "Agent Relay transmite mensajes, solicitudes y respuestas temporales entre agentes y muestra su progreso. Guarda los resultados finales y las referencias duraderas en el proyecto; los archivos de intercambio caducan según la política de retención.");
+            "TaskBaton 用于中转 Agent 之间的协作消息、请求与临时回稿，并展示交接进度。请将最终成果及需要长期引用的文件保存在项目目录中；中转站文件会按保留策略清理。",
+            "TaskBaton 用於中轉 Agent 之間的協作訊息、請求與暫存回稿，並顯示交接進度。請將最終成果及需要長期引用的檔案保存在專案目錄中；中轉站檔案會依保留策略清理。",
+            "TaskBaton は Agent 間のメッセージ・依頼・一時的な返信を中継し、進捗を表示します。最終成果と長期保存するファイルはプロジェクトフォルダーに保存してください。中継ファイルは保持期間に従い削除されます。",
+            "TaskBaton는 Agent 간 메시지, 요청 및 임시 응답을 전달하고 진행 상황을 표시합니다. 최종 결과와 장기 보관 파일은 프로젝트 폴더에 저장하세요. 중계 파일은 보관 정책에 따라 정리됩니다.",
+            "TaskBaton transmite mensajes, solicitudes y respuestas temporales entre agentes y muestra su progreso. Guarda los resultados finales y las referencias duraderas en el proyecto; los archivos de intercambio caducan según la política de retención.");
         Add("Add at least two Agents first.", "请先添加至少两个 Agent。", "請先新增至少兩個 Agent。", "先に 2 つ以上の Agent を追加してください。", "먼저 Agent를 2개 이상 추가하세요.", "Añade al menos dos agentes primero.");
         Add("Open relay folder", "打开中转站文件夹", "開啟中轉站資料夾", "中継フォルダーを開く", "중계 폴더 열기", "Abrir carpeta de intercambio");
         Add("Your Agents", "你的 Agent", "你的 Agent", "登録した Agent", "내 Agent", "Tus agentes");

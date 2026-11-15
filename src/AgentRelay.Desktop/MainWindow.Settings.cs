@@ -88,7 +88,7 @@ public partial class MainWindow
         if (demo)
             RowAction(SettingRow(look, "Demo workspace", "Demo mode blocks real CLI calls. Keep this workspace and switch to normal use to test your registered Agents."), "Use this workspace normally", () =>
             {
-                demo = false; RelayLocation.Save(service.Home); Title = "Agent Relay"; DemoBadge.Visibility = Visibility.Collapsed;
+                demo = false; RelayLocation.Save(service.Home); Title = "TaskBaton"; DemoBadge.Visibility = Visibility.Collapsed;
                 return Task.CompletedTask;
             });
 

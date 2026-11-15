@@ -169,7 +169,7 @@ internal static class AcpClient
                 default:
                     if (frame["id"] is not null)
                         await Send(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = frame["id"]!.DeepClone(),
-                            ["error"] = new JsonObject { ["code"] = -32601, ["message"] = "Method not supported by Agent Relay: " + method } }, token);
+                            ["error"] = new JsonObject { ["code"] = -32601, ["message"] = "Method not supported by TaskBaton: " + method } }, token);
                     return;
             }
         }

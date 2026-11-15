@@ -440,14 +440,14 @@ public sealed class CliRecipeDeliveryAdapter(CliExtensionRecord extension, strin
         var agents = relay.Agents();
         string Name(string id) => agents.SingleOrDefault(a => a.AgentId == id)?.DisplayName ?? id;
         var prompt = $"""
-            Agent Relay handoff from {Name(task.RequesterId)} ({task.RequesterId}) to {Name(task.RecipientId)} ({task.RecipientId}).
+            TaskBaton handoff from {Name(task.RequesterId)} ({task.RequesterId}) to {Name(task.RecipientId)} ({task.RecipientId}).
             Relay home: {home}
             Task ID: {task.TaskId}
             Attempt ID: {task.AttemptId}
             Read the request file: {task.RequestPath}
             Write the reply file: {task.ResultPath}
             Report received/started/completed/failed explicitly through Relay CLI or MCP; changing files alone does not complete the handoff.
-            CLI callbacks (relay is shipped with Agent Relay):
+            CLI callbacks (relay is shipped with TaskBaton):
             relay --home "{home}" task ack --task {task.TaskId} --attempt {task.AttemptId} --sender {task.RecipientId} --idempotency-key received
             relay --home "{home}" task complete --task {task.TaskId} --attempt {task.AttemptId} --sender {task.RecipientId} --idempotency-key completed --status succeeded --result "{task.ResultPath}"
             If Relay CLI/MCP is unavailable, return the reply path to the operator for manual confirmation. Save permanent deliverables in the project, not the relay directory.

@@ -17,9 +17,9 @@ AppId={#TestAppId}
 #else
 AppId={{6476C39F-39A5-4BF2-AFC7-1E9371D4B556}
 #endif
-AppName=Agent Relay
+AppName=TaskBaton
 AppVersion={#ReleaseVersion}
-AppPublisher=Agent Relay contributors
+AppPublisher=TaskBaton contributors
 AppPublisherURL=https://github.com/jason-namehard/agent-relay
 DefaultDirName={localappdata}\Programs\Agent Relay
 DisableProgramGroupPage=yes
@@ -61,12 +61,12 @@ Source: "{#SourcePath}\licenses\*"; DestDir: "{app}\docs\licenses"; Flags: ignor
 Name: "{autoprograms}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"
 Name: "{autodesktop}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
 #else
-Name: "{autoprograms}\Agent Relay"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"
-Name: "{autodesktop}\Agent Relay"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
+Name: "{autoprograms}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"
+Name: "{autodesktop}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
 #endif
 
 [Run]
-Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Description: "{cm:LaunchProgram,Agent Relay}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
 
 [CustomMessages]
 english.UninstallData=Delete Relay configuration and task records?%n%nCurrent relay station: %1%n%nThis removes the Relay database (including Agent configuration and task history), desktop preferences, and Relay's registered handoff rules. Files in the workspace, other files in the station, and your own instructions are kept. This cannot be undone.%n%nChoose No to keep configuration and task records.

@@ -1,4 +1,4 @@
-# Agent Relay 发布包
+# TaskBaton（原 Agent Relay）发布包
 
 本文件同时存在于发布包中（便携包内为 `README.md`，安装版内为 `docs\README.md`）。英文说明见文末 [English](#english)。
 

@@ -263,7 +263,7 @@ public sealed partial class RelayService
             ? $"任务 {task.TaskId} 尚待手工提交给 {task.RecipientId}。请求：{task.RequestPath}；尝试：{task.AttemptId}；结果应写入：{task.ResultPath}。接收后显式 ack，完成后显式 complete/fail。"
             : ready
                 ? resultExists
-                    ? $"继续处理 Agent Relay 任务 {task.TaskId}，状态 {task.State}。请求：{task.RequestPath}；结果：{task.ResultPath}。请读取结果和验证信息，再继续原任务；无需重复派发。"
+                    ? $"继续处理 TaskBaton 任务 {task.TaskId}，状态 {task.State}。请求：{task.RequestPath}；结果：{task.ResultPath}。请读取结果和验证信息，再继续原任务；无需重复派发。"
                     : $"任务 {task.TaskId} 的结果文件已过期或缺失，请检查任务记录并决定重新生成。"
                 : $"任务 {task.TaskId} 已保存，状态 {task.State}，正在等待结果文件 {task.ResultPath}。请结束当前轮；收到继续消息或用户粘贴提示词后再处理。截止时间：{task.DeadlineAt:O}。";
         if (overdue || task.State == TaskState.TimedOut) prompt = $"任务 {task.TaskId} 已超过截止时间，未获得有效完成结果。请运行 recover 或检查证据；不要自动重复派发。";

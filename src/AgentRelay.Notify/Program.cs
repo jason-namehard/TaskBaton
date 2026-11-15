@@ -70,7 +70,7 @@ internal static class Program
                     }
                     catch (Exception error) when (error is RelayException or IOException or UnauthorizedAccessException or ExternalException)
                     {
-                        MessageBox.Show(error.Message, "Agent Relay", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show(error.Message, "TaskBaton", MessageBoxButton.OK, MessageBoxImage.Error);
                         app.Shutdown(3);
                     }
                 });
@@ -113,7 +113,7 @@ internal static class Program
                 manager.Show(notification);
                 if (notification.Id == 0) throw new InvalidOperationException("Windows did not assign a notification ID.");
                 Write(new ResumeResult("submitted", Detail: args.Contains("--history-only")
-                    ? $"Windows 已记录通知 {notification.Id}；屏幕提醒由 Agent Relay 主程序显示。"
+                    ? $"Windows 已记录通知 {notification.Id}；屏幕提醒由 TaskBaton 主程序显示。"
                     : $"Windows 已接受通知 {notification.Id}；可见性取决于系统通知设置。"));
                 manager.Unregister();
                 return 0;
@@ -149,7 +149,7 @@ internal static class Program
     private static Window DetailWindow(TaskView view, bool copied = false)
     {
         var panel = new DockPanel { Margin = new Thickness(24) };
-        var title = new TextBlock { Text = "Agent Relay · 继续任务", FontSize = 24, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 14) };
+        var title = new TextBlock { Text = "TaskBaton · 继续任务", FontSize = 24, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 14) };
         DockPanel.SetDock(title, Dock.Top); panel.Children.Add(title);
         var state = new TextBlock { Text = $"{view.Task.RequesterId} ← {view.Task.RecipientId}    {view.Task.State}\n任务 {view.Task.TaskId}\n会话恢复：{view.Task.ResumeStatus}",
             Margin = new Thickness(0, 0, 0, 18), TextWrapping = TextWrapping.Wrap };
@@ -165,7 +165,7 @@ internal static class Program
         panel.Children.Add(new TextBox { Text = view.Prompt, IsReadOnly = true, TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto, FontSize = 15, Padding = new Thickness(12),
             Background = new SolidColorBrush(Color.FromRgb(245, 247, 250)) });
-        return new Window { Title = "Agent Relay", Width = 720, Height = 440, MinWidth = 520, MinHeight = 340,
+        return new Window { Title = "TaskBaton", Width = 720, Height = 440, MinWidth = 520, MinHeight = 340,
             WindowStartupLocation = WindowStartupLocation.CenterScreen, Content = panel };
     }
 }

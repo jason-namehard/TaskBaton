@@ -1,6 +1,8 @@
-# Agent Relay 协议提案
+# TaskBaton（原 Agent Relay）协议提案
 
 状态：`relay_version: 1`，单次执行、精确会话继续、stdio MCP 与经审阅的配置迁移已实现。跨进程 JSON 使用 UTF-8，时间使用带 `Z` 的 UTC RFC 3339；GUI 按用户时区显示。实际命令见 [README](../README.md)。
+
+可移植交接契约的规范文档是 [`protocol/HANDOFF.md`](../protocol/HANDOFF.md)（`handoff/1` 草案，附 schema 与一致性测试样本）。本文件描述本机账本、状态机与 CLI/MCP 契约；两者相关，但 `HANDOFF.md` 是交接与回执的规范来源。
 
 ## 任务与事件
 

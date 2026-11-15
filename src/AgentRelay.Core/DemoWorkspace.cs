@@ -40,7 +40,7 @@ public static class DemoWorkspace
 
         await service.DispatchAsync(new("agent-a", "agent-b", "# Demo: Manual Handoff\n\n复制此请求提示词，查看显式 ack/complete 协议。未启动 Agent。",
             "manual", "manual", "demo-waiting"));
-        File.WriteAllText(Path.Combine(root, "DEMO.md"), "# Agent Relay Demo\n\n仅包含虚构 Agent、本地配置和预设任务。未使用模型、认证或宿主会话。\n\n关闭演示窗口后，可删除这个独立目录。不要在此登记真实认证。\n");
+        File.WriteAllText(Path.Combine(root, "DEMO.md"), "# TaskBaton Demo\n\n仅包含虚构 Agent、本地配置和预设任务。未使用模型、认证或宿主会话。\n\n关闭演示窗口后，可删除这个独立目录。不要在此登记真实认证。\n");
         return service;
     }
 }

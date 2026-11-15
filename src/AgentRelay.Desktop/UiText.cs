@@ -38,7 +38,7 @@ public static class UiText
         Add("LOCAL COORDINATION", "本机协作", "本機協作", "ローカル連携", "로컬 협업", "COORDINACIÓN LOCAL");
         Add("Explicit handoffs.\nDurable results.", "明确交接。\n持久结果。", "明確交接。\n持久成果。", "明示的な引き継ぎ。\n結果を確実に保存。", "명확한 인계.\n지속되는 결과.", "Traspasos explícitos.\nResultados duraderos.");
         Add("Local coordination · Explicit authorization · Event driven", "本机协作 · 明确授权 · 事件驱动", "本機協作 · 明確授權 · 事件驅動", "ローカル連携 · 明示的な承認 · イベント駆動", "로컬 협업 · 명시적 승인 · 이벤트 기반", "Coordinación local · Autorización explícita · Por eventos", "本机协作 · 明确授权 · 事件驱动");
-        Add("Agent Relay — Demo", "Agent Relay — 演示", "Agent Relay — 示範", "Agent Relay — デモ", "Agent Relay — 데모", "Agent Relay — Demostración");
+        Add("TaskBaton — Demo", "TaskBaton — 演示", "TaskBaton — 示範", "TaskBaton — デモ", "TaskBaton — 데모", "TaskBaton — Demostración");
         Add("DEMO · Fictional agents and preset results · No models called or active configuration read", "DEMO · 虚构 Agent 与预设结果 · 未调用模型，未读取现用配置", "DEMO · 虛構 Agent 與預設結果 · 未呼叫模型，未讀取現用設定", "DEMO · 架空のAgentと既定の結果 · モデル呼び出し・使用中の設定の読み取りなし", "DEMO · 가상 Agent와 사전 설정 결과 · 모델 호출 및 사용 중인 설정 읽기 없음", "DEMO · Agentes ficticios y resultados predefinidos · Sin llamadas a modelos ni lectura de la configuración activa", "DEMO · 虚构 Agent 与预设结果 · 未调用模型，未读取现用配置");
         Add("Relay data directory", "Relay 数据目录", "Relay 資料目錄", "Relayデータディレクトリ", "Relay 데이터 디렉터리", "Directorio de datos de Relay");
 
@@ -300,12 +300,12 @@ public static class UiText
             "タスク {0} は {1} への手動送信待ちです。リクエスト：{2}、試行：{3}、結果の書き込み先：{4}。受信後は明示的に ack、完了後は complete/fail を実行してください。",
             "작업 {0}을(를) {1}에 수동으로 제출해야 합니다. 요청: {2}; 시도: {3}; 결과 저장 위치: {4}. 수신 후 명시적으로 ack하고 완료 후 complete/fail하세요.",
             "La tarea {0} espera su envío manual a {1}. Solicitud: {2}; intento: {3}; escribe el resultado en: {4}. Confirma explícitamente con ack al recibir y con complete/fail al terminar.");
-        Add("Continue Agent Relay task {0}, state {1}. Request: {2}; result: {3}. Read the result and verification details, then continue the original task; no repeated dispatch is needed.",
-            "继续处理 Agent Relay 任务 {0}，状态 {1}。请求：{2}；结果：{3}。请读取结果和验证信息，再继续原任务；无需重复派发。",
-            "繼續處理 Agent Relay 任務 {0}，狀態 {1}。請求：{2}；結果：{3}。請讀取結果與驗證資訊，再繼續原任務；無須重複派發。",
-            "Agent Relay タスク {0}（状態：{1}）を続行してください。リクエスト：{2}、結果：{3}。結果と検証情報を読んでから元のタスクを続行してください。再送信は不要です。",
-            "Agent Relay 작업 {0}, 상태 {1}을(를) 계속하세요. 요청: {2}; 결과: {3}. 결과와 검증 정보를 읽은 후 원래 작업을 계속하세요. 다시 전달할 필요는 없습니다.",
-            "Continúa la tarea {0} de Agent Relay, estado {1}. Solicitud: {2}; resultado: {3}. Lee el resultado y la verificación y continúa la tarea original; no hace falta enviarla otra vez.");
+        Add("Continue TaskBaton task {0}, state {1}. Request: {2}; result: {3}. Read the result and verification details, then continue the original task; no repeated dispatch is needed.",
+            "继续处理 TaskBaton 任务 {0}，状态 {1}。请求：{2}；结果：{3}。请读取结果和验证信息，再继续原任务；无需重复派发。",
+            "繼續處理 TaskBaton 任務 {0}，狀態 {1}。請求：{2}；結果：{3}。請讀取結果與驗證資訊，再繼續原任務；無須重複派發。",
+            "TaskBaton タスク {0}（状態：{1}）を続行してください。リクエスト：{2}、結果：{3}。結果と検証情報を読んでから元のタスクを続行してください。再送信は不要です。",
+            "TaskBaton 작업 {0}, 상태 {1}을(를) 계속하세요. 요청: {2}; 결과: {3}. 결과와 검증 정보를 읽은 후 원래 작업을 계속하세요. 다시 전달할 필요는 없습니다.",
+            "Continúa la tarea {0} de TaskBaton, estado {1}. Solicitud: {2}; resultado: {3}. Lee el resultado y la verificación y continúa la tarea original; no hace falta enviarla otra vez.");
         Add("The result file for task {0} has expired or is missing. Inspect the task record and decide whether to regenerate it.",
             "任务 {0} 的结果文件已过期或缺失，请检查任务记录并决定重新生成。", "任務 {0} 的結果檔案已到期或遺失，請檢查任務記錄並決定是否重新產生。",
             "タスク {0} の結果ファイルは期限切れか見つかりません。タスクの記録を確認し、再生成するか判断してください。", "작업 {0}의 결과 파일이 만료되었거나 없습니다. 작업 기록을 확인하고 다시 생성할지 결정하세요.",

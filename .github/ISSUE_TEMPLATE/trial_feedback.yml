@@ -1,0 +1,15 @@
+name: TaskBaton trial feedback / TaskBaton 试用反馈
+description: TaskBaton (formerly Agent Relay) trial feedback. 分享试过的场景、卡点或跑通的步骤。
+body:
+  - type: input
+    id: setup
+    attributes:
+      label: Your setup / 试用环境
+      placeholder: "Windows 11 · TaskBaton 0.4.0 · demo or your Agent pair"
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What happened? / 试用情况
+      description: Describe what you tried and what worked or where you got stuck. 请省略私人对话、配置和令牌。Please omit private conversations, configuration and tokens.
+    validations:
+      required: true

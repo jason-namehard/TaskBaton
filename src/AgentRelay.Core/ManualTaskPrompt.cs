@@ -17,7 +17,7 @@ public sealed partial class RelayService
             工作正文：
             {workRequest.Trim()}
 
-            完成后，把交接内容保存为真实存在的文件，只在对话中输出下面格式的 JSON，供用户复制回 Agent Relay 解析：
+            完成后，把交接内容保存为真实存在的文件，只在对话中输出下面格式的 JSON，供用户复制回 TaskBaton 解析：
             {RelayJson.Write(new ManualTransferDraft(from,to,"文件的完整绝对路径","下一位的处理要求与最终完成条件摘要"))}
 
             用真实文件路径替换 file；message 简要说明下一位该做什么和何时才算整个任务完成，详细内容放交接文件，不另建保存 JSON 的文件。

@@ -84,7 +84,7 @@ public sealed class AmqCliAdapter(string executable, string? expectedVersion = n
             if (init.TimedOut || init.ExitCode != 0)
                 return new DeliveryResult("rejected", null, "AMQ 队列初始化失败：" + init.Error, Retryable: true);
         }
-        var payload = $"Agent Relay task={task.TaskId} attempt={task.AttemptId}\nRequest: {task.RequestPath}\nResult: {task.ResultPath}\n显式 ack/start/complete/fail；文件变化不表示完成。";
+        var payload = $"TaskBaton task={task.TaskId} attempt={task.AttemptId}\nRequest: {task.RequestPath}\nResult: {task.ResultPath}\n显式 ack/start/complete/fail；文件变化不表示完成。";
         var sent = await RelayProcess.RunAsync(executable,
             ["send", "--root", root, "--me", task.RequesterId, "--to", task.RecipientId,
                 "--thread", "relay/" + task.TaskId, "--body", "-", "--json"], payload, timeout, cancellationToken);

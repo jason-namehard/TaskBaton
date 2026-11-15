@@ -33,7 +33,7 @@ public sealed class CodexExecutor(ExecutorRecord registration) : IAgentExecutor
         var response = Path.Combine(input.Directory, "outcome.json");
         File.WriteAllText(schema, OutcomeSchema);
         var prompt = $"""
-            You are Agent Relay recipient {input.Task.RecipientId}, processing exactly one task.
+            You are TaskBaton recipient {input.Task.RecipientId}, processing exactly one task.
             Task ID: {input.Task.TaskId}; attempt ID: {input.Task.AttemptId}.
             Read the request below and produce the requested result. You have a read-only sandbox.
             Return the schema-defined JSON only. status=succeeded requires a nonempty result_markdown

@@ -1,4 +1,4 @@
-# Agent Relay
+# TaskBaton (formerly Agent Relay)
 
 **English** | [简体中文](README.zh.md)
 
@@ -6,22 +6,34 @@
 [![Release](https://img.shields.io/github/v/release/jason-namehard/agent-relay?include_prereleases&label=latest)](https://github.com/jason-namehard/agent-relay/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT.svg)](LICENSE)
 
-A local handoff desk for people who work with several AI agents. Pass a file or request from A to B, see who holds the task now, and stop the loop when the work is actually done.
+TaskBaton (任务接力棒) is a local handoff layer for people who work with several AI agents. Pass a file or request from A to B, see who holds the task now, and stop the loop when the work is actually done.
 
 ![Task board after a completed handoff](docs/images/ui-tasks.png)
 
-If you use more than one agent, the work usually moves by copy and paste: you paste a request into one session, wait, copy the answer into another, and lose track of which session received what, whether it was picked up, and whether a changed file means the work is finished. Agent Relay keeps each handoff as a task in a local relay folder with a SQLite ledger, shows its progress in a Windows desktop app, and separates "the message was submitted" from "the task was completed with a receipt". You decide the agents and their roles; Relay only needs to know who sends and who receives.
+If you use more than one agent, the work usually moves by copy and paste: you paste a request into one session, wait, copy the answer into another, and lose track of which session received what, whether it was picked up, and whether a changed file means the work is finished. TaskBaton keeps each handoff as a task in a local relay folder with a SQLite ledger, shows its progress in a Windows desktop app, and separates "the message was submitted" from "the task was completed with a receipt". You decide the agents and their roles; TaskBaton only needs to know who sends and who receives.
 
-Current release: `0.3.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
+Current release: `0.4.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
+
+## What it is / what it is not
+
+**What it is:** a handoff layer. It records a work order, who holds it now, and the receipt that says what actually happened, so work can move between agents without paste-and-hope.
+
+**What it is not:** an orchestration platform that plans or schedules your agents' work, a chat client, an IDE, or a cloud service. It does not replace the agents' own sessions, models or permissions, and it does not run as a hosted relay.
 
 ## Quick start
 
-### Windows installer
+### Try the demo in 60 seconds
 
-Download [Agent Relay 0.3.0 for Windows x64](https://github.com/jason-namehard/agent-relay/releases/tag/v0.3.0), or run in PowerShell:
+Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
+
+If you try it, [share your feedback](https://github.com/jason-namehard/agent-relay/issues/new?template=trial_feedback.yml). Which agents do you use together, and where did your first handoff get stuck?
+
+### Install on Windows x64
+
+Download [TaskBaton 0.4.0 for Windows x64](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0), or run in PowerShell:
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.3.0/AgentRelay-v0.3.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
+Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
 Start-Process '.\AgentRelay-setup.exe' -Wait
 ```
 
@@ -32,14 +44,14 @@ The unsigned installer defaults to a per-user installation under `%LOCALAPPDATA%
 & "$env:LOCALAPPDATA\Programs\Agent Relay\app\relay.exe" --help    # app\mcp\relay-mcp.exe is self-contained too
 ```
 
-Isolated installers built from the 0.1.1 and 0.1.2 revisions passed an upgrade test. Uninstall tests covered keeping data, removing rules, clearing the ledger, a damaged rule and a missing location record. The original distributed installers have not been tested together in an isolated virtual machine. Exit Agent Relay from the tray before upgrading.
+The 0.4.0 build passed the isolated install, upgrade and uninstall acceptance suite (27 checks). The published installers have not been exercised together on a clean virtual machine. Exit TaskBaton from the tray before upgrading.
 
-### Older preview `0.1.0-preview.22`
+### Download and verify the portable ZIP with PowerShell
 
-Download the ZIP from the [release page](https://github.com/jason-namehard/agent-relay/releases/tag/v0.1.0-preview.22) or with PowerShell. Extract the whole archive into a new folder; do not run files from inside the ZIP.
+Download the ZIP from the [release page](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0) or with PowerShell. Extract the whole archive into a new folder; do not run files from inside the ZIP.
 
 ```powershell
-$version = 'v0.1.0-preview.22'
+$version = 'v0.4.0'
 $zip = "AgentRelay-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest "https://github.com/jason-namehard/agent-relay/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
@@ -65,7 +77,7 @@ Local and CI builds are not claimed to be byte-for-byte reproducible.
 
 </details>
 
-Requirements: the installer and the desktop app bundle their runtime, including the installed `relay.exe` and `mcp\relay-mcp.exe`. The portable ZIP's CLI and MCP server (`relay.dll`, `mcp\relay-mcp.dll`) need the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0). There is no code signing, so Windows may show a security prompt. "No account" refers to Relay itself and the demo; the agents you connect still use their own accounts, permissions and model billing.
+Requirements: the installer and the desktop app bundle their runtime, including the installed `relay.exe` and `mcp\relay-mcp.exe`. The portable ZIP's CLI and MCP server (`relay.dll`, `mcp\relay-mcp.dll`) need the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0). There is no code signing, so Windows may show a security prompt. "No account" refers to TaskBaton itself and the demo; the agents you connect still use their own accounts, permissions and model billing.
 
 ## The four pages
 
@@ -85,9 +97,9 @@ Requirements: the installer and the desktop app bundle their runtime, including 
 ### Automatic CLI transfer
 
 1. Register A and B. **One-click setup** in **New Agent** reads CLI help and non-secret settings, then imports a calling method when one is available. If the local interface cannot run, use the manual fields instead of pasting a configuration block.
-2. Choose **New task → New automatic transfer task**. Select A (and optionally the source conversation; without one, the turn for A is copied manually), select B, and choose a new or existing target conversation. Write the work request; Relay prepares the prompt and calls the selected CLI.
-3. Choose a **single handoff**, **keep revising until the review passes**, or a **fixed relay**. Review mode shows the final reviewer, acceptance criteria and review limit. Enter criteria or let the initiating Agent prepare them. The default limit is five reviews, and zero allows unlimited reviews. Approval completes the task. If the last allowed review requests changes, Relay pauses before sending the next revision. Independent acceptance starts in a new conversation dedicated to reviewing this task. Later reviews can resume that conversation.
-4. Create the task. Explicitly allow any direction that is not enabled yet, since automatic sending requires a verified method for that Agent. The board names the current worker, role, round and phase. Later turns resume the exact bound conversation; if that conversation is missing, Relay asks for another choice instead of falling back to the latest one.
+2. Choose **New task → New automatic transfer task**. Select A (and optionally the source conversation; without one, the turn for A is copied manually), select B, and choose a new or existing target conversation. Write the work request; TaskBaton prepares the prompt and calls the selected CLI.
+3. Choose a **single handoff**, **keep revising until the review passes**, or a **fixed relay**. Review mode shows the final reviewer, acceptance criteria and review limit. Enter criteria or let the initiating Agent prepare them. The default limit is five reviews, and zero allows unlimited reviews. Approval completes the task. If the last allowed review requests changes, TaskBaton pauses before sending the next revision. Independent acceptance starts in a new conversation dedicated to reviewing this task. Later reviews can resume that conversation.
+4. Create the task. Explicitly allow any direction that is not enabled yet, since automatic sending requires a verified method for that Agent. The board names the current worker, role, round and phase. Later turns resume the exact bound conversation; if that conversation is missing, TaskBaton asks for another choice instead of falling back to the latest one.
 
 ### Fixed relay with a set number of handoffs
 
@@ -95,20 +107,20 @@ Choose **Direct handoff to the recipient**, **Work then hand off**, **Test and m
 
 For **Custom steps**, write one step per line, such as `agent=work`, `agent:test=check the work` or `agent:modify=apply the test report`. Each step receives its own duty and the previous handover note. A final modify step after a test is shown as **Modified without retest**.
 
-Each Agent uses its chosen conversation on its first turn. When the Agent works again, Relay reuses the exact conversation by default, or starts a new one if selected. Without a chosen source conversation, steps assigned to the sender use manual delivery. Each turn keeps its own `context.json` and `receipt.json` under `.relay/turn-<n>/`. Relay also reads the attempt-level receipt used by 0.3.0.
+Each Agent uses its chosen conversation on its first turn. When the Agent works again, TaskBaton reuses the exact conversation by default, or starts a new one if selected. Without a chosen source conversation, steps assigned to the sender use manual delivery. Each turn keeps its own `context.json` and `receipt.json` under `.relay/turn-<n>/`. TaskBaton also reads the attempt-level receipt used by 0.3.0.
 
-Statuses are separate facts: **sent / delivery unknown / host confirmed delivery**, **Agent declared received / working / submitted**, **host turn ended**, and **flow finished**. A submitted receipt is not proof that the host stopped: while Relay's own call is still running, the next step is not started automatically, and the board says "result submitted · host end unknown". Receipts that name the wrong field or use the wrong type are rejected with the field name, the value found and the accepted form, and the file is kept.
+Statuses are separate facts: **sent / delivery unknown / host confirmed delivery**, **Agent declared received / working / submitted**, **host turn ended**, and **flow finished**. A submitted receipt is not proof that the host stopped: while TaskBaton's own call is still running, the next step is not started automatically, and the board says "result submitted · host end unknown". Receipts that name the wrong field or use the wrong type are rejected with the field name, the value found and the accepted form, and the file is kept.
 
 ![Settings: appearance, notifications and storage in one place](docs/images/ui-settings.png)
 
 ### Manual transfer
 
 1. **New task → New manual transfer task**, choose sender and recipient, write the request. Copy the prompt for the sender and paste it into that session.
-2. Paste the sender's JSON reply back into Relay and parse it to create the task, or pick an existing file. Open **Relay template** to choose a fixed route. Leave **Custom steps** empty for a continuous manual handoff.
-3. Copy the next prompt to the Agent the board names. Receipts are read while Relay is running and on refresh; keep passing turns as the work needs, and the task ends only when it is explicitly complete.
-4. Optionally install the one-line handoff rule into the instruction file your host actually reads. Relay never edits that file silently: you see the line before it is written, and detailed instructions are read on demand.
+2. Paste the sender's JSON reply back into TaskBaton and parse it to create the task, or pick an existing file. Open **Relay template** to choose a fixed route. Leave **Custom steps** empty for a continuous manual handoff.
+3. Copy the next prompt to the Agent the board names. Receipts are read while TaskBaton is running and on refresh; keep passing turns as the work needs, and the task ends only when it is explicitly complete.
+4. Optionally install the one-line handoff rule into the instruction file your host actually reads. TaskBaton never edits that file silently: you see the line before it is written, and detailed instructions are read on demand.
 
-A result file appearing or changing never completes a task. A task changes state only through a valid receipt, or through your explicit "mark handoff complete", which records a user decision. If a delivery is unconfirmed, use **View target conversation** to see its saved session ID and check it in the host. **Continue waiting** extends the deadline for a paused delivery, and **Check for receipts now** reads any receipts already on disk. If you confirm the request never arrived, **Not received · Allow resending** authorizes one manual send for that turn. Relay keeps checking for late receipts throughout.
+A result file appearing or changing never completes a task. A task changes state only through a valid receipt, or through your explicit "mark handoff complete", which records a user decision. If a delivery is unconfirmed, use **View target conversation** to see its saved session ID and check it in the host. **Continue waiting** extends the deadline for a paused delivery, and **Check for receipts now** reads any receipts already on disk. If you confirm the request never arrived, **Not received · Allow resending** authorizes one manual send for that turn. TaskBaton keeps checking for late receipts throughout.
 
 ## What it includes
 
@@ -122,19 +134,34 @@ A result file appearing or changing never completes a task. A task changes state
 | CLI extensions | Native JSON, JSONL and final-text output adapters; separate new-session and resume probes |
 | Storage | Local relay folder, retention cleanup, relocation that copies and verifies before switching |
 | Appearance | Minimal, warm, fresh, night and follow-system themes; accent colours; English, Simplified and Traditional Chinese, Japanese, Korean, Spanish |
-| Notifications | Optional Windows helper with selectable sounds; an in-app notice while Relay is running |
+| Notifications | Optional Windows helper with selectable sounds; an in-app notice while TaskBaton is running |
 | Uninstall | Per-user Windows installer; uninstall keeps data by default, or removes rules, or clears the ledger and preferences while keeping workspace files |
 
 ## Bridges, verification and cost
 
-A bridge is one of three kinds: ACP, the running desktop app's own interface (DSH: `dsh-desktop`), or the host's CLI. Relay adapts supported native JSON, JSONL and final-text output; the host does not have to emit Relay's private receipt format.
+A bridge is one of three kinds: ACP, the running desktop app's own interface (DSH: `dsh-desktop`), or the host's CLI. TaskBaton adapts supported native JSON, JSONL and final-text output; the host does not have to emit TaskBaton's private receipt format.
 
 - Sending by hand through a bridge needs only a registered method and an enabled direction. **Automatic** delivery also needs the task's opt-in and verified capability: a passing probe, where the Agent writes a marker file and you confirm the session is visible, or one real handoff turn whose receipt the Agent wrote.
 - A probe calls the real CLI and may cost money. Login refusal, a missing model or missing tool permissions block automatic sending for that Agent until you choose **I have resolved · Allow automatic sends**.
-- Resuming a conversation requires an exact binding, a fresh host-store check, and a matching session ID in the response. Relay does not ask models to discover session IDs or make hidden conversations visible.
+- Resuming a conversation requires an exact binding, a fresh host-store check, and a matching session ID in the response. TaskBaton does not ask models to discover session IDs or make hidden conversations visible.
 - Zcode can keep old conversation content in memory after a CLI delivery. Switch to another conversation and return after about 11 minutes, or save and restart Zcode; an old view does not mean delivery failed.
-- Relay aligns the known hosts' request prefixes so prompt caches keep matching across a switch — Zcode by launch flags, Hermes through its shared gateway, DSH through its running desktop. Measured cache hits after a switch were 93–99%. `cli-recipe doctor` reports launch settings that differ from the desktop's; `agent cache-check` shows each request's cache hit. For other hosts, one-click setup hands the configuring Agent the built-in `relay-cache-parity` skill.
+- TaskBaton aligns the known hosts' request prefixes so prompt caches keep matching across a switch — Zcode by launch flags, Hermes through its shared gateway, DSH through its running desktop. Measured cache hits after a switch were 93–99%. `cli-recipe doctor` reports launch settings that differ from the desktop's; `agent cache-check` shows each request's cache hit. For other hosts, one-click setup hands the configuring Agent the built-in `relay-cache-parity` skill.
 - WorkBuddy offers no usable external interface here, so handoffs to it are copied manually.
+
+### Verified vs unverified
+
+| State | What it records | What it enables |
+| --- | --- | --- |
+| Verified | A passing probe (the Agent writes a marker file and you confirm the session is visible), or one real handoff turn whose receipt the Agent wrote | Automatic delivery for that Agent |
+| Registered, not verified | A calling method was imported or entered, and the direction is enabled | Manual copy; automatic sending stays blocked |
+| Probe failed | The probe ran but found a login, model or tool-permission problem | Automatic sending stays blocked until you resolve it |
+| No method | No calling method is recorded for that direction | Manual copy only |
+
+A probe is a real CLI call and may cost money. The demo's preset results are neither a probe nor a real acceptance: they only show the desktop flow.
+
+## Protocol
+
+The portable handoff contract is [`protocol/HANDOFF.md`](protocol/HANDOFF.md) (draft `handoff/1`, with schemas and conformance fixtures). The internal task and event model for this app is in [`docs/PROTOCOL.md`](docs/PROTOCOL.md). They are related but not the same document: `HANDOFF.md` defines what is handed over and what a valid receipt is; `PROTOCOL.md` describes the local ledger, state machine and CLI/MCP contract.
 
 ## Development
 
@@ -177,7 +204,7 @@ Tools: `relay_task_dispatch`, `relay_task_ack`, `relay_task_start`, `relay_task_
 </details>
 
 <details>
-<summary>Relay folder resolution</summary>
+<summary>TaskBaton folder resolution</summary>
 
 | Program | Order |
 | --- | --- |
@@ -185,7 +212,7 @@ Tools: `relay_task_dispatch`, `relay_task_ack`, `relay_task_start`, `relay_task_
 | Desktop app | `--home` → `RELAY_HOME` → folder chosen in Settings → `%LOCALAPPDATA%\AgentRelay` |
 | Demo | A new folder under `%LOCALAPPDATA%\AgentRelay.Demos\` |
 
-In **Settings → Relay storage → Review relay files**, select a file to see its full path, ownership and task references. **Preview cleanup** lists the exact expired Relay-owned files eligible for deletion. After confirmation, Relay rechecks the listed files and keeps files that changed or gained an active reference. Originals, project deliverables, control files and files of unverified ownership stay in place. The default retention period is 3 days.
+In **Settings → Relay storage → Review relay files**, select a file to see its full path, ownership and task references. **Preview cleanup** lists the exact expired TaskBaton-owned files eligible for deletion. After confirmation, TaskBaton rechecks the listed files and keeps files that changed or gained an active reference. Originals, project deliverables, control files and files of unverified ownership stay in place. The default retention period is 3 days.
 
 After moving the relay folder in Settings, point the CLI and MCP at the new `--home` and copy handoff prompts again.
 
@@ -196,9 +223,9 @@ After moving the relay folder in Settings, point the CLI and MCP at the new `--h
 - Preview software with real gaps: real host creation, visibility and continuation need testing in that host; simulated bridges do not establish real integration. Windows display scaling and multi-monitor behaviour need manual checks.
 - No background service or scheduled task. A running desktop app monitors receipts; after every process closes, overdue work waits for the next `relay recover` (CLI) or the next launch.
 - Uninstall cleanup only covers rules registered for the current relay folder. Other sites you used need separate handling. Deleting the install or ZIP folder does not replace uninstalling or removing rules.
-- Cancelling a task stops Relay's tracking and further delivery; it does not stop an Agent that is already working. Deleting a task keeps the files and their ownership records so eligible Relay copies can be reviewed for cleanup later.
+- Cancelling a task stops TaskBaton's tracking and further delivery; it does not stop an Agent that is already working. Deleting a task keeps the files and their ownership records so eligible TaskBaton copies can be reviewed for cleanup later.
 
-[Getting started](docs/GETTING_STARTED.md) · [Setup and receipts](docs/CONFIGURATION_ASSISTANT.md) · [Sessions](docs/SESSIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [UI spec](docs/UI_SPEC.md) · [Adapters](docs/ADAPTERS.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
+[Getting started](docs/GETTING_STARTED.md) · [Setup and receipts](docs/CONFIGURATION_ASSISTANT.md) · [Sessions](docs/SESSIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Protocol](protocol/HANDOFF.md) · [UI spec](docs/UI_SPEC.md) · [Adapters](docs/ADAPTERS.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
 
 ## License
 

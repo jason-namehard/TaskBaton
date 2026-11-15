@@ -1,4 +1,4 @@
-# Contributing
+# Contributing to TaskBaton (formerly Agent Relay)
 
 欢迎提交可复现的缺陷、宿主接入证据和范围明确的改进。缺陷报告请包含版本、平台、复现步骤、预期与实际行为，以及脱敏后的错误码。演示模式可用于不含认证的复现。
 
@@ -27,6 +27,8 @@ pwsh ./scripts/package.ps1 -Flavor Windows
 ## 变更约定
 
 业务契约放在共享 Core，CLI/MCP/GUI 仅处理各自输入输出。保留方向权限、显式完成、幂等、未知投递停止重发，以及配置先预览再批准的边界。修复需有针对真实失败的回归验证；文件名和代码标识符用英文。
+
+协议改动需要附带一致性用例（conformance case）：修改 [`protocol/HANDOFF.md`](protocol/HANDOFF.md)、schema 或校验行为时，在 `protocol/conformance/` 增加或更新可执行样本，并在 `protocol/conformance/manifest.json` 登记。可移植交接契约以 `protocol/HANDOFF.md` 为准；本机账本与状态机见 [`docs/PROTOCOL.md`](docs/PROTOCOL.md)。
 
 `README.md` 是英文主文件，`README.zh.md` 是独立简体中文版，两者顶部互相链接。修改安装步骤、能力或限制时同步两份 README；正文各自保持单一语言，命令、参数与 JSON 字段保留原样。现有深层文档和本贡献指南以中文为主，沿用所在文件的语言；新文档按读者选择语言并提供入口链接，不要求中英逐段混排。
 

@@ -99,7 +99,7 @@ public sealed partial class RelayService
         var route=Name(task.RequesterId)+" → "+Name(task.RecipientId);
         if(task.Collaboration is {} collaboration&&collaboration.ReviewerId!=task.RequesterId&&collaboration.ReviewerId!=task.RecipientId)
             route+=" · 验收 "+Name(collaboration.ReviewerId);
-        return new("Agent Relay · "+title,"任务 "+task.TaskId.Split('-')[0]+" · "+route+"\n"+instruction);
+        return new("TaskBaton · "+title,"任务 "+task.TaskId.Split('-')[0]+" · "+route+"\n"+instruction);
     }
 
     public async Task<object> ConfigureDesktopAsync(string executable, CancellationToken cancellationToken = default)

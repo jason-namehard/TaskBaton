@@ -136,7 +136,7 @@ public partial class MainWindow
         Styled(RowAction(sound,"Preview sound",()=>{PlayNotificationSound((string)choice.SelectedValue);return Task.CompletedTask;},false),"GhostButtonStyle");
         RowAction(SettingRow(group,"Test notification","Shows a sample in the lower-right corner. No task or model session is created."),"Send test notification",async()=>
         {
-            var content=new DesktopNotificationContent("Agent Relay · "+T("Test notification"),T("This tests desktop notifications only. No task or model session was created."));
+            var content=new DesktopNotificationContent("TaskBaton · "+T("Test notification"),T("This tests desktop notifications only. No task or model session was created."));
             var result=await new DesktopNotifier(File.Exists(CurrentNotifierPath())?CurrentNotifierPath():service.DesktopExecutable(),muteAudio:true,suppressDisplay:true)
                 .TestAsync(service.Home,content.Title,content.Message);
             ShowApplicationNotification(content);PlayNotificationSound(preferences.NotificationSound);

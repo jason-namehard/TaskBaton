@@ -10,7 +10,7 @@ internal static class CloseBehaviorText
 
     private static readonly IReadOnlyDictionary<string,string[]> Text = new Dictionary<string,string[]>
     {
-        ["title"] = ["Close Agent Relay", "关闭 Agent Relay", "關閉 Agent Relay", "Agent Relay を閉じる", "Agent Relay 닫기", "Cerrar Agent Relay"],
+        ["title"] = ["Close TaskBaton", "关闭 TaskBaton", "關閉 TaskBaton", "TaskBaton を閉じる", "TaskBaton 닫기", "Cerrar TaskBaton"],
         ["question"] = ["Keep Relay running in the tray, or exit?", "缩小至托盘继续运行，还是直接退出？", "縮小至系統匣繼續執行，還是直接結束？", "トレイで実行を続けますか、終了しますか？", "트레이에서 계속 실행할까요, 종료할까요?", "¿Seguir en la bandeja o salir?"],
         ["remember"] = ["This choice is remembered. You can change it in Settings.", "只询问这一次，之后按本次选择关闭。可随时在设置中修改。", "只詢問這一次，之後依本次選擇關閉。可隨時在設定中修改。", "この選択を記憶します。設定から変更できます。", "이 선택을 기억합니다. 설정에서 변경할 수 있습니다.", "Se recordará tu elección. Puedes cambiarla en Ajustes."],
         ["tray"] = ["Minimize to tray", "缩小至托盘", "縮小至系統匣", "トレイに最小化", "트레이로 최소화", "Minimizar a la bandeja"],

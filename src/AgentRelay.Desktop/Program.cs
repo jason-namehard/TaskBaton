@@ -31,7 +31,7 @@ internal static class Program
         }
         catch (Exception error) when (error is RelayException or IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
         {
-            MessageBox.Show(error.Message, "Agent Relay — Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(error.Message, "TaskBaton — Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return 2;
         }
     }

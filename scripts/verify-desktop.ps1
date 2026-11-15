@@ -82,7 +82,7 @@ try {
     $copied = [Windows.Forms.Clipboard]::GetText()
     if ($copied -ne $done.data.prompt) { throw 'Cold notification activation did not copy the correct continuation prompt' }
     $window = @(Get-Process AgentRelay.Notify | Where-Object {$_.Path -eq $Helper})
-    if ($window.Count -ne 1 -or $window[0].MainWindowTitle -ne 'Agent Relay') { throw 'Expected one continuation window from cold activation' }
+    if ($window.Count -ne 1 -or $window[0].MainWindowTitle -ne 'TaskBaton') { throw 'Expected one continuation window from cold activation' }
     $window[0].CloseMainWindow() | Out-Null
     if (-not $window[0].WaitForExit(10000)) { throw 'Notification process did not exit after closing its window' }
     $summary = [pscustomobject]@{status='passed';task_id=$task.task_id;notification_state='submitted';cold_com_activation=$true;

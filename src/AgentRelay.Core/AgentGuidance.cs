@@ -91,7 +91,7 @@ public sealed partial class RelayService
             : $"若已核实可用 CLI，将调用方案保存为临时 JSON，直接导入：\n{relayCommand} --home \"{Home}\" cli-recipe import --agent <本次登记命令返回的 Agent ID> --manifest <调用方案 JSON 路径>\n只使用本次命令返回的 ID。原生 JSON、JSONL 或文本由 Relay 适配，不要求宿主输出 Relay 专用回执。调用参数每项一个，不拼 shell 字符串；arguments 或 input 必须含 {{prompt}}。resume 无法确认则填 null，支持时须含 {{session_id}}。environment 可设非敏感环境变量。\noutput_format 可选：" +
                 string.Join("、", CliRecipes.OutputFormats) + "。DSH 用 dsh-jsonl；Zcode 按输出选 zcode-json 或 zcode-jsonl；Hermes 用 hermes-jsonl；CodeBuddy/WorkBuddy 的兼容 JSON 用 claude-json；仅最终文本用 text；已存在的专用桥用 relay-json。格式应与已查证的实际输出一致，未知不要编造。模板：\n" + RelayJson.Write(recipeTemplate);
         return $$"""
-            Agent Relay 一键配置请求：{{requestId}}
+            TaskBaton 一键配置请求：{{requestId}}
             {{intent}}
             当前节点目录（只用于避免重复和覆盖，不是本次写入目标）：
             {{RelayJson.Write(registered)}}
@@ -318,7 +318,7 @@ public sealed partial class RelayService
         var agent = RequireGuidanceAgent(agentId);
         var nodes = Agents().Select(a => new { id = a.AgentId, name = a.DisplayName ?? a.AgentId });
         var document = $$"""
-            # Agent Relay 按需交接
+            # TaskBaton 按需交接
 
             当前节点：{{agent.DisplayName ?? agent.AgentId}}（{{agentId}}）
             当前中转站：{{Home}}

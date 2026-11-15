@@ -34,7 +34,7 @@ public partial class MainWindow
     {
         Size = (uint)Marshal.SizeOf<TrayIconData>(), Window = handle, Id = 1,
         Flags = 1 | 2 | 4, Callback = TrayMessage, Icon = trayIcon,
-        Tip = "Agent Relay", Info = "", InfoTitle = ""
+        Tip = "TaskBaton", Info = "", InfoTitle = ""
     };
 
     private void RemoveTray()

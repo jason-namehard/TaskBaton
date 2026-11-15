@@ -63,7 +63,7 @@ public partial class MainWindow : Window
         };
         if (demo)
         {
-            Title = "Agent Relay — Demo";
+            Title = "TaskBaton — Demo";
             DemoBadge.Visibility = Visibility.Visible;
         }
         UpdateChrome();

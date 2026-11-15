@@ -1,10 +1,10 @@
-# Agent Relay 项目概要
+# TaskBaton（原 Agent Relay）项目概要
 
 状态：架构已获批准，Phase 2 真实 CLI 派发已实现。研究日期：2026-10-22。当前用法与边界见 [README](../README.md)，验收记录见 [PHASE1](PHASE1.md) 和 [PHASE2](PHASE2.md)。
 
 ## 目标与边界
 
-Agent Relay 是 Windows 本机多 Agent 的协调与控制层。请求方负责写任务、接收方负责推理与执行；Relay 负责登记身份、检查有向权限、传递 Markdown、记录任务状态、处理显式回调与恢复。
+TaskBaton 是 Windows 本机多 Agent 的协调与控制层。请求方负责写任务、接收方负责推理与执行；TaskBaton 负责登记身份、检查有向权限、传递 Markdown、记录任务状态、处理显式回调与恢复。
 
 首个可用版本覆盖同一 Windows 用户下的两个已验证 CLI Agent。核心在 GUI 关闭时仍可登记、派发、确认、完成、失败、查询和清理。支持 `auto`、`confirm`、`manual`；只有当前主机、版本和目标均通过验证的能力可自动使用。缺少能力时持久保存任务并提供手工提示词，不报告投递成功。
 

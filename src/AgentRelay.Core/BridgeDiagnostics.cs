@@ -50,7 +50,7 @@ public sealed partial class RelayService
                 命令返回可能含完整调用方案。执行时在本机捕获结果，只输出操作成功与安全摘要，不把返回对象、环境值或原始诊断全文打印进对话。
                 """;
         return $"""
-            请帮助诊断并修正 Agent Relay 中指定节点的桥接配置，保留原节点，不新建替代节点，不改其他 Agent。
+            请帮助诊断并修正 TaskBaton 中指定节点的桥接配置，保留原节点，不新建替代节点，不改其他 Agent。
 
             Relay 版本：{version}
             本机运行程序集：{assembly.Location}

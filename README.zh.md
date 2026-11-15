@@ -1,4 +1,4 @@
-# Agent Relay
+# TaskBaton（原 Agent Relay）
 
 [English](README.md) | **简体中文**
 
@@ -6,22 +6,34 @@
 [![Release](https://img.shields.io/github/v/release/jason-namehard/agent-relay?include_prereleases&label=latest)](https://github.com/jason-namehard/agent-relay/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT.svg)](LICENSE)
 
-给同时使用多个 AI Agent 的人准备的本机交接台：把文件或请求从 A 交给 B，随时看清现在由谁处理，工作真正完成时才结束这一轮。
+TaskBaton（任务接力棒）是给同时使用多个 AI Agent 的人准备的本机交接层：把文件或请求从 A 交给 B，随时看清现在由谁处理，工作真正完成时才结束这一轮。
 
 ![一次完成的交接：任务看板](docs/images/ui-tasks.png)
 
-同时用几个 Agent 时，工作通常靠复制粘贴推进：把请求贴进一个会话，等它回答，再把答案抄到另一个会话。很快你就分不清哪个会话收到了什么、对方有没有接手、文件变了是不是就代表做完了。Agent Relay 把每次交接记成本机中转站里的一条任务（SQLite 账本），在 Windows 桌面程序中展示进度，并把「消息已提交」和「任务已凭回执完成」分开。Agent 和分工由你决定，Relay 只需要知道谁交给谁。
+同时用几个 Agent 时，工作通常靠复制粘贴推进：把请求贴进一个会话，等它回答，再把答案抄到另一个会话。很快你就分不清哪个会话收到了什么、对方有没有接手、文件变了是不是就代表做完了。TaskBaton 把每次交接记成本机中转站里的一条任务（SQLite 账本），在 Windows 桌面程序中展示进度，并把「消息已提交」和「任务已凭回执完成」分开。Agent 和分工由你决定，TaskBaton 只需要知道谁交给谁。
 
-当前版本为 `0.3.0`，提供 Windows x64 桌面安装包。CLI 与 stdio MCP 有 Windows 和 Linux 的 CI 覆盖。没有 macOS 桌面包、云端中转站，也没有在所有进程关闭后继续运行的后台服务。
+当前版本为 `0.4.0`，提供 Windows x64 桌面安装包。CLI 与 stdio MCP 有 Windows 和 Linux 的 CI 覆盖。没有 macOS 桌面包、云端中转站，也没有在所有进程关闭后继续运行的后台服务。
+
+## 它是什么 / 不是什么
+
+**是什么：** 一层交接。它记录工作单、当前由谁持有，以及说明实际发生了什么回执，让工作在 Agent 之间流转时不必靠反复粘贴碰运气。
+
+**不是什么：** 不是替你规划或调度 Agent 工作的编排平台，不是聊天客户端，不是 IDE，也不是云服务。它不替代 Agent 自己的会话、模型和权限，也不以托管中转站的形式运行。
 
 ## 快速开始
 
+### 60 秒体验桌面演示
+
+下载并完整解压 [Windows x64 便携 ZIP](https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64.zip)，双击 `TryDemo.cmd`。在「任务」里打开一条已完成的样例，可以看到原始请求、回复和处理记录。演示会创建独立的本机中转站并使用预设结果：无需安装或登录模型账号，也不会调用模型。这些是预设结果，不是探针，也不是与真实 Agent 的一次真实交接。
+
+试过之后，欢迎[提交试用反馈](https://github.com/jason-namehard/agent-relay/issues/new?template=trial_feedback.yml)。你平时会把哪两个 Agent 搭配使用？第一次交接卡在哪一步？
+
 ### Windows 安装包
 
-从 [发布页](https://github.com/jason-namehard/agent-relay/releases/tag/v0.3.0) 下载 Windows x64 安装包，也可以在 PowerShell 运行：
+从 [发布页](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0) 下载 TaskBaton 0.4.0 的 Windows x64 安装包，也可以在 PowerShell 运行：
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.3.0/AgentRelay-v0.3.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
+Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
 Start-Process '.\AgentRelay-setup.exe' -Wait
 ```
 
@@ -32,14 +44,14 @@ Start-Process '.\AgentRelay-setup.exe' -Wait
 & "$env:LOCALAPPDATA\Programs\Agent Relay\app\relay.exe" --help    # app\mcp\relay-mcp.exe 同样是自包含的
 ```
 
-按 0.1.1 和 0.1.2 源码分别构建的隔离安装包已通过覆盖升级测试。卸载测试覆盖了保留数据、移除规则、清除账本、规则损坏及位置记录缺失；原始交付安装包之间的升级尚未在隔离虚拟机中实测。升级前请先从托盘退出 Agent Relay。
+0.4.0 构建通过了隔离安装、覆盖升级和卸载验收（27 项检查）。已发布的安装包尚未在干净虚拟机中一起实测。升级前请先从托盘退出 TaskBaton。
 
-### 旧预览版 `0.1.0-preview.22`
+### 使用 PowerShell 下载并核对便携 ZIP
 
-从 [Release 页面](https://github.com/jason-namehard/agent-relay/releases/tag/v0.1.0-preview.22) 下载，或用 PowerShell。请把压缩包完整解压到新目录，不要在 ZIP 里直接运行。
+从 [Release 页面](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0) 下载，或用 PowerShell。请把压缩包完整解压到新目录，不要在 ZIP 里直接运行。
 
 ```powershell
-$version = 'v0.1.0-preview.22'
+$version = 'v0.4.0'
 $zip = "AgentRelay-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest "https://github.com/jason-namehard/agent-relay/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
@@ -65,7 +77,7 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 
 </details>
 
-运行要求：安装版的桌面程序、CLI 与 MCP 都自带运行库；便携 ZIP 的 CLI 与 MCP（`relay.dll`、`mcp\relay-mcp.dll`）需要 [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。没有代码签名，Windows 可能给出安全提示。「无需账号」指的是 Relay 自身和演示；接入的 Agent 仍按各自宿主的账号、权限和模型计费。
+运行要求：安装版的桌面程序、CLI 与 MCP 都自带运行库；便携 ZIP 的 CLI 与 MCP（`relay.dll`、`mcp\relay-mcp.dll`）需要 [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。没有代码签名，Windows 可能给出安全提示。「无需账号」指的是 TaskBaton 自身和演示；接入的 Agent 仍按各自宿主的账号、权限和模型计费。
 
 ## 四个主页面
 
@@ -85,9 +97,9 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 ### 自动 CLI 传递
 
 1. 登记 A 和 B。**新建 Agent → 一键配置** 会读取 CLI 帮助和非敏感设置，能导入调用方式时直接导入；本机接口跑不起来时改用手动字段，不必粘贴一整段配置块。
-2. 选择 **新建任务 → 新建自动传递任务**。选 A（可选来源会话；没有来源会话时，交给 A 的那一轮需要手动复制）、选 B，指定新会话或已有会话，填写工作正文；Relay 准备提示词并调用所选 CLI。
+2. 选择 **新建任务 → 新建自动传递任务**。选 A（可选来源会话；没有来源会话时，交给 A 的那一轮需要手动复制）、选 B，指定新会话或已有会话，填写工作正文；TaskBaton 准备提示词并调用所选 CLI。
 3. 选择 **单次交接**、**定次接力**或**持续修改直到验收通过**。选验收模式后可指定验收方、填写验收标准或让发起方 Agent 拟定，并设置验收轮数上限。默认 5 轮，填 0 表示不限。验收通过即结束。最后一轮仍要求修改时，任务暂停，等待用户决定是否追加轮数。独立验收首次新建任务专用会话，后续复验可续接。
-4. 创建任务。尚未启用的方向需要你明确允许，因为自动发送要求该 Agent 的能力已验证。看板显示当前处理者、角色、轮次和阶段。后续轮次续接精确绑定的会话；会话丢失时 Relay 会请你另行选择，而不是退回最近的对话。
+4. 创建任务。尚未启用的方向需要你明确允许，因为自动发送要求该 Agent 的能力已验证。看板显示当前处理者、角色、轮次和阶段。后续轮次续接精确绑定的会话；会话丢失时 TaskBaton 会请你另行选择，而不是退回最近的对话。
 
 ### 常用接力模板
 
@@ -100,11 +112,11 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 ### 手动传递
 
 1. **新建任务 → 新建手动传递任务**，选择发送方和接收方，填写请求，复制给发送方的提示词并粘贴到它的会话。
-2. 把发送方返回的 JSON 粘贴回 Relay 解析创建任务，也可以直接选择一个已有文件。
-3. 按看板提示复制下一段提示词给当前处理方。Relay 运行时与刷新时读取回执；按实际需要继续传递，整项任务明确完成后才结束。
-4. 可选地把一行交接规则写入宿主实际读取的指令文件。Relay 不会静默修改该文件：写入前先让你看到这一行；详细指引按需读取。
+2. 把发送方返回的 JSON 粘贴回 TaskBaton 解析创建任务，也可以直接选择一个已有文件。
+3. 按看板提示复制下一段提示词给当前处理方。TaskBaton 运行时与刷新时读取回执；按实际需要继续传递，整项任务明确完成后才结束。
+4. 可选地把一行交接规则写入宿主实际读取的指令文件。TaskBaton 不会静默修改该文件：写入前先让你看到这一行；详细指引按需读取。
 
-结果文件出现或被修改都不会完成任务。任务状态只由有效回执改变，或由你明确点击「标记传递完成」（记录的是用户决定）。CLI 投递结果不确定时先检查目标会话；确认未收到后点「确认未收到 · 允许重发」再发送一次，Relay 不会自动重试。
+结果文件出现或被修改都不会完成任务。任务状态只由有效回执改变，或由你明确点击「标记传递完成」（记录的是用户决定）。CLI 投递结果不确定时先检查目标会话；确认未收到后点「确认未收到 · 允许重发」再发送一次，TaskBaton 不会自动重试。
 
 ## 包含什么
 
@@ -118,19 +130,34 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 | CLI 扩充 | 原生 JSON、JSONL 与最终文本输出的适配；新会话探针与续接探针分开记录 |
 | 存储 | 本机中转站、保留期清理、迁移时先复制校验再切换 |
 | 外观 | 极简、暖色、清新、夜间与跟随系统五种主题；强调色；英语、简体中文、繁体中文、日语、韩语、西班牙语 |
-| 通知 | 可选的 Windows 辅助程序与可选提示音；Relay 运行时显示应用内提醒 |
+| 通知 | 可选的 Windows 辅助程序与可选提示音；TaskBaton 运行时显示应用内提醒 |
 | 卸载 | 按用户安装的 Windows 安装包；卸载默认保留数据，也可只移除规则，或清除账本与偏好并保留工作区文件 |
 
 ## 桥接、验证与费用
 
-桥接有三种：ACP、正在运行的桌面程序自身接口（DSH 为 `dsh-desktop`）、宿主自己的 CLI。Relay 适配原生 JSON、JSONL 和最终文本输出，宿主不必输出 Relay 的私有回执格式。
+桥接有三种：ACP、正在运行的桌面程序自身接口（DSH 为 `dsh-desktop`）、宿主自己的 CLI。TaskBaton 适配原生 JSON、JSONL 和最终文本输出，宿主不必输出 TaskBaton 的私有回执格式。
 
 - 通过桥接手动发送只需已登记的调用方式和已启用的方向。**自动**投递还要求任务开启自动，且能力已验证：探针通过（Agent 写出标记文件，并由你确认会话可见），或一次真实交接经该方案送达且 Agent 写回了回执。
 - 探针会真实调用 CLI，可能产生费用。登录被拒、未选模型或缺少工具权限会停止该 Agent 的自动投递，处理后在 Agent 管理点击「我已处理 · 允许自动发送」。
-- 续接会话需要精确绑定、重新核对宿主存储，并让响应中的会话 ID 与绑定一致。Relay 不让模型自行发现会话 ID，也不会把隐藏对话变成可见。
+- 续接会话需要精确绑定、重新核对宿主存储，并让响应中的会话 ID 与绑定一致。TaskBaton 不让模型自行发现会话 ID，也不会把隐藏对话变成可见。
 - Zcode 在 CLI 投递后可能仍在内存里显示旧的对话内容。切到其他会话约 11 分钟后再回来，或保存工作后重启 Zcode；旧视图不代表投递失败。
-- Relay 会让已知宿主的请求前缀保持一致，使切换后提示缓存继续命中：Zcode 按启动参数对齐，Hermes 经其共享网关，DSH 走正在运行的桌面接口。切换后实测缓存命中率为 93–99%。`cli-recipe doctor` 会报告与桌面不一致的启动设置，`agent cache-check` 显示每次请求的缓存命中；其他宿主可由一键配置把内置的 `relay-cache-parity` 技能交给正在配置的 Agent。
+- TaskBaton 会让已知宿主的请求前缀保持一致，使切换后提示缓存继续命中：Zcode 按启动参数对齐，Hermes 经其共享网关，DSH 走正在运行的桌面接口。切换后实测缓存命中率为 93–99%。`cli-recipe doctor` 会报告与桌面不一致的启动设置，`agent cache-check` 显示每次请求的缓存命中；其他宿主可由一键配置把内置的 `relay-cache-parity` 技能交给正在配置的 Agent。
 - WorkBuddy 在这里没有可用的外部接口，交给它的交接需要手动复制。
+
+### 已验证与未验证
+
+| 状态 | 记录了什么 | 能做什么 |
+| --- | --- | --- |
+| 已验证 | 探针通过（Agent 写出标记文件，并由你确认会话可见），或一次真实交接经该方案送达且 Agent 写回了回执 | 该 Agent 可自动投递 |
+| 已登记、未验证 | 已导入或填写调用方式，方向也已启用 | 可手动复制；自动发送仍被阻止 |
+| 探针失败 | 探针已运行，但发现登录、模型或工具权限问题 | 处理前自动发送保持阻止 |
+| 无方案 | 该方向没有登记调用方式 | 只能手动复制 |
+
+探针会真实调用 CLI，可能产生费用。演示中的预设结果既不是探针，也不是真实验收：它只展示桌面流程。
+
+## 协议
+
+可移植的交接契约见 [`protocol/HANDOFF.md`](protocol/HANDOFF.md)（草案 `handoff/1`，含 schema 与一致性测试样本）。本应用内部的任务与事件模型见 [`docs/PROTOCOL.md`](docs/PROTOCOL.md)。两者相关但不是同一份文档：`HANDOFF.md` 定义交接什么、什么算有效回执；`PROTOCOL.md` 描述本机账本、状态机与 CLI/MCP 契约。
 
 ## 开发
 
@@ -181,7 +208,7 @@ dotnet .\mcp\relay-mcp.dll --home <中转站目录> --agent <已登记的 Agent 
 | 桌面程序 | `--home` → `RELAY_HOME` → 设置页选定的目录 → `%LOCALAPPDATA%\AgentRelay` |
 | 演示 | `%LOCALAPPDATA%\AgentRelay.Demos\` 下的新目录 |
 
-在 **设置 → 中转站 → 查看中转文件** 中选择文件，可以查看完整路径、归属和任务引用。**预览清理**列出已超过保留期且没有活跃任务引用的 Relay 文件。确认后逐项复核，保留预览后被改动或被任务引用的文件。用户原件、项目交付物、任务控制文件和归属未确认的文件均保留。默认保留期为 3 天。
+在 **设置 → 中转站 → 查看中转文件** 中选择文件，可以查看完整路径、归属和任务引用。**预览清理**列出已超过保留期且没有活跃任务引用的 TaskBaton 文件。确认后逐项复核，保留预览后被改动或被任务引用的文件。用户原件、项目交付物、任务控制文件和归属未确认的文件均保留。默认保留期为 3 天。
 
 迁移中转站后，将 CLI 和 MCP 指向新的 `--home`，并重新复制交接提示词。
 
@@ -192,9 +219,9 @@ dotnet .\mcp\relay-mcp.dll --home <中转站目录> --agent <已登记的 Agent 
 - 预览软件，确有缺口：真实宿主的会话创建、可见性与续接需要在该宿主中实际测试；模拟桥接不构成真实集成证据。Windows 不同显示缩放和多显示器下的表现仍需人工检查。
 - 没有后台服务或计划任务。桌面程序运行时才监控回执；所有进程关闭后，超时工作要等下次 `relay recover`（CLI）或下次启动。
 - 卸载清理只覆盖当前中转站登记的规则；用过的其他站点需要分别处理。删除安装目录或解压目录都不能代替卸载或移除规则。
-- 取消任务只结束 Relay 的跟踪和后续投递，不会终止已经在工作的 Agent。删除任务会移除账本记录，文件保留到后续清理。
+- 取消任务只结束 TaskBaton 的跟踪和后续投递，不会终止已经在工作的 Agent。删除任务会移除账本记录，文件保留到后续清理。
 
-[上手指南](docs/GETTING_STARTED.md) · [配置与回执](docs/CONFIGURATION_ASSISTANT.md) · [会话管理](docs/SESSIONS.md) · [架构](docs/ARCHITECTURE.md) · [UI 规格](docs/UI_SPEC.md) · [适配器](docs/ADAPTERS.md) · [贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
+[上手指南](docs/GETTING_STARTED.md) · [配置与回执](docs/CONFIGURATION_ASSISTANT.md) · [会话管理](docs/SESSIONS.md) · [架构](docs/ARCHITECTURE.md) · [协议](protocol/HANDOFF.md) · [UI 规格](docs/UI_SPEC.md) · [适配器](docs/ADAPTERS.md) · [贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
 
 ## 许可
 

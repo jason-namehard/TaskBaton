@@ -1,7 +1,7 @@
 <Window x:Class="AgentRelay.Desktop.MainWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="Agent Relay" Icon="Assets/AgentRelay.ico" Width="1200" Height="780" MinWidth="960" MinHeight="620"
+ Title="TaskBaton" Icon="Assets/AgentRelay.ico" Width="1200" Height="780" MinWidth="960" MinHeight="620"
  WindowStartupLocation="CenterScreen" Background="{DynamicResource PageBrush}" FontSize="13.5" Foreground="{DynamicResource TextBrush}"
  UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
  <WindowChrome.WindowChrome>
@@ -20,7 +20,10 @@
       <Ellipse Canvas.Left="3" Canvas.Top="14" Width="8" Height="8" Fill="{DynamicResource AccentBrush}"/>
       <Ellipse Canvas.Left="15" Canvas.Top="4" Width="8" Height="8" Fill="{DynamicResource AccentInkBrush}"/>
      </Canvas>
-     <TextBlock Text="Agent Relay" Margin="10,0,0,0" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource NavTextBrush}"/>
+     <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+      <TextBlock Text="TaskBaton" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource NavTextBrush}"/>
+      <TextBlock Text="formerly Agent Relay" FontSize="10.5" Foreground="{DynamicResource NavMutedBrush}" Margin="0,1,0,0"/>
+     </StackPanel>
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Margin="10,12,6,0">
      <StackPanel Orientation="Horizontal" Margin="0,0,0,8">

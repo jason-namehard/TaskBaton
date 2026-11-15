@@ -38,8 +38,8 @@ internal sealed class ToastNotificationWindow : Window
         icon.Child=Icons.Create("Bell",size:17,brushKey:"AccentInkBrush");
         header.Children.Add(icon);
         var titles=new StackPanel{Margin=new(8,0,8,0)};Grid.SetColumn(titles,1);header.Children.Add(titles);
-        titles.Children.Add(new TextBlock{Text="Agent Relay",FontSize=11.5,Foreground=Brush("FaintBrush"),Margin=new(0,0,0,2)});
-        const string brand="Agent Relay · ";
+        titles.Children.Add(new TextBlock{Text="TaskBaton",FontSize=11.5,Foreground=Brush("FaintBrush"),Margin=new(0,0,0,2)});
+        const string brand="TaskBaton · ";
         var title=new TextBlock{Name="NotificationTitle",Text=content.Title.StartsWith(brand,StringComparison.Ordinal)?content.Title[brand.Length..]:content.Title,
             FontSize=14,FontWeight=FontWeights.SemiBold,Foreground=Brush("TextBrush"),TextWrapping=TextWrapping.Wrap};
         AutomationProperties.SetAutomationId(title,title.Name);titles.Children.Add(title);
