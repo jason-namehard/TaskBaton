@@ -595,12 +595,14 @@ public sealed partial class RelayService
     /// <summary>Chosen per task: every later turn for the same Agent starts a new session instead of resuming.</summary>
     private void StartFreshSession(StoreSession s, TaskRecord task, string agentId, bool independentReview = false)
     {
-        var existing = ReadTaskSession(s, task, agentId);
+        var purpose = independentReview ? "review" : "work";
+        var existing = ReadTaskSession(s, task, agentId, purpose);
         if (existing is null && !independentReview) return;
         var agent = Agent(s, agentId);
         SaveTaskSession(s, task, new(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
             null, existing?.Cwd, null, null, "new", "unknown", Now,
-            independentReview ? "dedicated review conversation" : "operator chose a new session for later turns", independentReview));
+            independentReview ? "dedicated review conversation" : "operator chose a new session for later turns",
+            independentReview, purpose));
         s.Event(task, "session.new_each_turn", agentId, Now, "turn=" + task.ManualTurn);
     }
 

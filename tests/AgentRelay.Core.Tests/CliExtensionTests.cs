@@ -146,7 +146,8 @@ public sealed class CliExtensionTests
         Assert.AreEqual("task.dispatched", service.Audit(view.Task.TaskId).Last().Event);
         Assert.IsFalse(service.Tasks().Any(t => t.Task.State == TaskState.Succeeded));
         service.SetPermission("agent-a", "agent-b", "deny");
-        await Assert.ThrowsExactlyAsync<RelayException>(() => service.DispatchAsync(new("agent-a", "agent-b", "暂停后不可自动", "auto", "cli:agent-b", "paused")));
+        var stillDelivered = await service.DispatchAsync(new("agent-a", "agent-b", "拒绝不再阻断", "auto", "cli:agent-b", "paused"));
+        Assert.AreEqual(TaskState.Dispatched, stillDelivered.Task.State);
     }
 
     [TestMethod]

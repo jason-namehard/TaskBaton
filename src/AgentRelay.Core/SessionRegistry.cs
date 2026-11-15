@@ -2,7 +2,7 @@ namespace AgentRelay.Core;
 
 public sealed record TaskSessionBinding(string TaskId, string AttemptId, int Turn, string AgentId, string Host,
     string? SessionId, string? Cwd, string? Profile, string? SessionPath, string Binding, string Visibility,
-    DateTimeOffset BoundAt, string? Evidence = null, bool IndependentReview = false);
+    DateTimeOffset BoundAt, string? Evidence = null, bool IndependentReview = false, string Purpose = "work");
 
 public sealed partial class RelayService
 {
@@ -30,7 +30,22 @@ public sealed partial class RelayService
     });
 
     public TaskSessionBinding? TaskSession(string taskId, string agentId) => store.Read(s =>
-        ReadTaskSession(s, s.Task(taskId), agentId));
+    {
+        var task = s.Task(taskId);
+        return ReadTaskSession(s, task, agentId, SessionPurpose(task, agentId));
+    });
+
+    public TaskSessionBinding? TaskSession(string taskId, string agentId, string purpose) => store.Read(s =>
+        ReadTaskSession(s, s.Task(taskId), agentId, purpose));
+
+    /// <summary>
+    /// A dedicated acceptance conversation is kept separate from the same Agent's work conversation, so a reviewer
+    /// that is also the sender or recipient never overwrites the work binding.
+    /// </summary>
+    public static string SessionPurpose(TaskRecord task, string agentId) =>
+        task.Collaboration is { IndependentAcceptance: true } review && review.ReviewerId == agentId &&
+        (review.Phase == "review" || review.ReviewRound > 0)
+            ? "review" : "work";
 
     public TaskSessionBinding BindTaskSession(string taskId, string agentId, SessionRecord session,
         string binding = "user_selected")
@@ -45,9 +60,11 @@ public sealed partial class RelayService
             RequireSessionChange(task, agentId);
             RequireExistingSessionAllowed(task, agentId);
             var agent = Agent(s, agentId);
+            var purpose = SessionPurpose(task, agentId);
             var value = new TaskSessionBinding(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
                 session.SessionId, session.Cwd, session.Profile, session.SessionPath, binding, session.Visibility, Now,
-                binding == "manual" ? "operator supplied an exact session ID" : "operator selected an existing session");
+                binding == "manual" ? "operator supplied an exact session ID" : "operator selected an existing session",
+                Purpose: purpose);
             SaveTaskSession(s, task, value);
             ResetUncertainFileDelivery(task, agentId);
             s.Save(task);
@@ -63,10 +80,11 @@ public sealed partial class RelayService
     {
         var task = s.Task(taskId); RequireSessionChange(task, agentId);
         var agent = Agent(s, agentId);
-        var independentReview = UsesIndependentReviewSession(task, agentId);
+        var purpose = SessionPurpose(task, agentId);
+        var independentReview = purpose == "review";
         SaveTaskSession(s, task, new(task.TaskId, task.AttemptId, task.ManualTurn, agentId, agent.Host,
-            null, independentReview ? ReadTaskSession(s, task, agentId)?.Cwd : null, null, null, "new", "unknown", Now,
-            "operator chose a new session", independentReview));
+            null, independentReview ? ReadTaskSession(s, task, agentId, purpose)?.Cwd : null, null, null, "new", "unknown", Now,
+            "operator chose a new session", independentReview, purpose));
         ResetUncertainFileDelivery(task, agentId); s.Save(task);
         return true;
     });
@@ -98,25 +116,28 @@ public sealed partial class RelayService
             throw new RelayException("invalid_origin", "来源调用上下文需要准确的宿主、会话 ID 和完整工作目录。");
     }
 
-    private static TaskSessionBinding? ReadTaskSession(StoreSession s, TaskRecord task, string agentId) =>
-        s.Query("SELECT json FROM task_session_bindings WHERE task_id=$task AND attempt_id=$attempt AND agent_id=$agent ORDER BY turn DESC LIMIT 1",
+    private static TaskSessionBinding? ReadTaskSession(StoreSession s, TaskRecord task, string agentId, string purpose = "work") =>
+        s.Query("SELECT json FROM task_session_bindings WHERE task_id=$task AND attempt_id=$attempt AND agent_id=$agent AND purpose=$purpose ORDER BY turn DESC LIMIT 1",
             row => RelayJson.Read<TaskSessionBinding>(row.GetString(0)), ("$task", task.TaskId),
-            ("$attempt", task.AttemptId), ("$agent", agentId)).SingleOrDefault();
+            ("$attempt", task.AttemptId), ("$agent", agentId), ("$purpose", purpose)).SingleOrDefault();
 
     private void SaveTaskSession(StoreSession s, TaskRecord task, TaskSessionBinding value)
     {
         s.Execute("""
-            INSERT INTO task_session_bindings(task_id,attempt_id,turn,agent_id,json) VALUES($task,$attempt,$turn,$agent,$json)
-            ON CONFLICT(task_id,attempt_id,turn,agent_id) DO UPDATE SET json=excluded.json
+            INSERT INTO task_session_bindings(task_id,attempt_id,turn,agent_id,purpose,json) VALUES($task,$attempt,$turn,$agent,$purpose,$json)
+            ON CONFLICT(task_id,attempt_id,turn,agent_id,purpose) DO UPDATE SET json=excluded.json
             """, ("$task", value.TaskId), ("$attempt", value.AttemptId), ("$turn", value.Turn),
-            ("$agent", value.AgentId), ("$json", RelayJson.Write(value)));
+            ("$agent", value.AgentId), ("$purpose", value.Purpose), ("$json", RelayJson.Write(value)));
         s.Event(task, "session.bound", value.AgentId, Now, RelayJson.Write(value));
     }
 
     private static void RequireSessionChange(TaskRecord task, string agentId)
     {
-        if (agentId != task.RequesterId && agentId != task.RecipientId)
-            throw new RelayException("session_agent_mismatch", "会话必须属于本任务的发送方或接收方。");
+        var participant = agentId == task.RequesterId || agentId == task.RecipientId ||
+            task.Collaboration is { } collaboration &&
+            (agentId == collaboration.AuthorId || agentId == collaboration.ReviewerId);
+        if (!participant)
+            throw new RelayException("session_agent_mismatch", "会话必须属于本任务的发送方、接收方或验收方。");
         if (Terminal(task.State)) throw new RelayException("session_task_finished", "已结束任务不能更换会话。");
         if (task.CliFileTurn == task.ManualTurn && task.CliFileStatus is "submitting" or "submitted")
             throw new RelayException("session_delivery_active", "本轮已投递，请先等待结果，不要在处理期间更换会话。");

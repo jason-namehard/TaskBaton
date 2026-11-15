@@ -11,10 +11,13 @@ public partial class MainWindow
     {
         Caption(section,"Conversations");
         var finished=task.State is TaskState.Succeeded or TaskState.Cancelled or TaskState.TimedOut or TaskState.Failed;
-        foreach(var id in new[]{task.RequesterId,task.RecipientId})
+        var participants = new List<(string Id, string Purpose)> { (task.RequesterId, "work"), (task.RecipientId, "work") };
+        if (task.Collaboration is { } collaboration)
+            participants.Add((collaboration.ReviewerId, "review"));
+        foreach(var (id,purpose) in participants.Distinct())
         {
-            var binding=service.TaskSession(task.TaskId,id);
-            var needsDedicatedReview=RelayService.UsesIndependentReviewSession(task,id);
+            var binding=service.TaskSession(task.TaskId,id,purpose);
+            var needsDedicatedReview=purpose=="review";
             if(needsDedicatedReview&&binding?.IndependentReview!=true)binding=null;
             var row=new Grid{Margin=new(0,0,0,10)};
             row.ColumnDefinitions.Add(new ColumnDefinition{Width=new(140)});
@@ -22,7 +25,7 @@ public partial class MainWindow
             row.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
             var who=new StackPanel{Orientation=Orientation.Horizontal,VerticalAlignment=VerticalAlignment.Top,Margin=new(0,3,0,0)};
             who.Children.Add(Avatar(id));
-            who.Children.Add(new TextBlock{Text=AgentName(id),FontWeight=FontWeights.SemiBold,Margin=new(8,0,0,0),VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis,MaxWidth=110});
+            who.Children.Add(new TextBlock{Text=AgentName(id)+(purpose=="review"?" · "+T("Review"):""),FontWeight=FontWeights.SemiBold,Margin=new(8,0,0,0),VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis,MaxWidth=110});
             row.Children.Add(who);
             var value=new StackPanel{VerticalAlignment=VerticalAlignment.Center,Margin=new(0,0,12,0)};
             var description=binding?.SessionId is {} session?session:needsDedicatedReview||binding?.Binding=="new"||id==task.RecipientId?T("New conversation"):T("Source conversation is not identified.");

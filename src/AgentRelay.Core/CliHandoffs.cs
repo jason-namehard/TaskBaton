@@ -32,20 +32,15 @@ public sealed partial class RelayService
         if(!dedicatedTarget&&request.TargetSessionId is not null&&target is not null&&CliRecipes.ResumeCommand(target.Recipe) is null)
             throw new RelayException("session_resume_unsupported","接收 Agent 的调用方案不支持续接已有会话，请选择新建会话或补充续接命令。");
         // Collaboration turns that return to the sender use CLI only when its exact conversation is bound; otherwise they are copied manually.
-        var planUsesSender=request.Collaboration is not null||request.RelayPlan?.Steps.Any(step=>step.AgentId==request.From)==true;
+        var collaborationUsesSender=request.Collaboration is {} loop&&(loop.AuthorId==request.From||loop.ReviewerId==request.From);
+        var planUsesSender=collaborationUsesSender||request.RelayPlan?.Steps.Any(step=>step.AgentId==request.From)==true;
         var dedicatedSender=request.Collaboration is {IndependentAcceptance:true} independent&&independent.AuthorId==request.To;
         var senderByCli=planUsesSender&&CliExtension(request.From) is {} senderExtension&&
             (dedicatedSender||request.OriginSessionId is not null&&CliRecipes.ResumeCommand(senderExtension.Recipe) is not null);
-        if(!dedicatedSender&&request.Collaboration is not null&&request.OriginSessionId is not null&&!senderByCli)
+        if(!dedicatedSender&&collaborationUsesSender&&request.OriginSessionId is not null&&!senderByCli)
             throw new RelayException("session_resume_unsupported","发送方需要配置准确会话续接命令，才能通过 CLI 把回稿送回原会话；也可以不选来源会话，改为手动传回。");
         foreach(var cwd in new[]{request.OriginCwd,request.TargetCwd})
             if(cwd is not null&&!Path.IsPathFullyQualified(cwd))throw new RelayException("session_cwd_invalid","会话项目目录需要完整路径。");
-        var directions=new[]{(request.From,request.To)}.Where(_=>target is not null)
-            .Concat(new[]{(request.To,request.From)}.Where(_=>senderByCli)).ToArray();
-        var permissions=ConnectionPermissions();
-        foreach(var (from,to) in directions)
-            if(!permissions.Any(p=>p.From==from&&p.To==to&&p.Decision=="allow")&&!request.EnableDirection)
-                throw new RelayException("cli_direction_disabled","此 CLI 任务需要的连接方向尚未启用。请在连接图启用，或明确勾选允许本次启用所需方向。");
 
         var drafts=CliDraftDirectory;Directory.CreateDirectory(drafts);
         var source=Path.Combine(drafts,"work-"+Guid.NewGuid().ToString("N")+".md");
@@ -61,8 +56,6 @@ public sealed partial class RelayService
         if(request.TargetSessionId is not null)BindManualTaskSession(taskId,request.To,request.TargetSessionId,request.TargetCwd);
         else UseNewTaskSession(taskId,request.To);
         ConfigureFileHandoff(taskId,options);
-        foreach(var (from,to) in directions)
-            if(request.EnableDirection)SetPermission(from,to,"allow");
         store.Write(s=>
         {
             var task=s.Task(taskId);task.Mode=target is null?"manual":"cli";task.AdapterId=target is null?"manual-file":"cli:"+request.To;
@@ -86,7 +79,9 @@ public sealed partial class RelayService
         var receipt=ManualReceiptPath(task);
         var context=ManualContextPath(task);
         var current=task.AwaitingAgentId??task.RecipientId;
-        var other=current==task.RequesterId?task.RecipientId:task.RequesterId;
+        var other=task.Collaboration is {} loop
+            ?current==loop.ReviewerId?loop.AuthorId:loop.ReviewerId
+            :current==task.RequesterId?task.RecipientId:task.RequesterId;
         var reply=TurnReplyPath(task);
         var images=ImagesForTurn(task);
         // When the initiating Agent performs the first step itself, the original work came from the user.

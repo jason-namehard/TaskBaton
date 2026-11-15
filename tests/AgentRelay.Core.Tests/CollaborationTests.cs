@@ -44,6 +44,59 @@ public sealed class CollaborationTests
         return imported;
     }
 
+    [TestMethod]
+    public void ThirdPartyReviewerGetsADedicatedConversationAndApprovalCompletesTheTask()
+    {
+        service.RegisterManual("agent-c", "manual", "丙");
+        task = service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-b", "页面可用", 3,
+            ReviewerFinal: true, ReviewerId: "agent-c"))).Task;
+        Assert.AreEqual("agent-c", task.Collaboration!.ReviewerId);
+        Assert.AreEqual("implement", task.Collaboration.Phase);
+        Assert.IsTrue(task.Collaboration.IndependentAcceptance);
+        Assert.AreEqual("agent-b", task.AwaitingAgentId);
+
+        Accepted(Send("submitted", content: "版本 1"));
+        Assert.AreEqual("review", task.Collaboration!.Phase);
+        Assert.AreEqual("agent-c", task.AwaitingAgentId);
+        var review = service.TaskSession(task.TaskId, "agent-c");
+        Assert.IsNotNull(review);
+        Assert.IsTrue(review.IndependentReview);
+        Assert.AreEqual("review", review.Purpose);
+
+        Accepted(Send("approved"));
+        Assert.AreEqual(TaskState.Succeeded, task.State);
+        Assert.IsNotNull(task.Collaboration!.Deliverable);
+    }
+
+    [TestMethod]
+    public void ReviewerThatAlsoHoldsAWorkConversationKeepsBothBindings()
+    {
+        service.BindManualTaskSession(task.TaskId, "agent-a", "origin-work");
+        task = service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-b", "页面可用", 3,
+            ReviewerFinal: true, ReviewerId: "agent-a"))).Task;
+        Assert.AreEqual("agent-a", task.Collaboration!.ReviewerId);
+        Assert.AreEqual("origin-work", service.TaskSession(task.TaskId, "agent-a", "work")!.SessionId);
+
+        Accepted(Send("submitted", content: "版本 1"));
+        Assert.AreEqual("review", task.Collaboration!.Phase);
+        var review = service.TaskSession(task.TaskId, "agent-a", "review");
+        Assert.IsNotNull(review);
+        Assert.IsTrue(review.IndependentReview);
+        Assert.IsNull(review.SessionId);
+        Assert.AreEqual("origin-work", service.TaskSession(task.TaskId, "agent-a", "work")!.SessionId);
+    }
+
+    [TestMethod]
+    public void ReviewerMustBeRegisteredAndDifferentFromTheAuthor()
+    {
+        Assert.AreEqual("collaboration_reviewer", Assert.ThrowsExactly<RelayException>(() =>
+            service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-b", "x",
+                ReviewerId: "agent-b")))).Code);
+        Assert.AreEqual("collaboration_reviewer", Assert.ThrowsExactly<RelayException>(() =>
+            service.ConfigureFileHandoff(task.TaskId, new(new CollaborationOptions("agent-b", "x",
+                ReviewerId: "agent-missing")))).Code);
+    }
+
     private void Accepted(ManualReceiptImportResult result) => Assert.IsEmpty(result.Errors, string.Join("; ", result.Errors.Select(e => e.Message)));
     private void Rejected(ManualReceiptImportResult result, string message)
     {

@@ -203,17 +203,16 @@ public sealed class FileDeliveryTests
     }
 
     [TestMethod]
-    public async Task VerifiedRecipeRequiresEnabledDirection()
+    public async Task VerifiedRecipeDoesNotRequireADirectionSwitch()
     {
         await Verify("agent-b");
         var task = Create();
-        Assert.IsFalse(service.CanSendFileHandoff(task));
-        await Assert.ThrowsExactlyAsync<RelayException>(() => service.SendFileHandoffAsync(task.TaskId, "Read the file."));
-        service.SetPermission("agent-a", "agent-b", "allow");
-        Assert.IsTrue(service.CanSendFileHandoff(service.Status(task.TaskId).Task));
+        Assert.IsTrue(service.CanSendFileHandoff(task));
         service.SetPermission("agent-a", "agent-b", "deny");
-        Assert.IsFalse(service.CanSendFileHandoff(service.Status(task.TaskId).Task));
-        Assert.AreEqual(0, Calls("agent-b"));
+        Assert.IsTrue(service.CanSendFileHandoff(service.Status(task.TaskId).Task));
+        var sent = await service.SendFileHandoffAsync(task.TaskId, "Read the file.");
+        Assert.AreEqual(1, Calls("agent-b"));
+        Assert.AreEqual("submitted", sent.Task.CliFileStatus);
     }
 
     [TestMethod]

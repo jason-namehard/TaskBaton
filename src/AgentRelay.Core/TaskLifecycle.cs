@@ -297,7 +297,6 @@ public sealed partial class RelayService
         var sender = Agent(s, from);
         var recipient = Agent(s, to);
         if (mode == "manual") return;
-        RequirePermission(s, from, to);
         if (!adapter.StartsWith("cli:", StringComparison.Ordinal))
         {
             RequirePaths(sender);

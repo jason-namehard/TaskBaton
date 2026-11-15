@@ -38,11 +38,11 @@ public sealed class LifecycleTests
     private static void WriteResult(TaskRecord task) => File.WriteAllText(task.ResultPath, "## Result\nReviewed.\n## Verification\nUnit tests passed.");
 
     [TestMethod]
-    public async Task DirectionalPermissionDoesNotBlockCompletionCallback()
+    public async Task DirectionSwitchDoesNotBlockEitherDirection()
     {
         var task = (await service.DispatchAsync(Request())).Task;
-        var error = await Assert.ThrowsExactlyAsync<RelayException>(() => service.DispatchAsync(Request("auto") with { From = "agent-b", To = "agent-a" }));
-        Assert.AreEqual("permission_denied", error.Code);
+        var reverse = await service.DispatchAsync(Request("auto") with { From = "agent-b", To = "agent-a" });
+        Assert.AreEqual(TaskState.AwaitingManual, reverse.Task.State);
         WriteResult(task);
         var done = service.Complete(task.TaskId, task.AttemptId, "agent-b", "done", task.ResultPath);
         Assert.AreEqual(TaskState.Succeeded, done.Task.State);

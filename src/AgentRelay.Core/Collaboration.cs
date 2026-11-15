@@ -1,7 +1,7 @@
 namespace AgentRelay.Core;
 
 public sealed record CollaborationOptions(string AuthorId, string? Criteria = null, int MaxReviewRounds = 5,
-    bool GenerateCriteria = false, bool ReviewerFinal = false, bool IndependentAcceptance = false);
+    bool GenerateCriteria = false, bool ReviewerFinal = false, bool IndependentAcceptance = false, string? ReviewerId = null);
 public sealed record FileHandoffOptions(CollaborationOptions? Collaboration = null, bool AutoDeliver = false,
     int? TurnTimeoutMinutes = null,bool ManualContinuous = false, RelayPlanOptions? RelayPlan = null);
 
@@ -55,7 +55,7 @@ public sealed partial class RelayService
         _ => throw new ArgumentOutOfRangeException(nameof(phase), phase, "Unknown collaboration phase.")
     };
 
-    internal static void ValidateFileHandoffOptions(FileHandoffOptions options, string requesterId, string recipientId)
+    internal void ValidateFileHandoffOptions(FileHandoffOptions options, string requesterId, string recipientId)
     {
         if (options.TurnTimeoutMinutes is < 1 or > 43200)
             throw new RelayException("handoff_turn_timeout", "单轮时限为 1–43200 分钟。");
@@ -66,6 +66,13 @@ public sealed partial class RelayService
         if (options.Collaboration is not { } collaboration) return;
         if (collaboration.AuthorId != requesterId && collaboration.AuthorId != recipientId)
             throw new RelayException("collaboration_author", "作者必须是本任务的发送方或接收方。");
+        if (collaboration.ReviewerId is { } reviewer)
+        {
+            if (!Agents().Any(agent => agent.AgentId == reviewer))
+                throw new RelayException("collaboration_reviewer", "验收方必须是已登记的 Agent。");
+            if (reviewer == collaboration.AuthorId)
+                throw new RelayException("collaboration_reviewer", "验收方不能与作者相同。");
+        }
         if (collaboration.ReviewerFinal && !collaboration.GenerateCriteria && string.IsNullOrWhiteSpace(collaboration.Criteria))
             throw new RelayException("collaboration_criteria_required", "请填写验收标准，或选择由发起方 Agent 拟定。");
         if (collaboration.MaxReviewRounds is < 0 or > MaxReviewRounds)
@@ -88,14 +95,17 @@ public sealed partial class RelayService
         task.AwaitingAgentId = task.RecipientId;
         if (options.Collaboration is { } collaboration)
         {
-            var reviewer = collaboration.AuthorId == task.RequesterId ? task.RecipientId : task.RequesterId;
+            var reviewer = collaboration.ReviewerId ??
+                (collaboration.AuthorId == task.RequesterId ? task.RecipientId : task.RequesterId);
             var reviewFirst = task.RecipientId == reviewer;
+            // A selected reviewer always gets this task's dedicated review conversation; legacy callers keep their choice.
+            var independentAcceptance = collaboration.IndependentAcceptance || collaboration.ReviewerId is not null;
             task.Collaboration = new CollaborationRecord
             {
                 AuthorId = collaboration.AuthorId, ReviewerId = reviewer,
                 Criteria = string.IsNullOrWhiteSpace(collaboration.Criteria) ? null : collaboration.Criteria.Trim(),
                 GenerateCriteria = collaboration.GenerateCriteria, ReviewerFinal = collaboration.ReviewerFinal,
-                IndependentAcceptance = collaboration.IndependentAcceptance,
+                IndependentAcceptance = independentAcceptance,
                 MaxReviewRounds = collaboration.MaxReviewRounds,
                 Phase = collaboration.GenerateCriteria ? "criteria" : reviewFirst ? "review" : "implement", ReviewRound = reviewFirst ? 1 : 0,
                 // When the sender already holds the work, the original request file is the first submission.
@@ -390,7 +400,7 @@ public sealed partial class RelayService
     private void EnsureIndependentReviewSession(StoreSession s, TaskRecord task, CollaborationRecord c)
     {
         if (!UsesIndependentReviewSession(task, c.ReviewerId) ||
-            ReadTaskSession(s, task, c.ReviewerId) is { IndependentReview: true }) return;
+            ReadTaskSession(s, task, c.ReviewerId, "review") is { IndependentReview: true }) return;
         StartFreshSession(s, task, c.ReviewerId, independentReview: true);
         s.Event(task, "collaboration.independent_session", c.ReviewerId, Now, "Reserved a dedicated review conversation.");
     }

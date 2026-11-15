@@ -11,14 +11,13 @@ internal sealed class CollaborationOptionsPanel
 {
     private readonly EntryDialogLayout ui;
     private readonly RadioButton loop;
-    private readonly RadioButton senderReviews;
+    private readonly ComboBox reviewer;
     private readonly RadioButton automaticCriteria;
     private readonly TextBox criteria;
     private readonly TextBox rounds;
     private readonly TextBox turnMinutes;
     private readonly CheckBox automatic;
     private readonly RadioButton relay;
-    private readonly CheckBox independent;
     private readonly RelayTemplateEditor relayTemplate;
 
     public CollaborationOptionsPanel(EntryDialogLayout ui, Panel parent, string prefix, int defaultTurnMinutes, bool automaticByDefault,
@@ -41,12 +40,14 @@ internal sealed class CollaborationOptionsPanel
         relayTemplate = new RelayTemplateEditor(ui, relayDetails, prefix, sender, recipient, prefix + "NewSessionEachTurn");
         var details = new StackPanel { Name = prefix + "ReviewOptions", Margin = new(18, 4, 0, 8), Visibility = Visibility.Collapsed };
         parent.Children.Add(details);
-        details.Children.Add(ui.Note("The selected final reviewer checks each version against the criteria. The task ends only when that Agent approves with no unresolved issues. The other Agent makes revisions."));
-        details.Children.Add(ui.Note("Final reviewer"));
-        senderReviews = Choice("Initiating Agent", "SenderReviews", "Roles", true);
-        var recipientReviews = Choice("Receiving Agent", "RecipientReviews", "Roles", false);
-        details.Children.Add(senderReviews); details.Children.Add(recipientReviews);
-        details.Children.Add(ui.Note("If the receiving Agent is the final reviewer, the initial work request must include the existing work or its location; the initiating Agent makes any revisions."));
+        details.Children.Add(ui.Note("The selected reviewer checks each version against the criteria. The task ends when that Agent approves with no unresolved issues. The author makes revisions. A third Agent can be the reviewer."));
+        details.Children.Add(ui.Note("Reviewer (any registered Agent)"));
+        reviewer = new ComboBox { Name = prefix + "Reviewer", ItemsSource = sender.ItemsSource, DisplayMemberPath = "Name",
+            SelectedValuePath = "Id", MinHeight = 38, SelectedValue = sender.SelectedValue };
+        AutomationProperties.SetAutomationId(reviewer, prefix + "Reviewer");
+        details.Children.Add(reviewer);
+        details.Children.Add(ui.Note("The reviewer always gets this task's dedicated review conversation. First review starts a new conversation; later reviews continue that same one. The reviewer never shares or overwrites the author's work conversation."));
+        details.Children.Add(ui.Note("If the receiving Agent is the reviewer, the first prompt must include the existing work or its location; the initiating Agent makes any revisions."));
         details.Children.Add(ui.Note("Acceptance criteria describe observable conditions the reviewer must check. Relay sends them with every review and records the Agent's decision; Relay does not independently verify the work."));
         var manualCriteria=Choice("I will enter the acceptance criteria", "ManualCriteria", "CriteriaSource", true);
         automaticCriteria=Choice("Initiating Agent creates the acceptance criteria", "AutoCriteria", "CriteriaSource", false);
@@ -54,14 +55,9 @@ internal sealed class CollaborationOptionsPanel
         criteria = ui.Field(details, "Acceptance criteria", prefix + "Criteria", multiline: true); criteria.Height = 70;
         automaticCriteria.Checked+=(_,_)=>criteria.IsEnabled=false;
         manualCriteria.Checked+=(_,_)=>criteria.IsEnabled=true;
-        details.Children.Add(ui.Note("When the initiating Agent creates criteria, Relay first asks it to write the criteria. Select its source conversation for CLI delivery; otherwise copy the prompt to it manually."));
+        details.Children.Add(ui.Note("When the initiating Agent creates the criteria, Relay adds the required prompt to the first turn and asks that Agent to write them in the requested format; you do not need to write the criteria yourself. Select the initiator's source conversation for CLI delivery; otherwise copy the prompt to it manually."));
         rounds = ui.Field(details, "Review limit (0 means no limit)", prefix + "Rounds", "5");
         details.Children.Add(ui.Note("Without a limit, automatic calls may continue and incur model charges until the reviewer approves. No-progress pauses and per-turn time limits still apply."));
-        independent = new CheckBox { Name = prefix + "IndependentAcceptance", Margin = new(0, 6, 0, 6),
-            Content = new TextBlock { Text = ui.T("Use a dedicated conversation for independent acceptance"), TextWrapping = TextWrapping.Wrap } };
-        AutomationProperties.SetAutomationId(independent, prefix + "IndependentAcceptance");
-        details.Children.Add(independent);
-        details.Children.Add(ui.Note("Independent acceptance starts in a new review-only conversation and can continue there in later reviews."));
         loop.Checked += (_, _) => { details.Visibility = Visibility.Visible; relayDetails.Visibility = Visibility.Collapsed; };
         relay.Checked += (_, _) => { details.Visibility = Visibility.Collapsed; relayDetails.Visibility = Visibility.Visible; };
         single.Checked += (_, _) => { details.Visibility = Visibility.Collapsed; relayDetails.Visibility = Visibility.Collapsed; };
@@ -88,10 +84,19 @@ internal sealed class CollaborationOptionsPanel
         if(loop.IsChecked==true&&automaticCriteria.IsChecked!=true&&string.IsNullOrWhiteSpace(criteria.Text))
             throw new RelayException("collaboration_criteria_required",ui.T("Enter the acceptance criteria or let the initiating Agent create them."));
         var collaboration = loop.IsChecked == true
-            ? new CollaborationOptions(senderReviews.IsChecked == true ? recipient : sender,
-                automaticCriteria.IsChecked == true ? null : criteria.Text, Number(rounds, 0, RelayService.MaxReviewRounds),
-                GenerateCriteria:automaticCriteria.IsChecked==true,ReviewerFinal:true,IndependentAcceptance:independent.IsChecked==true)
+            ? BuildReview(sender, recipient, Number(rounds, 0, RelayService.MaxReviewRounds))
             : null;
         return new(collaboration, AutoDeliver, minutes);
+    }
+
+    private CollaborationOptions BuildReview(string sender, string recipient, int reviewRounds)
+    {
+        var reviewerId = reviewer.SelectedValue as string ?? sender;
+        // The reviewer must differ from the author; the other end authors the work when one end reviews it.
+        var authorId = reviewerId == recipient ? sender : recipient;
+        return new CollaborationOptions(authorId,
+            automaticCriteria.IsChecked == true ? null : criteria.Text, reviewRounds,
+            GenerateCriteria: automaticCriteria.IsChecked == true, ReviewerFinal: true, IndependentAcceptance: true,
+            ReviewerId: reviewerId);
     }
 }

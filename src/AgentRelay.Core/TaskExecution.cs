@@ -173,7 +173,6 @@ public sealed partial class RelayService
         RequirePaths(Agent(s, sender));
         if (!Terminal(task.State))
         {
-            RequirePermission(s, task.RequesterId, task.RecipientId);
             RequireLive(task);
         }
     }

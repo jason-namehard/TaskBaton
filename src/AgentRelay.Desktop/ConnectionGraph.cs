@@ -17,7 +17,9 @@ public sealed class ConnectionGraph : Viewbox
         Brush B(string key)=>(Brush)owner.FindResource(key);
         Brush Color(ConnectionView edge)=>edge.Display switch
         {
-            "Allowed"=>B("AllowedBrush"),"Denied"=>B("DeniedBrush"),"Unavailable"=>B("UnavailableBrush"),
+            "Available" or "Allowed"=>B("AllowedBrush"),"Unavailable"=>B("UnavailableBrush"),
+            // Older ledgers may still carry Denied; the graph shows it as unavailable but never pauses the route.
+            "Denied"=>B("UnavailableBrush"),
             _=>throw new ArgumentOutOfRangeException(nameof(edges),edge.Display,"Unknown connection display state.")
         };
         Stretch=Stretch.Uniform;StretchDirection=StretchDirection.Both;HorizontalAlignment=HorizontalAlignment.Center;VerticalAlignment=VerticalAlignment.Center;

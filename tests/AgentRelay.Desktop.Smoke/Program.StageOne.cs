@@ -52,7 +52,6 @@ internal static partial class Program
                 Find<ComboBox>(dialog, "CliTaskRelayTemplate").SelectedIndex = 3;
                 Find<ComboBox>(dialog, "CliTaskRelayStart").SelectedIndex = 1;
                 Find<TextBox>(dialog, "CliTaskPrompt").Text = "Build, test, and revise the fixture.";
-                Find<CheckBox>(dialog, "CliTaskEnableDirections").IsChecked = true;
                 Press(dialog, "SendCliTask");
                 return Task.CompletedTask;
             });

@@ -46,8 +46,8 @@ public sealed class RelayStore
             CREATE TABLE IF NOT EXISTS resumers (agent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS cli_extensions (agent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS task_session_bindings (task_id TEXT NOT NULL, attempt_id TEXT NOT NULL,
-                turn INTEGER NOT NULL, agent_id TEXT NOT NULL, json TEXT NOT NULL,
-                PRIMARY KEY(task_id,attempt_id,turn,agent_id));
+                turn INTEGER NOT NULL, agent_id TEXT NOT NULL, purpose TEXT NOT NULL DEFAULT 'work', json TEXT NOT NULL,
+                PRIMARY KEY(task_id,attempt_id,turn,agent_id,purpose));
             CREATE TABLE IF NOT EXISTS session_discovery_sources (agent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS session_discovery_cache (agent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS desktop (id INTEGER PRIMARY KEY CHECK(id=1), executable TEXT NOT NULL);
@@ -61,10 +61,35 @@ public sealed class RelayStore
             CREATE TABLE IF NOT EXISTS parallel_handoffs (id TEXT PRIMARY KEY, json TEXT NOT NULL);
             """;
         command.ExecuteNonQuery();
+        MigrateSessionBindingPurpose(connection);
         using var insert = connection.CreateCommand();
         insert.CommandText = "INSERT OR IGNORE INTO settings VALUES(1,$json)";
         insert.Parameters.AddWithValue("$json", RelayJson.Write(new RelaySettings()));
         insert.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Older ledgers keyed one binding per Agent and turn. A reviewer that is also the sender or recipient needs a
+    /// separate review conversation, so the key gains a purpose column. Existing rows remain work bindings.
+    /// </summary>
+    private static void MigrateSessionBindingPurpose(SqliteConnection connection)
+    {
+        using var check = connection.CreateCommand();
+        check.CommandText = "SELECT COUNT(*) FROM pragma_table_info('task_session_bindings') WHERE name='purpose'";
+        if (Convert.ToInt64(check.ExecuteScalar()) > 0) return;
+        using var migrate = connection.CreateCommand();
+        migrate.CommandText = """
+            BEGIN;
+            CREATE TABLE task_session_bindings_purpose (task_id TEXT NOT NULL, attempt_id TEXT NOT NULL,
+                turn INTEGER NOT NULL, agent_id TEXT NOT NULL, purpose TEXT NOT NULL DEFAULT 'work', json TEXT NOT NULL,
+                PRIMARY KEY(task_id,attempt_id,turn,agent_id,purpose));
+            INSERT INTO task_session_bindings_purpose(task_id,attempt_id,turn,agent_id,purpose,json)
+                SELECT task_id,attempt_id,turn,agent_id,'work',json FROM task_session_bindings;
+            DROP TABLE task_session_bindings;
+            ALTER TABLE task_session_bindings_purpose RENAME TO task_session_bindings;
+            COMMIT;
+            """;
+        migrate.ExecuteNonQuery();
     }
 
     public SqliteConnection Open(bool readOnly = false)

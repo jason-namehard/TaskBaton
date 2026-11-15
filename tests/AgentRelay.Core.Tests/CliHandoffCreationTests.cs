@@ -154,7 +154,7 @@ public sealed class CliHandoffCreationTests
         Assert.IsNull(task.HandoffPlan);
         Assert.AreEqual("agent-b",task.Collaboration!.AuthorId);Assert.AreEqual("agent-a",task.Collaboration.ReviewerId);
         Assert.AreEqual("implement",task.Collaboration.Phase);
-        Assert.HasCount(2,service.ConnectionPermissions().Where(p=>p.Decision=="allow").ToArray());
+        Assert.IsEmpty(service.ConnectionPermissions());
         Assert.IsNull(task.CliFileTurn);Assert.IsFalse(File.Exists(Log("agent-a")));Assert.IsFalse(File.Exists(Log("agent-b")));
         Assert.IsEmpty(Directory.GetFiles(Path.Combine(service.Home,".cli-drafts")));
     }
@@ -174,17 +174,15 @@ public sealed class CliHandoffCreationTests
     }
 
     [TestMethod]
-    public void CreationRequiresAnEnabledDirectionAndExactSessionInput()
+    public void CreationRequiresExactSessionInputButNoDirectionSwitch()
     {
-        Assert.ThrowsExactly<RelayException>(()=>service.CreateCliHandoff(Request() with{EnableDirection=false}));
-        Assert.ThrowsExactly<RelayException>(()=>service.CreateCliHandoff(Request(true) with{EnableDirection=false}));
         Assert.ThrowsExactly<RelayException>(()=>service.CreateCliHandoff(Request() with{Prompt=" "}));
         Assert.ThrowsExactly<RelayException>(()=>service.CreateCliHandoff(Request() with{OriginSessionId=" "}));
         Assert.ThrowsExactly<RelayException>(()=>service.CreateCliHandoff(Request() with{TargetSessionId=" "}));
         Assert.IsEmpty(service.Tasks());Assert.IsEmpty(service.ConnectionPermissions());
-        service.SetPermission("agent-a","agent-b","allow");
         var created=service.CreateCliHandoff(Request() with{EnableDirection=false}).Task;
         Assert.AreEqual("selected-b",service.TaskSession(created.TaskId,"agent-b")!.SessionId);
+        Assert.IsEmpty(service.ConnectionPermissions());
         Assert.IsFalse(File.Exists(Log("agent-b")));
     }
 
@@ -193,7 +191,7 @@ public sealed class CliHandoffCreationTests
     {
         var task=service.CreateCliHandoff(Request(true) with{OriginSessionId=null}).Task;
         Assert.IsNotNull(task.Collaboration);
-        Assert.AreEqual("agent-a",service.ConnectionPermissions().Single(p=>p.Decision=="allow").From);
+        Assert.IsEmpty(service.ConnectionPermissions());
         FinishStep(task,"submitted");
         var review=service.Status(task.TaskId);
         Assert.AreEqual("agent-a",review.Task.AwaitingAgentId);
@@ -278,7 +276,7 @@ public sealed class CliHandoffCreationTests
                 [new("agent-a", RelayStepRole.Work), new("agent-b", RelayStepRole.Test), new("agent-a", RelayStepRole.Modify)],
                 NewSessionEachTurn: newConversation)
         }).Task;
-        Assert.HasCount(2, service.ConnectionPermissions().Where(permission => permission.Decision == "allow").ToArray());
+        Assert.IsEmpty(service.ConnectionPermissions());
 
         async Task SendAndComplete(string session, bool last = false)
         {

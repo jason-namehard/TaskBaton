@@ -16,7 +16,7 @@ public sealed class CliHandoffDialog : Window
     public CliHandoffDialog(Window owner,RelayService service,string language)
     {
         var ui=new EntryDialogLayout(this,owner,UiText.Translate("New task",language),language);
-        ui.Body.Children.Add(ui.Note("Write the work request and choose the conversations. Agents with a bridge receive it automatically; for others you copy the prompt. A real call may incur model charges."));
+        ui.Body.Children.Add(ui.Note("Write the first prompt that starts the task and choose the conversations. Agents with a bridge receive it automatically; for others you copy the prompt. A real call may incur model charges."));
         var agents=service.Agents().Select(a=>new HandoffAgentOption(a.AgentId,a.DisplayName??a.AgentId)).ToArray();
         ComboBox AgentChoice(string label,string name,int index)
         {
@@ -75,27 +75,25 @@ public sealed class CliHandoffDialog : Window
             ThemedMessageBox.Show(this,message,ui.T("Cannot attach file"),MessageBoxButton.OK,MessageBoxImage.Warning);
         });
         var prompt=composer.PromptTextBox;
-        ui.Body.Children.Add(new Label{Content=ui.T("Work request"),Target=prompt,Padding=new(0,0,0,2)});
+        ui.Body.Children.Add(new Label{Content=ui.T("First prompt"),Target=prompt,Padding=new(0,0,0,2)});
         ui.Body.Children.Add(composer);
-        ui.Body.Children.Add(ui.Note("Paste or drop images into the work request."));
+        ui.Body.Children.Add(ui.Note("This prompt starts the task; it is not a standing to-do list. Current-turn requirements and open items appear in the task details."));
+        ui.Body.Children.Add(ui.Note("Paste or drop images into the first prompt."));
         composer.AttachmentsChanged+=(_,_)=>ui.Status.Text="";
         var options=new CollaborationOptionsPanel(ui,ui.Body,"CliTask",service.Settings().TaskTimeoutMinutes,true,from,to);
-        var permission=new CheckBox{Name="CliTaskEnableDirections",Content=ui.T("Allow enabling the connection directions required by this task"),Margin=new(0,4,0,10)};
-        ui.Body.Children.Add(permission);
-        ui.Body.Children.Add(ui.Note("This enables required routes that are paused or not yet authorized. It does not add a bridge or sign in to an Agent."));
         ui.Body.Children.Add(ui.Note("Chosen conversations stay bound to this task. Without a source conversation, turns for the sender are copied manually."));
         ui.Button(ui.Actions,"Create task","SendCliTask",()=>
         {
             if(from.SelectedValue is not string sender||to.SelectedValue is not string recipient)throw new RelayException("agent_required",ui.T("Select an Agent."));
             if(sender==recipient)throw new RelayException("manual_same_agent",ui.T("Sender and recipient must be different."));
             var images=composer.Images;
-            if(string.IsNullOrWhiteSpace(prompt.Text)&&images.Length==0)throw new RelayException("cli_work_required",ui.T("Enter the work request."));
+            if(string.IsNullOrWhiteSpace(prompt.Text)&&images.Length==0)throw new RelayException("cli_work_required",ui.T("Enter the first prompt."));
             var choice=options.Build(sender,recipient);
             var dedicatedTarget=choice.Collaboration is {IndependentAcceptance:true} review&&review.AuthorId==sender;
             if(!dedicatedTarget&&existing.IsChecked==true&&Target is null)
                 throw new RelayException("session_selection_required",ui.T("Select a conversation first."));
             Result=new(sender,recipient,prompt.Text,Origin?.SessionId,existing.IsChecked==true&&!dedicatedTarget?Target!.SessionId:null,
-                permission.IsChecked==true,Origin?.Cwd,existing.IsChecked==true?Target?.Cwd:string.IsNullOrWhiteSpace(newCwd.Text)?null:newCwd.Text.Trim(),
+                false,Origin?.Cwd,existing.IsChecked==true?Target?.Cwd:string.IsNullOrWhiteSpace(newCwd.Text)?null:newCwd.Text.Trim(),
                 choice.Collaboration,choice.AutoDeliver,choice.TurnTimeoutMinutes,images.Length>0?images:null,choice.RelayPlan);
             DialogResult=true;
         },true);

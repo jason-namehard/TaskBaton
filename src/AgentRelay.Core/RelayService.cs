@@ -142,13 +142,6 @@ public sealed partial class RelayService
             throw new RelayException("invalid_id", "Agent ID 使用小写字母开头的字母、数字或连字符，最多 64 字符。");
     }
 
-    private static void RequirePermission(StoreSession s, string from, string to)
-    {
-        var decision = s.Query("SELECT decision FROM permissions WHERE sender=$from AND recipient=$to", r => r.GetString(0),
-            ("$from", from), ("$to", to)).SingleOrDefault();
-        if (decision != "allow") throw new RelayException("permission_denied", $"未授权 {from} → {to}。", 3);
-    }
-
     private static void RequirePaths(AgentRecord agent)
     {
         if (agent.ValidationStatus != "path_verified" || !File.Exists(agent.ConfigPath) ||

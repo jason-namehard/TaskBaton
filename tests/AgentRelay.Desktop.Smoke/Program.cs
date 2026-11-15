@@ -310,12 +310,12 @@ internal static partial class Program
         Check(readyIndicator.Fill==window.FindResource("AllowedBrush")&&readyIndicator.ToolTip.ToString()!.Contains("verified"),"Verified CLI indicator is green and distinguishes verification from registration");
         var forward=ByAutomation<System.Windows.Shapes.Path>(window,"ConnectionPair:agent-a:agent-b");
         forward.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=UIElement.MouseLeftButtonDownEvent});
-        Press(window,"PauseConnection_agent_a_agent_b");await Task.Delay(30);
-        Check(service.Connections().Single(e=>e.From=="agent-a"&&e.To=="agent-b").Display=="Denied","Green arrow can pause its own direction");
-        Check(service.Connections().Single(e=>e.From=="agent-b"&&e.To=="agent-a").Display=="Denied","Changing forward route leaves reverse route independent");
-        Press(window,"EnableConnection_agent_a_agent_b");await Task.Delay(30);
-        Check(service.Connections().Single(e=>e.From=="agent-a"&&e.To=="agent-b").Display=="Allowed","Red arrow can enable its own direction");
-        Check(ByAutomation<System.Windows.Shapes.Path>(window,"ConnectionStroke:agent-a:agent-b").StrokeDashArray.Count==0,"Available enabled route is a solid stroke");
+        Check(service.Connections().Single(e=>e.From=="agent-a"&&e.To=="agent-b").Display=="Available","Connection state reports an available calling method");
+        Check(service.Connections().Single(e=>e.From=="agent-b"&&e.To=="agent-a").Display=="Available","Reverse route is reported independently");
+        Check(ByAutomation<Border>(window,"ConnectionState_agent_a_agent_b").Child is TextBlock stateText&&stateText.Text=="Available","Selected direction shows a read-only availability pill");
+        Check(!FindAll<Button>(window).Any(button=>button.Name.StartsWith("PauseConnection_",StringComparison.Ordinal)||button.Name.StartsWith("EnableConnection_",StringComparison.Ordinal)),
+            "Connection graph no longer exposes per-direction pause or enable switches");
+        Check(ByAutomation<System.Windows.Shapes.Path>(window,"ConnectionStroke:agent-a:agent-b").StrokeDashArray.Count==0,"Available route is a solid stroke");
         Check(ByAutomation<System.Windows.Shapes.Polygon>(window,"ConnectionArrow:agent-a:agent-b").Points.Count==3,"Available route has a geometric arrowhead");
         Check(!FindAll<Border>(window).Any(b=>AutomationProperties.GetAutomationId(b).StartsWith("ConnectionLabel:")),"Shared connection lines do not repeat overlapping state labels");
         await SaveImage(window,Path.Combine(root,"Connections.png"));
@@ -591,6 +591,7 @@ internal static partial class Program
     {
         var station=new RelayService(Path.Combine(root,"cli-task-ui"));station.Initialize();
         station.RegisterManual("ui-source","fixture","Source");station.RegisterManual("ui-target","fixture","Target");
+        station.RegisterManual("ui-third","fixture","Third reviewer");
         var calls=Path.Combine(root,"cli-task-calls.txt");
         var command=new CliCommand("pwsh",["-NoLogo","-NoProfile","-NonInteractive","-Command",
             "$p=[Console]::In.ReadToEnd();[IO.File]::AppendAllText($env:RELAY_UI_CALLS,$p);@{session_id='created-ui-session';reply='work accepted';accepted=$true}|ConvertTo-Json -Compress"],
@@ -605,8 +606,7 @@ internal static partial class Program
             Check(Find<StackPanel>(dialog,"CliTaskReviewOptions").Visibility==Visibility.Collapsed,"Single handoff hides reviewer, criteria, and review limit controls");
             Find<RadioButton>(dialog,"CliTaskLoop").IsChecked=true;
             Find<RadioButton>(dialog,"CliTaskAutoCriteria").IsChecked=true;
-            Find<RadioButton>(dialog,"CliTaskRecipientReviews").IsChecked=true;
-            Find<CheckBox>(dialog,"CliTaskIndependentAcceptance").IsChecked=true;
+            Find<ComboBox>(dialog,"CliTaskReviewer").SelectedValue="ui-target";
             Find<TextBox>(dialog,"CliTaskPrompt").Text="Review the existing work.";
             Check(Find<StackPanel>(dialog,"CliTaskReviewOptions").Visibility==Visibility.Visible&&
                 !Find<TextBox>(dialog,"CliTaskCriteria").IsEnabled&&Find<TextBox>(dialog,"CliTaskRounds").Text=="5",
@@ -614,7 +614,7 @@ internal static partial class Program
             Find<TextBox>(dialog,"CliTaskRounds").Text="0";
             Press(dialog,"SendCliTask");return Task.CompletedTask;
         });
-        Check(automaticOptions.Result?.Collaboration is {GenerateCriteria:true,ReviewerFinal:true,MaxReviewRounds:0,AuthorId:"ui-source",IndependentAcceptance:true},
+        Check(automaticOptions.Result?.Collaboration is {GenerateCriteria:true,ReviewerFinal:true,MaxReviewRounds:0,AuthorId:"ui-source",IndependentAcceptance:true,ReviewerId:"ui-target"},
             "Acceptance supports generated criteria, an explicit unlimited budget, and a dedicated reviewer conversation");
         var manualOptions=new CliHandoffDialog(window,station,"en");
         await Show(manualOptions,dialog=>
@@ -624,7 +624,18 @@ internal static partial class Program
             Find<TextBox>(dialog,"CliTaskPrompt").Text="Implement the work.";
             Press(dialog,"SendCliTask");return Task.CompletedTask;
         });
-        Check(manualOptions.Result?.Collaboration is {GenerateCriteria:false,ReviewerFinal:true,AuthorId:"ui-target",Criteria:"Tests pass"},"Manual criteria and initiating Agent as final reviewer are recorded");
+        Check(manualOptions.Result?.Collaboration is {GenerateCriteria:false,ReviewerFinal:true,AuthorId:"ui-target",Criteria:"Tests pass",ReviewerId:"ui-source"},"Manual criteria and a selected reviewer are recorded");
+        var thirdOptions=new CliHandoffDialog(window,station,"en");
+        await Show(thirdOptions,dialog=>
+        {
+            Find<RadioButton>(dialog,"CliTaskLoop").IsChecked=true;
+            Find<ComboBox>(dialog,"CliTaskReviewer").SelectedValue="ui-third";
+            Find<TextBox>(dialog,"CliTaskCriteria").Text="Third-party review";
+            Find<TextBox>(dialog,"CliTaskPrompt").Text="Implement for a third-party reviewer.";
+            Press(dialog,"SendCliTask");return Task.CompletedTask;
+        });
+        Check(thirdOptions.Result?.Collaboration is {ReviewerId:"ui-third",AuthorId:"ui-target",IndependentAcceptance:true,ReviewerFinal:true},
+            "A third registered Agent can be selected as the reviewer without changing the author");
         var relayOptions=new CliHandoffDialog(window,station,"en");
         await Show(relayOptions,dialog=>
         {
@@ -689,7 +700,6 @@ internal static partial class Program
                 Find<TextBox>(child,"ManualSessionCwd").Text=root;Press(child,"UseManualSession");return Task.CompletedTask;
             });
             Press(dialog,"CliTaskOrigin");await selected;
-            Find<CheckBox>(dialog,"CliTaskEnableDirections").IsChecked=true;
             await SaveImage(dialog,Path.Combine(root,"New-cli-task.png"));
             Press(dialog,"SendCliTask");
         });
@@ -1541,7 +1551,7 @@ internal static partial class Program
             fixture.Close();
         }
         var pairAgents=new[]{new AgentRecord("left","manual","",null,null,[],"manual_ready",null,"左节点"),new AgentRecord("right","manual","",null,null,[],"manual_ready",null,"右节点")};
-        foreach(var (forward,reverse,arrows) in new[]{("Unavailable","Unavailable",0),("Allowed","Unavailable",1),("Allowed","Allowed",2),("Allowed","Denied",2)})
+        foreach(var (forward,reverse,arrows) in new[]{("Unavailable","Unavailable",0),("Available","Unavailable",1),("Available","Available",2)})
         {
             var edges=new[]{new ConnectionView("left","right","allow","CLI",forward,""),new ConnectionView("right","left","deny","CLI",reverse,"")};
             ConnectionView? selected=null;
@@ -1550,12 +1560,6 @@ internal static partial class Program
             var hit=ByAutomation<System.Windows.Shapes.Path>(graph,"ConnectionPair:left:right");
             hit.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice,0,MouseButton.Left){RoutedEvent=UIElement.MouseLeftButtonDownEvent});
             Check(selected?.From=="left"&&selected.To=="right","Clicking a shared pair selects its canonical direction for the two-direction detail pane");
-            if(reverse=="Denied")
-            {
-                var outgoing=ByAutomation<System.Windows.Shapes.Polygon>(graph,"ConnectionArrow:left:right");
-                var incoming=ByAutomation<System.Windows.Shapes.Polygon>(graph,"ConnectionArrow:right:left");
-                Check(outgoing.Fill==owner.FindResource("AllowedBrush")&&incoming.Fill==owner.FindResource("DeniedBrush"),"Mixed pair preserves independent green and red arrowheads");
-            }
         }
     }
     private static void SeedExtension(RelayService service,string id,bool confirmed)

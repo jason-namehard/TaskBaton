@@ -84,8 +84,11 @@ internal static partial class Program
                 Check(!preview.IsVisible && dialog.IsVisible, "Escape closes only the image preview and preserves the task draft");
             });
             Press(dialog, "CliTaskImagePreview_1"); await opened;
-            Find<Button>(dialog, "CliTaskImagePreview_2").Focus();
+            var secondPreview = Find<Button>(dialog, "CliTaskImagePreview_2");
+            secondPreview.BringIntoView();
+            secondPreview.Focus();
             await dialog.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            dialog.UpdateLayout();
             Check(Find<Button>(dialog, "CliTaskImageRemove_2").IsVisible,
                 "The thumbnail delete action is accessible when the image receives keyboard focus");
             Press(dialog, "CliTaskImageRemove_2");

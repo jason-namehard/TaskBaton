@@ -20,8 +20,9 @@ public sealed partial class RelayService
             let available = cli
             select new ConnectionView(sender.AgentId, recipient.AgentId, permission,
                 available ? "registered CLI" : "manual",
-                !available ? "Unavailable" : permission == "allow" ? "Allowed" : "Denied",
-                available ? "目标 Agent 已登记 CLI 调用方案；启用后会发起实际调用。已有会话须明确绑定，续接前验证存在。" : "缺少 CLI 调用方案；可登记调用方式，或手动复制提示词。"))
+                // The graph is informational: it never pauses a route. Delivery depends on the recipient's verified bridge.
+                available ? "Available" : "Unavailable",
+                available ? "目标 Agent 已登记调用方案；有已验证桥接时自动投递，否则复制提示词手动交接。连接图不再单独开关方向。" : "缺少调用方案；可登记调用方式，或手动复制提示词。"))
             .ToList();
     }
 

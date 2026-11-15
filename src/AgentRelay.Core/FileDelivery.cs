@@ -16,17 +16,15 @@ public sealed partial class RelayService
         // A receipt can arrive while Relay's own call is still running; never start the next turn on top of it.
         if (task.CliFileTurn is not null && task.CliFileStatus == "submitting") return false;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
-        var sender = recipient == task.RecipientId ? task.RequesterId : task.RecipientId;
         var extension = CliExtension(recipient);
         if (extension is null || extension.Block is not null) return false;
-        var binding = TaskSession(task.TaskId, recipient);
+        var binding = TaskSession(task.TaskId, recipient, SessionPurpose(task, recipient));
         if (UsesIndependentReviewSession(task, recipient) && binding is not { IndependentReview: true }) return false;
         if (task.Collaboration?.Phase == "criteria" && binding?.SessionId is null) return false;
         if (task.RelaySteps is not null && recipient == task.RequesterId && binding is null) return false;
         if (binding?.SessionId is not null && CliRecipes.ResumeCommand(extension.Recipe) is null) return false;
         if (binding?.Binding == "ephemeral" || task.ManualTurn > 0 && binding is null) return false;
-        return
-            ConnectionPermissions().Any(p => p.From == sender && p.To == recipient && p.Decision == "allow");
+        return true;
     }
 
     /// <summary>Unattended sends need the exact capability already proven and no unresolved host blocker.</summary>
@@ -35,7 +33,7 @@ public sealed partial class RelayService
         if (task.ManualResendTurn == task.ManualTurn || !CanSendFileHandoff(task)) return false;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         return CliExtension(recipient) is { } extension && AutomaticRouteReady(task, extension,
-            TaskSession(task.TaskId, recipient)?.SessionId is not null);
+            TaskSession(task.TaskId, recipient, SessionPurpose(task, recipient))?.SessionId is not null);
     }
 
     private bool AutomaticRouteReady(TaskRecord task, CliExtensionRecord extension, bool resume) =>
@@ -53,7 +51,7 @@ public sealed partial class RelayService
             return "上一轮的投递仍在执行，本轮结果已提交但执行结束未知；确认宿主结束后再自动开始下一步。";
         if (!task.AutoDeliver || task.UnattendedRun is not null || task.ManualResendTurn == task.ManualTurn ||
             extension is null || !CanSendFileHandoff(task)) return null;
-        var resume = TaskSession(task.TaskId, recipient)?.SessionId is not null;
+        var resume = TaskSession(task.TaskId, recipient, SessionPurpose(task, recipient))?.SessionId is not null;
         if (resume ? extension.CanResume : extension.CanCreate) return null;
         return resume
             ? "自动续接尚未验证：请在桥接测试确认同一会话的续接探针，或手动发送本轮并等待真实回执。自动投递目前不会启动。"
@@ -118,7 +116,8 @@ public sealed partial class RelayService
         var bounded = automatic && task.UnattendedRun is not null;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         var extension = CliExtension(recipient)!;
-        var binding = TaskSession(taskId, recipient);
+        var purpose = SessionPurpose(task, recipient);
+        var binding = TaskSession(taskId, recipient, purpose);
         var resume = binding?.SessionId is not null;
         if (automatic && (!task.AutoDeliver || !AutomaticRouteReady(task, extension, resume)))
             throw new RelayException("file_cli_changed", "此任务当前不允许自动投递，请查看任务状态。");
@@ -168,9 +167,8 @@ public sealed partial class RelayService
                 current.CliFileTurn is not null && current.CliFileStatus == "submitting" ||
                 current.State is not (TaskState.AwaitingManual or TaskState.AwaitingReply) ||
                 (current.AwaitingAgentId ?? current.RecipientId) != recipient || ReadCliExtension(s,recipient)?.Revision != extension.Revision ||
-                ReadTaskSession(s,current,recipient) != binding)
+                ReadTaskSession(s,current,recipient,purpose) != binding)
                 throw new RelayException("file_cli_changed", "任务已经变化，本次未重复发送。");
-            RequirePermission(s,recipient==current.RecipientId?current.RequesterId:current.RecipientId,recipient);
             var currentExtension = ReadCliExtension(s, recipient)!;
             if (currentExtension.Block is {} currentBlock)
                 throw new RelayException("cli_blocked",currentBlock.Message);
@@ -252,7 +250,7 @@ public sealed partial class RelayService
                     validated?.Visibility ?? binding?.Visibility ?? "unknown", Now,
                     resume ? "adapter resumed the exact bound session" : session is null
                         ? "CLI completed without a persistent session ID" : "adapter parsed the created session ID",
-                    IndependentReview: independentReview);
+                    IndependentReview: independentReview, Purpose: purpose);
                 SaveTaskSession(s, current, value);
             }
             if (failure is { Blocking: true } && ReadCliExtension(s, recipient) is { } stored && stored.Revision == extension.Revision)
@@ -292,13 +290,13 @@ public sealed partial class RelayService
         var current = s.Task(task.TaskId);
         if (current.AttemptId != task.AttemptId || current.ManualTurn != task.ManualTurn ||
             (current.AwaitingAgentId ?? current.RecipientId) != agentId) return false;
-        var existing = ReadTaskSession(s, current, agentId);
+        var existing = ReadTaskSession(s, current, agentId, SessionPurpose(current, agentId));
         if (existing?.SessionId is not null) return false;
         var agent = Agent(s, agentId);
         var value = new TaskSessionBinding(current.TaskId, current.AttemptId, current.ManualTurn, agentId, agent.Host,
             sessionId, cwd ?? existing?.Cwd, existing?.Profile, existing?.SessionPath, "created",
             existing?.Visibility ?? "unknown", Now, "host reported this session id before the turn finished",
-            IndependentReview: existing?.IndependentReview == true);
+            IndependentReview: existing?.IndependentReview == true, Purpose: existing?.Purpose ?? "work");
         SaveTaskSession(s, current, value);
         s.Event(current, "session.observed_early", agentId, Now, sessionId);
         return true;

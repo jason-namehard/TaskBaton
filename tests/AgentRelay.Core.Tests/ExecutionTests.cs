@@ -129,13 +129,12 @@ public sealed class ExecutionTests
     }
 
     [TestMethod]
-    public async Task RevokedPermissionBlocksExecutionAfterTransportAccepted()
+    public async Task DirectionSwitchNoLongerBlocksExecution()
     {
         var task = await Dispatch(); service.SetPermission("agent-a", "agent-b", "deny");
         var executor = new Executor();
-        var error = await Assert.ThrowsExactlyAsync<RelayException>(() => service.RunTaskAsync(task.TaskId, task.AttemptId,
-            "agent-b", executor: executor, receiver: new Receiver()));
-        Assert.AreEqual("permission_denied", error.Code); Assert.AreEqual(0, executor.Calls);
+        await service.RunTaskAsync(task.TaskId, task.AttemptId, "agent-b", executor: executor, receiver: new Receiver());
+        Assert.AreEqual(1, executor.Calls);
     }
 
     private sealed class TestClock : TimeProvider

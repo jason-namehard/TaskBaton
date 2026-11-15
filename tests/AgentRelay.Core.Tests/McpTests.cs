@@ -77,8 +77,8 @@ public sealed class McpTests
         Assert.AreEqual("manual_required", service.Status(id).Task.ResumeStatus);
         var prompt = await Call(a, "relay_prompt_show", new() { ["task_id"] = id });
         StringAssert.Contains(prompt.GetProperty("data").GetProperty("text").GetString()!, service.Status(id).Task.ResultPath);
-        var reverse = await Call(b, "relay_task_dispatch", new() { ["to"] = "agent-a", ["content"] = "reverse", ["idempotency_key"] = "reverse" }, true);
-        Assert.AreEqual("permission_denied", reverse.GetProperty("error").GetProperty("code").GetString());
+        var reverse = await Call(b, "relay_task_dispatch", new() { ["to"] = "agent-a", ["content"] = "reverse", ["idempotency_key"] = "reverse" });
+        Assert.AreEqual("awaiting_manual", reverse.GetProperty("data").GetProperty("task").GetProperty("state").GetString());
     }
 
     [TestMethod]
