@@ -13,6 +13,10 @@ public sealed record ProbeCleanupResult(string AgentId, IReadOnlyList<ProbeClean
     internal static bool IsComplete(ProbeCleanupItem item) => item.Status is "removed" or "absent" or "synced" or "shared";
 }
 
+/// <summary>One recorded probe the user can explicitly choose to clean up for the current Agent.</summary>
+public sealed record ProbeCleanupCandidate(string ProbeId, string Operation, string? SessionId, bool Completed,
+    bool OwnedSession, string? OwnershipWarning, bool Legacy);
+
 internal sealed record ProbeSessionSnapshot(SessionDiscoverySource? Source, HashSet<string>? SessionIds, string? Warning);
 internal sealed record ProbeSessionOwnership(bool Owned, string? Directory, string? Warning);
 
@@ -46,13 +50,40 @@ public sealed partial class RelayService
         }
     }
 
-    public async Task<ProbeCleanupResult> CleanupCliProbeAsync(string agentId, CancellationToken cancellationToken = default)
+    /// <summary>Probes recorded for one Agent, newest last. The UI uses this to offer an explicit selection.</summary>
+    public IReadOnlyList<ProbeCleanupCandidate> ProbeCleanupCandidates(string agentId)
     {
         var extension = CliExtension(agentId) ?? throw new RelayException("cli_recipe_missing", "未找到调用方案。");
-        var artifacts = extension.ProbeArtifacts ?? [];
+        var recorded = extension.ProbeArtifacts ?? [];
+        var candidates = recorded.Select(artifact => new ProbeCleanupCandidate(artifact.ProbeId, artifact.Operation,
+            artifact.SessionId, artifact.Completed, artifact.OwnedSession, artifact.OwnershipWarning, false)).ToList();
+        AddLegacy(extension.CreateProbe);
+        AddLegacy(extension.ResumeProbe);
+        return candidates;
+
+        void AddLegacy(CliProbe? probe)
+        {
+            if (probe is null || probe.SessionCleaned || string.IsNullOrWhiteSpace(probe.SessionId)) return;
+            if (recorded.Any(artifact => artifact.ProbeId == probe.ProbeId)) return;
+            candidates.Add(new(probe.ProbeId, probe.Operation, probe.SessionId, true, false,
+                "旧探针没有新建前的会话记录，无法确认归属，已保留。", true));
+        }
+    }
+
+    /// <summary>
+    /// Cleans only the selected probes for this Agent. A null selection keeps the legacy "all recorded probes"
+    /// behavior for CLI callers; the desktop always passes the IDs the user checked.
+    /// </summary>
+    public async Task<ProbeCleanupResult> CleanupCliProbeAsync(string agentId, IReadOnlyCollection<string>? probeIds = null,
+        CancellationToken cancellationToken = default)
+    {
+        var extension = CliExtension(agentId) ?? throw new RelayException("cli_recipe_missing", "未找到调用方案。");
+        var recorded = extension.ProbeArtifacts ?? [];
+        var artifacts = probeIds is null ? recorded : recorded.Where(artifact => probeIds.Contains(artifact.ProbeId)).ToArray();
         var items = new List<ProbeCleanupItem>();
         if (extension.CreateProbe is { SessionCleaned: false, SessionId: { Length: > 0 } legacy } &&
-            !artifacts.Any(a => a.ProbeId == extension.CreateProbe.ProbeId))
+            (probeIds is null || probeIds.Contains(extension.CreateProbe.ProbeId)) &&
+            !recorded.Any(a => a.ProbeId == extension.CreateProbe.ProbeId))
             items.Add(new(legacy, "session", "unverified", "旧探针没有新建前的会话记录，无法确认归属，已保留。"));
 
         foreach (var artifact in artifacts)

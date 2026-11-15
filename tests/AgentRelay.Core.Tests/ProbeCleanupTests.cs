@@ -234,6 +234,37 @@ public sealed class ProbeCleanupTests
     }
 
     [TestMethod]
+    public async Task CleanupOnlyTouchesTheSelectedProbeForTheSameAgent()
+    {
+        AddSession("probe-one"); AddSession("probe-two");
+        var source = new SessionDiscoverySource("zcode", zcode);
+        Seed("b", "probe-one", source);
+        var current = service.CliExtension("b")!;
+        var first = current.ProbeArtifacts!.Single();
+        var second = first with { ProbeId = "probe-two", Marker = "RELAY-EEEEEEEEEE", SessionId = "probe-two" };
+        new RelayStore(service.Home).Write(s => s.Execute("UPDATE cli_extensions SET json=$json WHERE agent_id='b'",
+            ("$json", RelayJson.Write(current with { ProbeArtifacts = [first, second] }))));
+
+        var candidates = service.ProbeCleanupCandidates("b");
+        Assert.HasCount(3, candidates);
+        Assert.HasCount(2, candidates.Where(candidate => !candidate.Legacy));
+        Assert.IsTrue(candidates.Any(candidate => candidate.ProbeId == "probe-two" && candidate.SessionId == "probe-two"));
+
+        var none = await service.CleanupCliProbeAsync("b", ["not-a-probe"]);
+        Assert.IsEmpty(none.Items);
+        Assert.AreEqual(2L, Scalar(database, "SELECT COUNT(*) FROM session"));
+
+        var result = await service.CleanupCliProbeAsync("b", ["probe-two"]);
+        Assert.IsTrue(result.Items.Any(item => item.SessionId == "probe-two" && item.Status == "removed"), RelayJson.Write(result));
+        Assert.AreEqual(1L, Scalar(database, "SELECT COUNT(*) FROM session WHERE id='probe-one'"));
+        Assert.AreEqual(0L, Scalar(database, "SELECT COUNT(*) FROM session WHERE id='probe-two'"));
+        var after = service.CliExtension("b")!;
+        Assert.HasCount(1, after.ProbeArtifacts!);
+        Assert.AreEqual(first.ProbeId, after.ProbeArtifacts![0].ProbeId);
+        Assert.IsFalse(after.CreateProbe!.SessionCleaned);
+    }
+
+    [TestMethod]
     public async Task CleaningAnEarlierProbeAlsoBlocksCurrentProbeUsingTheSameHostSession()
     {
         AddSession("probe-session"); Seed("b", "probe-session", new("zcode", zcode));

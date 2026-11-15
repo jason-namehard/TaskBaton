@@ -16,6 +16,8 @@ public sealed class CliProbeDialog : Window
     private readonly bool demo;
     private readonly EntryDialogLayout layout;
     private bool running;
+    private bool selectingCleanup;
+    private readonly HashSet<string> pageProbeIds = new(StringComparer.Ordinal);
     private readonly Action<string>? reportActivity;
 
     public CliProbeDialog(Window owner, RelayService service, string agentId, string language, bool demo=false,
@@ -42,7 +44,7 @@ public sealed class CliProbeDialog : Window
             {
                 "ProbeCreate" or "ProbeResume" => "Running CLI probe…",
                 "CopyBridgeDiagnostic" => "Copy bridge diagnostic prompt",
-                "CleanupCliProbe" => "Cleaning up probe sessions…",
+                "CleanupCliProbe" or "CleanupSelectedProbes" => "Cleaning up probe sessions…",
                 _ => "Saving visibility confirmation…"
             };
             running=true;layout.Body.IsEnabled=false;layout.Actions.IsEnabled=false;layout.Status.Text=T(activity);
@@ -114,14 +116,17 @@ public sealed class CliProbeDialog : Window
                     resume.ToolTip=T("The probe session was cleaned up. Run a new-session probe before testing resume again.");
                 if(extension.ResumeProbe is {} resumed)ProbeResult(resumed);
             }
-            if(extension.ProbeArtifacts is {Length:>0} || extension.CreateProbe is {MachinePassed:true,UserConfirmed:true})
+            var candidates=service.ProbeCleanupCandidates(agentId);
+            if(candidates.Count>0)
             {
                 if(CliRecipes.OutputFormatFor(extension.Recipe)=="dsh-desktop")
                     layout.Body.Children.Add(new TextBlock{Name="ProbeCleanupDshHint",Text=T("To clean up DSH probes, save your work and fully quit DSH, including the tray, then run cleanup. Relay never closes the host. Shared images and data whose ownership cannot be confirmed are kept."),TextWrapping=TextWrapping.Wrap,Margin=new(0,8,0,10)});
-                var cleanup=Action(layout.Body,"Clean up probe sessions and files","CleanupCliProbe",CleanupProbe);
+                var cleanup=Action(layout.Body,selectingCleanup?"Cancel probe selection":"Clean up probe sessions and files","CleanupCliProbe",
+                    selectingCleanup?CancelCleanup:()=>Task.FromResult(BeginCleanup()));
                 cleanup.IsEnabled=!demo;
                 if(demo)cleanup.ToolTip=T("Demo mode does not clean real host sessions.");
             }
+            if(selectingCleanup)RenderCleanupSelection(candidates);
             layout.Body.Children.Add(Note(extension.CanResume?"New session and resume verified":extension.CanCreate?"New session verified":"A probe or one real handoff whose Agent writes its receipt verifies the CLI. Only verified CLIs receive turns automatically; you can still send by hand."));
             layout.Body.Children.Add(Note("A probe does not choose the conversation for a task. Choose an existing conversation in the handoff; later turns reuse that exact ID."));
         }
@@ -142,15 +147,74 @@ public sealed class CliProbeDialog : Window
     {
         if(demo)throw new RelayException("demo_cli_disabled",T("Demo mode blocks real CLI calls. Keep this workspace and switch to normal use to test your registered Agents."));
         var probe=await service.RunCliProbeAsync(agentId,operation);
+        pageProbeIds.Add(probe.ProbeId);
         return probe.MachinePassed?"CLI probe passed · Confirm session visibility":"CLI probe failed · See the test result";
     }
 
-    private async Task<string> CleanupProbe()
+    private string AgentName()=>service.Agents().Single(a=>a.AgentId==agentId).DisplayName??agentId;
+
+    /// <summary>Opens an explicit selection instead of cleaning every probe ever recorded for this Agent.</summary>
+    private string BeginCleanup()
     {
-        if(ThemedMessageBox.Show(this,T("Clean up this Agent's recorded probe sessions and files? Verification stays enabled. Sessions used by real tasks, items whose ownership cannot be confirmed, and unsupported items are kept and reported. Some hosts can archive a session but cannot delete it. Once a probe session is removed, a new-session probe is needed to test resume again."),
-            T("Clean up probe sessions and files"),MessageBoxButton.OKCancel,MessageBoxImage.Warning)!=MessageBoxResult.OK)
-            return "Probe cleanup cancelled";
-        var result=await Task.Run(()=>service.CleanupCliProbeAsync(agentId));
+        selectingCleanup=true;
+        return "Select the probe sessions to clean up; nothing is removed until you confirm.";
+    }
+
+    private Task<string> CancelCleanup()
+    {
+        selectingCleanup=false;
+        return Task.FromResult("Probe cleanup cancelled");
+    }
+
+    private void RenderCleanupSelection(IReadOnlyList<ProbeCleanupCandidate> candidates)
+    {
+        var panel=new StackPanel{Name="ProbeCleanupSelection",Margin=new(0,10,0,6)};
+        panel.Children.Add(new TextBlock{Name="ProbeCleanupSelectionTitle",
+            Text=T("Select the probes to clean up. Only this Agent's probes are listed; nothing is removed until you confirm."),
+            TextWrapping=TextWrapping.Wrap,FontWeight=FontWeights.SemiBold});
+        panel.Children.Add(new TextBlock{Text=T("Agent")+": "+AgentName(),Margin=new(0,4,0,6),TextWrapping=TextWrapping.Wrap});
+        var boxes=new List<(ProbeCleanupCandidate Candidate,CheckBox Box)>();
+        foreach(var candidate in candidates)
+        {
+            var detail=T(candidate.Operation=="create"?"New session":"Same session")+" · "+T("Probe")+": "+candidate.ProbeId+"\n"+
+                T("Session")+": "+(candidate.SessionId??T("None"));
+            if(candidate.Legacy)detail+="\n"+T("Legacy probe without a pre-probe session record; ownership cannot be confirmed and it will be kept.");
+            else if(!candidate.Completed)detail+="\n"+T("The probe did not finish normally; its artifacts are kept.");
+            else if(candidate.OwnershipWarning is { } warning)detail+="\n"+warning;
+            var box=new CheckBox{Name="ProbeSelect"+(boxes.Count+1),Tag=candidate.ProbeId,IsChecked=pageProbeIds.Contains(candidate.ProbeId),
+                Margin=new(0,6,0,0),Content=new TextBlock{Text=detail,TextWrapping=TextWrapping.Wrap}};
+            System.Windows.Automation.AutomationProperties.SetAutomationId(box,"ProbeSelect_"+candidate.ProbeId);
+            boxes.Add((candidate,box));panel.Children.Add(box);
+        }
+        var row=new StackPanel{Orientation=Orientation.Horizontal,Margin=new(0,10,0,0)};
+        panel.Children.Add(row);
+        var clean=Action(row,"Clean up selected probes","CleanupSelectedProbes",async()=>
+        {
+            var selected=boxes.Where(pair=>pair.Box.IsChecked==true).Select(pair=>pair.Candidate).ToArray();
+            if(selected.Length==0)return "Select at least one probe.";
+            var sessions=string.Join(", ",selected.Select(item=>item.SessionId??"(no session)"));
+            if(ThemedMessageBox.Show(this,string.Format(System.Globalization.CultureInfo.CurrentUICulture,
+                    T("Clean up {0} selected probe(s) for {1}? Verification stays enabled. Sessions used by real tasks, items whose ownership cannot be confirmed, and unsupported items are kept and reported. Selected sessions: {2}"),
+                    selected.Length,AgentName(),sessions),
+                T("Clean up selected probes"),MessageBoxButton.OKCancel,MessageBoxImage.Warning)!=MessageBoxResult.OK)
+                return "Probe cleanup cancelled";
+            return await RunCleanup(selected.Select(item=>item.ProbeId).ToArray());
+        });
+        clean.IsEnabled=boxes.Any(pair=>pair.Box.IsChecked==true);
+        void Refresh(){clean.IsEnabled=boxes.Any(pair=>pair.Box.IsChecked==true);}
+        foreach(var pair in boxes){pair.Box.Checked+=(_,_)=>Refresh();pair.Box.Unchecked+=(_,_)=>Refresh();}
+        var cancel=new Button{Name="CancelProbeCleanup",Content=T("Cancel"),Margin=new(8,0,0,0),MinHeight=32,Height=double.NaN};
+        cancel.Click+=(_,_)=>{selectingCleanup=false;Render();};
+        row.Children.Add(cancel);
+        layout.Body.Children.Add(panel);
+    }
+
+    private async Task<string> RunCleanup(IReadOnlyCollection<string> probeIds)
+    {
+        var result=await Task.Run(()=>service.CleanupCliProbeAsync(agentId,probeIds));
+        var remaining=service.ProbeCleanupCandidates(agentId).Select(item=>item.ProbeId).ToHashSet(StringComparer.Ordinal);
+        foreach(var id in probeIds)if(!remaining.Contains(id))pageProbeIds.Remove(id);
+        selectingCleanup=false;
         var summary=T(result.Complete?"Probe cleanup completed.":"Probe cleanup finished with retained or failed items.");
         var items=result.Items.Select(item=>
         {
@@ -171,10 +235,10 @@ public sealed class CliProbeDialog : Window
             if(item.BackupPath is not null)detail+="\n"+T("Backup path")+": "+item.BackupPath;
             return detail;
         }).ToArray();
-        var message=summary+"\n\n"+(items.Length==0?T("No recorded probe items are eligible for cleanup."):string.Join("\n\n",items));
+        var message=T("Agent")+": "+AgentName()+"\n"+summary+"\n\n"+(items.Length==0?T("No recorded probe items are eligible for cleanup."):string.Join("\n\n",items));
         ThemedMessageBox.Show(this,message,T("Probe cleanup result"),MessageBoxButton.OK,
             result.Complete?MessageBoxImage.Information:MessageBoxImage.Warning);
-        return result.Complete?"Probe cleanup completed.":"Probe cleanup finished with retained or failed items.";
+        return summary;
     }
 
     private void ProbeResult(CliProbe probe)

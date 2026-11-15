@@ -370,8 +370,15 @@ internal static partial class Program
         SaveExtension(service,visibilityExtension);
         await Show(new CliProbeDialog(window,service,"agent-c","en"),async dialog=>
         {
+            Press(dialog,"CleanupCliProbe");
+            await Wait(()=>FindAll<CheckBox>(dialog).Any(box=>AutomationProperties.GetAutomationId(box)=="ProbeSelect_create-fixture-agent-c"));
+            Check(Find<TextBlock>(dialog,"ProbeCleanupSelectionTitle").Text.Contains("Only this Agent's probes",StringComparison.Ordinal),
+                "Probe cleanup offers an explicit selection limited to the current Agent");
+            var select=ByAutomation<CheckBox>(dialog,"ProbeSelect_create-fixture-agent-c");
+            Check(!select.IsChecked!.Value,"Recorded probes are not preselected after reopening the page");
+            select.IsChecked=true;
             var confirmation=AnswerMessage(dialog,true);
-            Press(dialog,"CleanupCliProbe");await confirmation;
+            Press(dialog,"CleanupSelectedProbes");await confirmation;
             var report=await Next<ThemedMessageBox>();
             Check(FindAll<TextBlock>(report).Any(text=>text.Text.Contains("Ownership unverified",StringComparison.Ordinal)),
                 "Probe cleanup reports retained legacy sessions instead of claiming complete deletion");
