@@ -2,7 +2,7 @@
 
 Status: **Draft v1** (`handoff/1`) · 2026-11-13
 Maintainer: TaskBaton (formerly Agent Relay)
-License: CC BY 4.0 for this document; schemas and conformance fixtures are MIT.
+License: MIT, consistent with the repository `LICENSE`. The document, schemas, and conformance fixtures are all MIT.
 
 > A handoff is not a chat message. It is a small, self-contained work order plus a
 > receipt that says what actually happened. Any agent that can read a file and
@@ -120,6 +120,7 @@ Optional fields:
 | `side_effects_possible` | boolean \| null | `null` means unknown; never assume "no side effects". |
 | `session` | object | The session that produced this receipt. |
 | `artifacts` | array | Files registered by this attempt. |
+| `review` | object | Optional review metadata: `decision` (`author_accept` or `reviewer_final`), `reviewer`, `author`, and `final` (boolean). See §4.2. |
 
 ### 4.1 Status semantics
 
@@ -139,11 +140,19 @@ When a task uses an author/reviewer loop:
 
 - `submitted` — author submitted work; goes to review.
 - `changes_requested` — reviewer requires changes; `open_items` must be non-empty.
-- `approved` — reviewer accepts the submission; goes back to the author.
-- `accepted` — author accepts delivery; only this ends the loop.
+- `approved` — reviewer accepts the submission. Legacy tasks return to the author
+  for `accepted`; tasks that use reviewer-final approval end here (see below).
+- `accepted` — author accepts delivery; the legacy terminal outcome.
 
-A `done` receipt with `outcome=accepted` and no `open_items` is terminal for the
-loop. `approved` is not terminal.
+A `done` receipt with `outcome=accepted` and no `open_items` is terminal
+(legacy author acceptance). A task MAY instead end on **reviewer-final
+approval**: `outcome=approved`, no `open_items`, a `result`, and the additive
+`review` object with `final: true` (optionally
+`decision: reviewer_final`). Such a receipt MUST set `needs_reply=false`.
+`approved` without `review.final` remains non-terminal.
+
+`review` is optional and additive: handoff/1 readers that do not understand it
+MUST ignore it. This keeps existing author-accept flows and older readers valid.
 
 ## 5. Completion rules (normative)
 
@@ -153,20 +162,24 @@ loop. `approved` is not terminal.
    has no unresolved acceptance criteria.
 3. `done` + `needs_reply=true` MUST include `result` and a non-empty
    `next_action`; the relay continues to the next receiver.
-4. A receipt whose `handoff_id`, `task_id`, `attempt_id`, `turn`, or `sender`
+4. The review loop completes on either (a) legacy author acceptance
+   (`outcome=accepted`, no `open_items`) or (b) reviewer-final approval
+   (`outcome=approved`, no `open_items`, a `result`, and
+   `review.final=true`). Review approval without `review.final` is not terminal.
+5. A receipt whose `handoff_id`, `task_id`, `attempt_id`, `turn`, or `sender`
    does not match the request is **invalid** and MUST be rejected with the field
    name and the value found.
-5. A receipt for an older attempt MUST NOT overwrite the current attempt's state.
+6. A receipt for an older attempt MUST NOT overwrite the current attempt's state.
    It MAY be retained as late evidence.
-6. A valid late receipt MAY be accepted when there is no newer attempt and the
+7. A valid late receipt MAY be accepted when there is no newer attempt and the
    task was not cancelled. Its acceptance MUST be recorded as late.
-7. `failed` MUST NOT be retried automatically. A new attempt requires an explicit
+8. `failed` MUST NOT be retried automatically. A new attempt requires an explicit
    operator decision (or an explicit "retry" policy in the ledger).
-8. Duplicate receipts with the same `(task_id, attempt_id, turn,
+9. Duplicate receipts with the same `(task_id, attempt_id, turn,
    idempotency_key)` and the same content are idempotent: one state transition,
    one notification.
-9. Conflicting final receipts for the same attempt MUST be rejected; a success
-   MUST NOT be overwritten by a later failure.
+10. Conflicting final receipts for the same attempt MUST be rejected; a success
+    MUST NOT be overwritten by a later failure.
 
 ## 6. Delivery facts are separate
 
@@ -200,11 +213,12 @@ session:
 
 Rules:
 
-- `session_id` MUST be an exact id. `latest`, `recent`, `*`, or an empty string
-  is invalid.
-- A receiver resuming a session MUST verify that the id still exists in the
+- `session_id` MUST be an exact id. `latest`, `recent`, `*`, an empty string, or
+  a value with surrounding whitespace is invalid. Placeholder checks are
+  case-insensitive.
+- A receiver resuming a session MUST verify that the exact id still exists in the
   host's store before sending, and MUST reject a response that returns a
-  different id.
+  different id (byte-for-byte equality, not a prefix or fuzzy match).
 - If the session is missing or unverifiable, the correct behavior is to ask for
   a new binding or fall back to manual copy — never to pick "the most recent"
   conversation.
@@ -237,7 +251,9 @@ artifacts:
 Rules:
 
 - Paths are relative to the handoff directory unless absolute is explicitly
-  allowed by the implementation.
+  allowed by the implementation. Relative paths use forward slashes, must not be
+  rooted or start with a drive letter, and must not contain `.` or `..` segments.
+  The resolved path MUST remain inside the handoff directory.
 - A relay MUST only clean files it can prove it owns: it created them, or the
   handoff registered them, and no active task references them.
 - User source files, deliverables in the project tree, and control files MUST
@@ -314,6 +330,11 @@ Update the uninstall wording in CHANGELOG.md and docs/releases/v0.1.4.md.
 - [ ] `CHANGELOG.md` contains the new wording.
 - [ ] `docs/releases/v0.1.4.md` contains the same wording.
 - [ ] `git diff --stat` shows only those two files.
+
+## Context
+
+The wording was flagged in the 0.1.4 release review. The desired sentence is in
+the linked issue; do not rewrite the rest of the document.
 ```
 
 `receipt.json`:
@@ -341,7 +362,7 @@ Update the uninstall wording in CHANGELOG.md and docs/releases/v0.1.4.md.
 - `handoff_version` is the protocol version. A breaking change bumps it to `"2"`.
 - Readers MUST reject an unknown major version rather than guessing.
 - Additive optional fields do not require a version bump; readers ignore unknown
-  keys.
+  keys. The optional receipt `review` object is such an additive field.
 - This document is a draft. Feedback that changes normative behavior should
   include a conformance case.
 

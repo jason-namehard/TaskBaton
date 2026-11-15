@@ -1,7 +1,7 @@
 {
   "protocol": "handoff/1",
   "generated": "2026-11-13",
-  "notes": "L1 = schema validity. L2-L5 are semantic; see README.md.",
+  "notes": "L1 = schema validity. L2-L5 are semantic; see README.md. 'field' names the expected diagnostic field for invalid cases.",
   "cases": [
     {
       "id": "handoff-minimal",
@@ -65,7 +65,8 @@
       "kind": "handoff",
       "level": "L1",
       "expect": "invalid",
-      "error": "handoff.task_id_required"
+      "error": "handoff.field_required",
+      "field": "task_id"
     },
     {
       "id": "handoff-session-latest",

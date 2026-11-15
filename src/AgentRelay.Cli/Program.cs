@@ -3,6 +3,7 @@ using System.CommandLine.Parsing;
 using System.Globalization;
 using System.Text.Json;
 using AgentRelay.Core;
+using AgentRelay.Protocol;
 using Microsoft.Data.Sqlite;
 using System.Diagnostics;
 using System.ComponentModel;
@@ -13,7 +14,7 @@ public static class RelayCli
 {
     public static async Task<int> RunAsync(string[] args)
     {
-        var root = new RootCommand("Agent Relay — 本机 Agent 任务交接与恢复");
+        var root = new RootCommand("TaskBaton（原 Agent Relay）— 本机 Agent 任务交接与恢复");
         var home = new Option<string>("--home") { Description = "Relay 数据根目录；也可设 RELAY_HOME", Recursive = true };
         root.Options.Add(home);
         root.Options.Add(new Option<bool>("--json") { Description = "以 JSON 输出（操作命令默认已使用 JSON）", Recursive = true });
@@ -100,7 +101,7 @@ public static class RelayCli
         Sync(uninstall, "cleanup", "移除已登记的规则并按确认清理站点配置", ["location-file!", "expected-home!", "remove-rules?", "remove-data?", "report-path", "error-message-path"], (s, v) =>
         {
             if (Process.GetProcessesByName("AgentRelay.Desktop").Length > 0)
-                throw new RelayException("uninstall_app_running", "请先从托盘退出 Agent Relay，再重新执行数据清理。", 3);
+                throw new RelayException("uninstall_app_running", "请先从托盘退出 TaskBaton，再重新执行数据清理。", 3);
             return new { rules_removed = UninstallCleanup.Apply(v.Get("location-file"), v.Parse.GetValue(home) ?? Environment.GetEnvironmentVariable("RELAY_HOME"),
                 v.Get("expected-home"), v.Flag("remove-rules"), v.Flag("remove-data")) };
         });
@@ -146,6 +147,42 @@ public static class RelayCli
         Sync(session, "new", "明确为任务选择新会话；不立即调用模型", ["task!", "agent!"],
             (s,v) => { s.UseNewTaskSession(v.Get("task"),v.Get("agent")); return new {status="new_session_selected"}; });
         var handoff = Group("handoff", "创建文件交接；来源身份来自调用适配器上下文");
+        void ProtocolCheck(string name, string description, bool receiptMode)
+        {
+            var command = new Command(name, description);
+            var file = new Option<string>("--file") { Required = true, Description = "HANDOFF.md 路径" };
+            var receipt = new Option<string>("--receipt") { Description = "receipt.json 路径" };
+            var json = new Option<bool>("--json") { Description = "以 JSON 输出" };
+            command.Options.Add(file); command.Options.Add(json);
+            if (receiptMode) command.Options.Add(receipt);
+            command.SetAction(async (parse, _) =>
+            {
+                var path = parse.GetValue(file)!;
+                var wantJson = parse.GetValue(json);
+                try
+                {
+                    var result = new HandoffVerifier().Verify(path, receiptMode ? parse.GetValue(receipt) : null);
+                    if (wantJson)
+                        Print(new { relay_version = 1, ok = result.Passed, exit_code = result.ExitCode,
+                            diagnostics = result.Diagnostics, handoff = result.Handoff, receipt = result.Receipt,
+                            state = result.ReceiptState });
+                    else
+                    {
+                        foreach (var diagnostic in result.Diagnostics)
+                            Console.WriteLine($"{diagnostic.Severity} {diagnostic.Code}{(diagnostic.Field is null ? "" : " " + diagnostic.Field)}: {diagnostic.Message}");
+                        Console.WriteLine(result.Passed ? "OK" : "INVALID");
+                    }
+                    return result.ExitCode;
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+                {
+                    return Error("protocol_io", error.Message, 2);
+                }
+            });
+            handoff.Subcommands.Add(command);
+        }
+        ProtocolCheck("verify", "校验 HANDOFF.md 与可选 receipt.json；只读，不写账本", receiptMode: true);
+        ProtocolCheck("lint", "检查 HANDOFF.md 的格式、正文标题和语义；只读", receiptMode: false);
         Add(handoff,"cli-create","直接提交工作要求并绑定会话；发送会启动目标 CLI",["manifest!","send?","approve?"],async(s,v)=>
         {
             if(v.Flag("send")&&!v.Flag("approve"))throw new RelayException("approval_required","真实 CLI 投递可能产生模型费用，确认后加 --approve。");

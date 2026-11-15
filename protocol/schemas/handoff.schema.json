@@ -2,6 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://taskbaton.dev/schemas/handoff-1.json",
   "title": "TaskBaton handoff request frontmatter (handoff/1)",
+  "description": "Schema for L1 validation. L2 semantic rules additionally require from != to, UTC Z timestamps, safe relative paths, exact session ids, and required Markdown sections.",
+  "$comment": "JSON Schema cannot compare two sibling values, so from != to is enforced by the L2 semantic validator.",
   "type": "object",
   "required": [
     "handoff_version",
@@ -21,13 +23,26 @@
     "task_id": { "type": "string", "minLength": 1 },
     "attempt_id": { "type": "string", "format": "uuid" },
     "turn": { "type": "integer", "minimum": 0 },
-    "from": { "type": "string", "minLength": 1 },
-    "to": { "type": "string", "minLength": 1 },
-    "created_at": { "type": "string", "format": "date-time" },
+    "from": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "Must differ from to; enforced by L2 semantic validation."
+    },
+    "to": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "Must differ from from; enforced by L2 semantic validation."
+    },
+    "created_at": { "$ref": "#/$defs/utcTimestamp" },
     "idempotency_key": { "type": "string", "minLength": 1 },
-    "receipt_path": { "type": "string", "minLength": 1 },
-    "reply_to": { "type": ["string", "null"] },
-    "deadline_at": { "type": "string", "format": "date-time" },
+    "receipt_path": { "$ref": "#/$defs/relativePath" },
+    "reply_to": {
+      "anyOf": [
+        { "$ref": "#/$defs/relativePath" },
+        { "type": "null" }
+      ]
+    },
+    "deadline_at": { "$ref": "#/$defs/utcTimestamp" },
     "session": { "$ref": "#/$defs/session" },
     "artifacts": {
       "type": "array",
@@ -39,16 +54,31 @@
     }
   },
   "$defs": {
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z$",
+      "description": "RFC 3339 UTC timestamp with a mandatory Z suffix."
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!^[A-Za-z]:).+$",
+      "description": "Path relative to the handoff directory; forward slashes only, no absolute paths, no backslashes, no '.' or '..' segments. L2 also checks containment under the handoff root."
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$",
+      "not": { "enum": ["latest", "recent", "*"] },
+      "description": "Exact host session id. L4 rejects placeholders case-insensitively and verifies the resumed id equals this value."
+    },
     "session": {
       "type": "object",
       "required": ["host", "session_id"],
       "properties": {
         "host": { "type": "string", "minLength": 1 },
-        "session_id": {
-          "type": "string",
-          "minLength": 1,
-          "not": { "enum": ["latest", "recent", "*"] }
-        },
+        "session_id": { "$ref": "#/$defs/sessionId" },
         "cwd": { "type": "string" },
         "profile": { "type": ["string", "null"] }
       }
@@ -57,7 +87,7 @@
       "type": "object",
       "required": ["path", "role"],
       "properties": {
-        "path": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
         "role": {
           "enum": ["request", "input", "result", "evidence"]
         },
@@ -65,7 +95,7 @@
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
         },
-        "expires_at": { "type": "string", "format": "date-time" }
+        "expires_at": { "$ref": "#/$defs/utcTimestamp" }
       }
     }
   }

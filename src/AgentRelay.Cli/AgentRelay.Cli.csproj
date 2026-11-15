@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AgentRelay.Core/AgentRelay.Core.csproj" />
+    <ProjectReference Include="../AgentRelay.Protocol/AgentRelay.Protocol.csproj" />
     <PackageReference Include="System.CommandLine" Version="2.0.13" />
   </ItemGroup>
 </Project>
