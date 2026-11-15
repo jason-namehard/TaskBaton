@@ -46,6 +46,8 @@ public partial class MainWindow : Window
         RefreshButton.Content = Icons.Create("Refresh", size: 17);
         DismissErrorButton.Content = Icons.Create("Close", size: 15);
         ErrorIcon.Child = Icons.Create("Alert", size: 17, brushKey: "BadBrush");
+        DismissInfoButton.Content = Icons.Create("Close", size: 15);
+        InfoIcon.Child = Icons.Create("Info", size: 17, brushKey: "InfoBrush");
         PageHelp.Content = Icons.Create("Help", size: 16);
         VersionLabel.Text = "v" + RelayVersion.Current;
         // The theme draws the title area; these are the window's own caption buttons.
@@ -172,6 +174,9 @@ public partial class MainWindow : Window
     private async void Navigate(object sender, SelectionChangedEventArgs e) => await Run(() => Task.CompletedTask, "Ready");
     private async void RefreshClick(object sender, RoutedEventArgs e) => await Run(() => Task.CompletedTask, "已刷新");
     private void DismissErrorClick(object sender,RoutedEventArgs e) { ErrorBanner.Visibility=Visibility.Collapsed; errorTaskId=null; }
+    /// <summary>Non-blocking notice at the top of the window; stays until the user closes it.</summary>
+    private void ShowInfo(string text) { InfoText.Text = text; InfoBanner.Visibility = Visibility.Visible; }
+    private void DismissInfoClick(object sender,RoutedEventArgs e) => InfoBanner.Visibility=Visibility.Collapsed;
     private async Task ChangeLanguage(string language)
         => await ChangeAppearance(preferences with { Language = language });
 

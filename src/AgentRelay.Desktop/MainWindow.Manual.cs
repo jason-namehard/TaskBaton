@@ -253,6 +253,16 @@ public partial class MainWindow
 
     private void InstallRules(string id)
     {
+        var agent=service.Agents().Single(a=>a.AgentId==id);
+        var choice=new GuidanceSetupChoiceDialog(this,preferences.Language,agent.DisplayName??id);
+        if(choice.ShowDialog()!=true){reviewCancelled=true;return;}
+        if(choice.Choice=="prompt")
+        {
+            var deployment=service.BeginGuidanceDeployment(id,AgentEntryDialog.ResolveRelayCommand());
+            Clipboard.SetText(deployment.Prompt);
+            ShowInfo(T("Deployment prompt copied. Paste it into this Agent's conversation. The Agent must confirm its own instruction file and get your approval before installing; Relay shows the rule as pending until the installation is recorded."));
+            return;
+        }
         var picker=new OpenFileDialog{Title=T("Choose the Agent instruction file"),Filter="Agent instructions|*.md|All files|*.*",FileName="AGENTS.md",CheckFileExists=false};
         if(picker.ShowDialog(this)!=true){reviewCancelled=true;return;}
         var preview=service.PreviewGuidance(id,picker.FileName);

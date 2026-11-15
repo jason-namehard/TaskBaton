@@ -23,7 +23,7 @@ public sealed class AgentSetupChoiceDialog : Window
         var intro = new TextBlock { Text = T("Choose how to add it. If you are not sure, let the Agent set itself up."), TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Margin = new(0, 0, 0, 18) };
         intro.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush");
         body.Children.Add(intro);
-        var ruleNote = new TextBlock { Text = T("Optional handoff rule: after adding an Agent, select it and choose Install handoff rule. Relay will show the one-line rule and ask before changing its instruction file. The detailed guidance is read only when the Agent follows the rule."), TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Margin = new(0, 0, 0, 18) };
+        var ruleNote = new TextBlock { Text = T("Optional handoff rule: after adding an Agent, choose Install handoff rule. Relay can copy a deployment prompt for the Agent, or you can pick the instruction file yourself. Nothing is installed until the file and rule are confirmed."), TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Margin = new(0, 0, 0, 18) };
         ruleNote.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush");
         body.Children.Add(ruleNote);
 
@@ -46,12 +46,6 @@ public sealed class AgentSetupChoiceDialog : Window
                 tag.SetResourceReference(Border.BackgroundProperty, "OkSoftBrush");
                 ((TextBlock)tag.Child).SetResourceReference(TextBlock.ForegroundProperty, "OkBrush");
                 heading.Children.Add(tag);
-                var advice = T("Each new node has a unique ID. Copy a fresh setup prompt for each node; do not give the same prompt to two Agents.");
-                var help = new Border { Name = "SetupPromptHelp", Margin = new(8, 0, 0, 0), Cursor = Cursors.Help,
-                    Child = Icons.Create("Help", size: 16, brushKey: "MutedBrush"),
-                    ToolTip = new TextBlock { Text = advice, TextWrapping = TextWrapping.Wrap, MaxWidth = 380 } };
-                AutomationProperties.SetAutomationId(help, help.Name); AutomationProperties.SetName(help, advice);
-                heading.Children.Add(help);
             }
             text.Children.Add(heading);
             var detail = new TextBlock { Text = T(description), TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Margin = new(0, 4, 0, 0) };
@@ -65,7 +59,7 @@ public sealed class AgentSetupChoiceDialog : Window
             body.Children.Add(card);
         }
         Option("ChooseOneClickSetup", "Bolt", "Let the Agent set itself up",
-            "Relay copies a setup prompt. Paste it into a new conversation with the Agent; it checks how it can be called and registers itself.", "oneclick", true);
+            "Relay copies a setup prompt. Paste it into a new conversation with the Agent; it checks how it can be called and registers itself. One prompt works for one Agent only; copy a new prompt for each additional Agent.", "oneclick", true);
         Option("ChooseManualSetup", "Edit", "Fill in by hand",
             "Enter the name, configuration path and calling method yourself. Suits users who know how the Agent is set up.", "manual", false);
         Content = body;

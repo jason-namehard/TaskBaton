@@ -19,7 +19,7 @@ public sealed class AgentEntryDialog : Window
     {
         var ui = new EntryDialogLayout(this, owner, EntryText.Get(existing is null ? "New Agent" : "Edit Agent", language), language);
         ui.Body.Children.Add(ui.Note("Name is required; all other information is optional."));
-        ui.Body.Children.Add(ui.Note("Optional handoff rule: after adding an Agent, select it and choose Install handoff rule. Relay will show the one-line rule and ask before changing its instruction file. The detailed guidance is read only when the Agent follows the rule."));
+        ui.Body.Children.Add(ui.Note("Optional handoff rule: after adding an Agent, choose Install handoff rule. Relay can copy a deployment prompt for the Agent, or you can pick the instruction file yourself. Nothing is installed until the file and rule are confirmed."));
         var name = ui.Field(ui.Body, "Agent name", "AgentEntryName", existing?.DisplayName ?? existing?.AgentId ?? "");
         ui.Body.Children.Add(ui.Note("Choose any name. Roles are defined by you."));
         var advancedPanel = new StackPanel { Margin = new(10) };

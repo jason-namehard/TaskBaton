@@ -44,7 +44,7 @@
   </Border>
   <StackPanel x:Name="CaptionButtons" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Panel.ZIndex="5"/>
   <Grid Grid.Column="1" Margin="0,32,0,0">
-   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <Grid Margin="24,0,24,14">
     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <StackPanel Margin="0,0,16,0">
@@ -63,7 +63,15 @@
      <StackPanel x:Name="PageActions" Orientation="Horizontal"/>
     </StackPanel>
    </Grid>
-   <Border x:Name="ErrorBanner" Grid.Row="1" Background="{DynamicResource BadSoftBrush}" CornerRadius="9" Padding="12,8,8,8" Margin="24,0,24,12" Visibility="Collapsed">
+   <Border x:Name="InfoBanner" Grid.Row="1" Background="{DynamicResource InfoSoftBrush}" CornerRadius="9" Padding="12,8,8,8" Margin="24,0,24,12" Visibility="Collapsed">
+    <DockPanel>
+     <Border x:Name="InfoIcon" DockPanel.Dock="Left" Margin="0,4,10,0" VerticalAlignment="Top"/>
+     <Button x:Name="DismissInfoButton" DockPanel.Dock="Right" Style="{StaticResource IconButtonStyle}" Click="DismissInfoClick" VerticalAlignment="Top" Width="28" Height="28" Margin="8,0,0,0"/>
+     <TextBlock x:Name="InfoText" TextWrapping="Wrap" Margin="0" Padding="0,4" MinHeight="0"
+              Foreground="{DynamicResource TextBrush}" MaxHeight="160"/>
+    </DockPanel>
+   </Border>
+   <Border x:Name="ErrorBanner" Grid.Row="2" Background="{DynamicResource BadSoftBrush}" CornerRadius="9" Padding="12,8,8,8" Margin="24,0,24,12" Visibility="Collapsed">
     <DockPanel>
      <Border x:Name="ErrorIcon" DockPanel.Dock="Left" Margin="0,4,10,0" VerticalAlignment="Top"/>
      <Button x:Name="DismissErrorButton" DockPanel.Dock="Right" Style="{StaticResource IconButtonStyle}" Click="DismissErrorClick" VerticalAlignment="Top" Width="28" Height="28" Margin="8,0,0,0"/>
@@ -71,8 +79,8 @@
               Foreground="{DynamicResource TextBrush}" MaxHeight="160" VerticalScrollBarVisibility="Auto"/>
     </DockPanel>
    </Border>
-   <ContentControl x:Name="PageContent" Grid.Row="2" Margin="24,0,24,0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Focusable="False"/>
-   <Grid Grid.Row="3" Margin="24,8,24,10">
+   <ContentControl x:Name="PageContent" Grid.Row="3" Margin="24,0,24,0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Focusable="False"/>
+   <Grid Grid.Row="4" Margin="24,8,24,10">
     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
     <TextBlock x:Name="StatusText" Foreground="{DynamicResource FaintBrush}" FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="420" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
     <TextBlock x:Name="LedgerHint" Grid.Column="1" Margin="16,0,0,0" HorizontalAlignment="Right" Foreground="{DynamicResource MutedBrush}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}">

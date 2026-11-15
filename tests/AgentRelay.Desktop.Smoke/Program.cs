@@ -125,33 +125,51 @@ internal static partial class Program
         Check(service.GuidanceRegistrations().Count==1&&File.ReadAllText(hostInstruction).Contains("agent-relay:"),"Cancelling removal keeps the installed rule");
         await ConfirmAction(window,"Remove handoff rule",true);
         Check(service.GuidanceRegistrations().Count==0&&File.ReadAllText(hostInstruction)=="Existing host instructions.\n","Confirming removal only removes the Agent's marked rule");
+        if(ClipboardReady())
+        {
+            await Modal<GuidanceSetupChoiceDialog>(window,"Install handoff rule",async dialog=>
+            {
+                Check(FindAll<TextBlock>(dialog).Any(t=>t.Text.Contains("无法判断",StringComparison.Ordinal)),
+                    "Guidance setup explains that Relay cannot locate the host instruction file");
+                Press(dialog,"ChooseGuidancePrompt");
+            });
+            await Wait(()=>Find<Border>(window,"InfoBanner").Visibility==Visibility.Visible);
+            CheckClipboard(t=>t.Contains("guidance install",StringComparison.Ordinal)&&t.Contains("--approve",StringComparison.Ordinal),
+                "Guidance deployment prompt asks the Agent to confirm its own file and install");
+            Check(service.PendingGuidance("agent-b") is not null,
+                "Copying a guidance prompt records a pending deployment instead of claiming installation");
+            Check(service.GuidanceRegistrations().Count==0,"Copying a guidance prompt does not install a rule");
+            Press(window,"DismissInfoButton");
+            service.RemoveGuidance("agent-b");
+            Check(service.PendingGuidance("agent-b") is null,"Pending guidance is cleared when the request is cancelled");
+        }
         var oneClickDone=new TaskCompletionSource();
         async Task CheckOneClick()
         {
             var chooser=await Next<AgentSetupChoiceDialog>();
-            ThemedMessageBox? message=null;
             try
             {
                 Check(FindAll<TextBlock>(chooser).Any(t=>t.Text.Contains("可选交接规则",StringComparison.Ordinal)&&t.Text.Contains("确认后",StringComparison.Ordinal)),"Agent setup choice explains the optional handoff rule and confirmation");
-                var setupHelp=Find<Border>(chooser,"SetupPromptHelp");
-                Check(setupHelp.ToolTip is TextBlock setupAdvice&&setupAdvice.Text.Contains("ID",StringComparison.Ordinal)&&setupAdvice.Text.Contains("复制",StringComparison.Ordinal),
-                    "Agent setup explains fresh node IDs in an accessible hover hint");
+                Check(FindAll<TextBlock>(chooser).Any(t=>t.Text.Contains("同一份提示词",StringComparison.Ordinal)&&t.Text.Contains("重新复制",StringComparison.Ordinal)),
+                    "Agent setup explains that one prompt cannot be reused for another Agent");
                 Press(chooser,"ChooseOneClickSetup");
                 if(!ClipboardReady())
                 {
-                    // The one-click setup copies a prompt first; without a clipboard it stops before its confirmation.
+                    // The one-click setup copies a prompt first; without a clipboard it cannot show the copied notice.
                     Skip("One-click setup confirmation checks skipped: the desktop clipboard is locked.");
                     Check(service.GuidanceRegistrations().Count==0,"Copying the Agent setup prompt does not install a rule or modify instruction files");
                     chooser.Close();oneClickDone.SetResult();return;
                 }
-                message=await Next<ThemedMessageBox>();
-                Check(FindAll<TextBlock>(message).Any(t=>t.Text.Contains("可选交接规则",StringComparison.Ordinal)&&t.Text.Contains("确认后",StringComparison.Ordinal)),"One-click setup confirmation explains the optional rule");
+                await Wait(()=>Find<Border>(window,"InfoBanner").Visibility==Visibility.Visible);
+                Check(Find<TextBlock>(window,"InfoText").Text.Contains("同一份提示词只能用于一个 Agent",StringComparison.Ordinal),
+                    "Copying a setup prompt shows a non-blocking notice about one-Agent use");
                 CheckClipboard(t => t.Contains("agent setup --manifest",StringComparison.Ordinal),"One-click setup copies an Agent registration prompt");
-                Press(message,"MessageOk");
+                Press(window,"DismissInfoButton");
+                Check(Find<Border>(window,"InfoBanner").Visibility==Visibility.Collapsed,"The setup notice can be dismissed without a dialog");
                 Check(service.GuidanceRegistrations().Count==0&&File.ReadAllText(hostInstruction)=="Existing host instructions.\n","Copying the Agent setup prompt does not install a rule or modify instruction files");
                 oneClickDone.SetResult();
             }
-            catch(Exception error){message?.Close();chooser.Close();oneClickDone.SetException(error);}
+            catch(Exception error){chooser.Close();oneClickDone.SetException(error);}
         }
         _=CheckOneClick();
         await Click(window,"New Agent");await oneClickDone.Task;

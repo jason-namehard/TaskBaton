@@ -241,6 +241,8 @@ public static class RelayCli
         Sync(guidance, "list", "列出本中转站安装的接入规则", [], (s, _) => s.GuidanceRegistrations());
         Sync(guidance, "prompt", "生成一句按需读取规则及其详细指引", ["agent!"],
             (s, v) => new { rule = s.GuidancePrompt(v.Get("agent")), instructions = s.StableInstructionPath(v.Get("agent")) });
+        Sync(guidance, "deploy-prompt", "生成让 Agent 自己确认指令文件并部署规则的提示词", ["agent!"],
+            (s, v) => s.BeginGuidanceDeployment(v.Get("agent"), "relay"));
         Sync(guidance, "preview", "预览将加入指定指令文件的一句规则", ["agent!", "file!"],
             (s, v) => s.PreviewGuidance(v.Get("agent"), v.Get("file")));
         Sync(guidance, "install", "用户明确批准后写入带标记的一句规则", ["agent!", "file!", "approve?"], (s, v) =>

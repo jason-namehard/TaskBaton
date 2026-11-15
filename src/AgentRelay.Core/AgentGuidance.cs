@@ -7,9 +7,12 @@ namespace AgentRelay.Core;
 public sealed record GuidanceRegistration(string AgentId, string InstructionFile, string InstructionPath,
     string BackupRelativePath, DateTimeOffset InstalledAt);
 public sealed record GuidancePreview(string AgentId, string InstructionFile, string InstructionPath, string Rule);
+public sealed record GuidancePending(string AgentId, string RequestId, DateTimeOffset RequestedAt);
+public sealed record GuidanceDeployment(string RequestId, string Rule, string InstructionPath, string Prompt);
 public sealed record AgentSetupManifest(string Name, string Host = "manual", string? ConfigPath = null,
     string? CliPath = null, string? HostVersion = null, string[]? InstructionPaths = null);
-internal sealed record GuidanceState(string WorkspaceKey, string RelayHome, GuidanceRegistration[] Registrations);
+internal sealed record GuidanceState(string WorkspaceKey, string RelayHome, GuidanceRegistration[] Registrations,
+    GuidancePending[]? Pending = null);
 
 public sealed partial class RelayService
 {
@@ -125,6 +128,51 @@ public sealed partial class RelayService
         return InstructionPath(EnsureGuidanceState(), agentId);
     }
 
+    /// <summary>
+    /// Records that the user copied a deployment prompt. The rule is not installed until the Agent (or the user)
+    /// confirms the host's actual instruction file and runs the CLI; the UI must show that as pending, not installed.
+    /// </summary>
+    public GuidanceDeployment BeginGuidanceDeployment(string agentId, string? relayCommand = "relay")
+    {
+        RequireGuidanceAgent(agentId);
+        var rule = GuidancePrompt(agentId);
+        var state = EnsureGuidanceState();
+        var requestId = Guid.NewGuid().ToString("N");
+        SaveGuidanceState(state with
+        {
+            Pending = [.. (state.Pending ?? []).Where(item => item.AgentId != agentId),
+                new GuidancePending(agentId, requestId, Now)]
+        });
+        var agent = Agents().Single(item => item.AgentId == agentId);
+        var name = agent.DisplayName ?? agentId;
+        var instructions = StableInstructionPath(agentId);
+        var install = string.IsNullOrWhiteSpace(relayCommand)
+            ? "当前安装位置没有可确认的 Relay CLI。不要猜测程序路径；请用户在 Relay 中选择“安装交接规则 → 手动选择指令文件”。"
+            : $"{relayCommand} --home \"{Home}\" guidance install --agent \"{agentId}\" --file \"<该文件的绝对路径>\" --approve";
+        var verify = string.IsNullOrWhiteSpace(relayCommand)
+            ? ""
+            : $"\n4. 再运行 {relayCommand} --home \"{Home}\" guidance list，确认本 Agent 已登记。";
+        var prompt = $$"""
+            Relay 交接规则部署请求：{{requestId}}
+
+            请为 Agent {{name}}（{{agentId}}）部署 Relay 交接规则。Relay 无法判断你的宿主实际加载哪个指令文件，因此不要按目录或文件名猜测。
+
+            1. 先确认你的宿主在会话启动时实际加载的常驻指令文件（例如 AGENTS.md、CLAUDE.md 或宿主专用的 md 文件）。如果有多个候选，列出路径并询问用户哪一个真正生效。
+            2. 把该文件的绝对路径和下面这句一行规则告诉用户。在用户明确同意前不要修改文件，也不要修改其他 Agent 的指令文件。
+            3. 用户同意后运行：
+               {{install}}{{verify}}
+            5. 如果找不到文件或命令无法运行，不要猜测，也不要声称已安装；告诉用户在 Relay 中选择“安装交接规则 → 手动选择指令文件”。
+
+            一行规则：{{rule}}
+            详细规则文件（按需读取）：{{instructions}}
+            当前中转站：{{Home}}
+            """;
+        return new(requestId, rule, instructions, prompt);
+    }
+
+    public GuidancePending? PendingGuidance(string agentId) =>
+        ReadGuidanceState()?.Pending?.SingleOrDefault(item => item.AgentId == agentId);
+
     public string GuidancePrompt(string agentId)
     {
         RequireGuidanceAgent(agentId);
@@ -164,7 +212,11 @@ public sealed partial class RelayService
         Directory.CreateDirectory(Path.GetDirectoryName(preview.InstructionFile)!);
         WritePreservingUtf8Bom(preview.InstructionFile, cleaned + prefix + block);
         var registration = new GuidanceRegistration(agentId, preview.InstructionFile, preview.InstructionPath, relative, prior?.InstalledAt ?? Now);
-        SaveGuidanceState(state with { Registrations = state.Registrations.Where(r => r.AgentId != agentId).Append(registration).ToArray() });
+        SaveGuidanceState(state with
+        {
+            Registrations = state.Registrations.Where(r => r.AgentId != agentId).Append(registration).ToArray(),
+            Pending = (state.Pending ?? []).Where(item => item.AgentId != agentId).ToArray()
+        });
         return registration;
     }
 
@@ -191,7 +243,11 @@ public sealed partial class RelayService
             }
             File.Delete(registration.InstructionPath);
         }
-        SaveGuidanceState(state with { Registrations = state.Registrations.Where(r => r.AgentId != agentId).ToArray() });
+        SaveGuidanceState(state with
+        {
+            Registrations = state.Registrations.Where(r => r.AgentId != agentId).ToArray(),
+            Pending = (state.Pending ?? []).Where(item => item.AgentId != agentId).ToArray()
+        });
         return removed.Length;
     }
 
@@ -212,7 +268,12 @@ public sealed partial class RelayService
         }).ToArray();
         foreach (var registration in registrations)
             if (agents.Contains(registration.AgentId)) WriteGuidanceDocument(registration.AgentId, registration.InstructionPath);
-        SaveGuidanceState(state with { RelayHome = Home, Registrations = registrations });
+        SaveGuidanceState(state with
+        {
+            RelayHome = Home,
+            Registrations = registrations,
+            Pending = (state.Pending ?? []).Where(item => agents.Contains(item.AgentId)).ToArray()
+        });
     }
 
     private AgentRecord RequireGuidanceAgent(string id) => Agents().SingleOrDefault(a => a.AgentId == id)

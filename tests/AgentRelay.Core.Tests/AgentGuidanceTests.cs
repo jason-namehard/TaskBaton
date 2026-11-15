@@ -184,6 +184,40 @@ public sealed class AgentGuidanceTests
     }
 
     [TestMethod]
+    public void DeploymentPromptIsPendingUntilTheAgentInstallsTheRule()
+    {
+        var file = Path.Combine(root, "AGENTS.md"); File.WriteAllText(file, "User rule.\n");
+        Stable(service, "agent-a");
+        var deployment = service.BeginGuidanceDeployment("agent-a", "& 'C:\\Relay\\relay.exe'");
+        StringAssert.Contains(deployment.Prompt, "agent-a");
+        StringAssert.Contains(deployment.Prompt, "guidance install");
+        StringAssert.Contains(deployment.Prompt, "--approve");
+        StringAssert.Contains(deployment.Prompt, deployment.Rule);
+        StringAssert.Contains(deployment.Prompt, deployment.InstructionPath);
+        var pending = service.PendingGuidance("agent-a");
+        Assert.IsNotNull(pending);
+        Assert.AreEqual(deployment.RequestId, pending.RequestId);
+        Assert.IsEmpty(service.GuidanceRegistrations());
+
+        service.InstallGuidance("agent-a", file);
+        Assert.IsNull(service.PendingGuidance("agent-a"));
+        Assert.HasCount(1, service.GuidanceRegistrations());
+        service.RemoveGuidance("agent-a");
+        Assert.IsNull(service.PendingGuidance("agent-a"));
+        Assert.AreEqual("User rule.\n", File.ReadAllText(file));
+    }
+
+    [TestMethod]
+    public void DeploymentPromptWithoutACliFallsBackToManualSelection()
+    {
+        Stable(service, "agent-a");
+        var deployment = service.BeginGuidanceDeployment("agent-a", null);
+        StringAssert.Contains(deployment.Prompt, "手动选择指令文件");
+        Assert.DoesNotContain("guidance install", deployment.Prompt, StringComparison.Ordinal);
+        Assert.IsNotNull(service.PendingGuidance("agent-a"));
+    }
+
+    [TestMethod]
     public void RemovingAllOwnedRulesKeepsUnrelatedInstructionText()
     {
         var file = Path.Combine(root, "AGENTS.md"); File.WriteAllText(file, "Original.\n");

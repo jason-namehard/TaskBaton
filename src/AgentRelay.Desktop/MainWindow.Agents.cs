@@ -67,8 +67,7 @@ public partial class MainWindow
             if (choice.ShowDialog() != true) { reviewCancelled = true; return Task.CompletedTask; }
             if (choice.Choice == "manual") return Edit(null);
             Clipboard.SetText(service.AgentSetupPrompt(relayCommand: AgentEntryDialog.ResolveRelayCommand()));
-            ThemedMessageBox.Show(this, T("Setup prompt copied. Paste it into a new conversation with the Agent you want to register. It will inspect its calling method and fill Relay directly. This creates a new node and does not overwrite the selected Agent.") + "\n\n" + T("Optional handoff rule: after adding an Agent, select it and choose Install handoff rule. Relay will show the one-line rule and ask before changing its instruction file. The detailed guidance is read only when the Agent follows the rule."),
-                T("One-click setup"), MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowInfo(T("Copied. Paste it into the matching Agent to finish setup. One prompt works for one Agent only; copy a new prompt for each additional Agent."));
             return Task.CompletedTask;
         }), "PrimaryButtonStyle", "Plus");
         create.Margin = new(0);
@@ -131,9 +130,15 @@ public partial class MainWindow
 
             var rules = Group(details, "Handoff rule");
             var registration = service.GuidanceRegistrations().SingleOrDefault(r => r.AgentId == id);
-            var state = registration is null ? T("Not installed") : string.Format(System.Globalization.CultureInfo.CurrentUICulture, T("Recorded installation: {0}"), registration.InstructionFile);
+            var pending = service.PendingGuidance(id);
+            var state = registration is not null
+                ? string.Format(System.Globalization.CultureInfo.CurrentUICulture, T("Recorded installation: {0}"), registration.InstructionFile)
+                : pending is not null
+                    ? string.Format(System.Globalization.CultureInfo.CurrentUICulture, T("Pending deployment: prompt copied {0}. Waiting for the Agent to confirm its instruction file and install; copy a fresh prompt if that conversation was lost."), pending.RequestedAt.ToLocalTime().ToString("g"))
+                    : T("Not installed");
             var ruleRow = SettingRow(rules, "Instruction file", state + "\n" + T("Install the rule in the instruction file your host actually loads. The one-line rule uses a little context; details are read on demand. Existing sessions may need to reread the file or restart."));
             RowAction(ruleRow, "Install handoff rule", () => { InstallRules(Selected().AgentId); return Task.CompletedTask; });
+            RowAction(ruleRow, "Check rule status", () => { RenderPage(); return Task.CompletedTask; });
             Styled(RowAction(ruleRow, "Remove handoff rule", () =>
             {
                 if (ThemedMessageBox.Show(this, T("Remove this Agent's Relay handoff rule? Other instructions will be kept."), T("Remove handoff rule"), MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.OK)
