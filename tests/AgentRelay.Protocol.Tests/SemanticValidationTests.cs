@@ -205,6 +205,39 @@ public sealed class SemanticValidationTests
         Assert.AreEqual("kept", reread.Frontmatter.Extra["x_custom"]?.GetValue<string>());
     }
 
+    [TestMethod]
+    public void Approved_without_review_final_cannot_claim_terminal_completion()
+    {
+        var handoff = TestPaths.HandoffFromFixture();
+        var json = TestPaths.ReceiptFromFixture("cases/valid/receipt.approved.json").ToJsonObject();
+        json["needs_reply"] = false;
+        json.Remove("next_action");
+        json.Remove("review");
+        var receipt = ReceiptDocument.FromJson(json);
+
+        var result = Verifier.Verify(handoff, receipt);
+        Assert.AreEqual(3, result.ExitCode, Describe(result));
+        Assert.IsTrue(result.HasCode(ProtocolDiagnosticCodes.ReceiptReviewFinalInvalid), Describe(result));
+
+        var state = HandoffTaskState.FromHandoff(handoff.Frontmatter);
+        new HandoffTaskStateMachine(state).Apply(receipt);
+        Assert.IsFalse(state.IsTerminal);
+    }
+
+    [TestMethod]
+    public void Schema_conditional_failures_do_not_emit_branch_noise()
+    {
+        var handoff = TestPaths.HandoffFromFixture();
+        var receipt = TestPaths.ReceiptFromFixture("cases/invalid/receipt.accepted-without-deliverable.json");
+
+        var result = Verifier.Verify(handoff, receipt);
+        Assert.AreEqual(3, result.ExitCode, Describe(result));
+        Assert.IsTrue(result.HasCode(ProtocolDiagnosticCodes.ReceiptDeliverableRequired), Describe(result));
+        Assert.IsFalse(result.Diagnostics.Any(d => d.Code == ProtocolDiagnosticCodes.ReceiptFieldRequired
+            && d.Field is "review" or "needs_reply"), Describe(result));
+        Assert.IsLessThanOrEqualTo(3, result.Diagnostics.Count, Describe(result));
+    }
+
     private static string Describe(VerificationResult result) =>
         $"exit={result.ExitCode}; " + string.Join(
             " | ",

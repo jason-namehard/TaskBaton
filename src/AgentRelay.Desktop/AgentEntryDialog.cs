@@ -9,12 +9,13 @@ public sealed record AgentEntryDraft(string Name, string Host, string ConfigPath
     string? HostVersion, string[] InstructionPaths);
 public sealed record AgentCliDraft(string Executable, string[] Arguments, string? Input, string OutputFormat, string? WorkingDirectory,
     Dictionary<string, string>? Environment = null, string? ResumeExecutable = null, string[]? ResumeArguments = null,
-    string? ResumeInput = null);
+    string? ResumeInput = null, string? PresetId = null);
 
 public sealed class AgentEntryDialog : Window
 {
     public AgentEntryDraft? Result { get; private set; }
     public AgentCliDraft? CliResult { get; private set; }
+    private CliRecipePreset? selectedPreset;
 
     public AgentEntryDialog(Window owner, string language, AgentRecord? existing = null, RelayService? service = null)
     {
@@ -68,6 +69,7 @@ public sealed class AgentEntryDialog : Window
         preset.SelectionChanged += (_, _) =>
         {
             if (preset.SelectedItem is not CliRecipePreset selected) return;
+            selectedPreset = selected;
             cli.Text = selected.Executable;
             arguments.Text = string.Join(Environment.NewLine, selected.Arguments);
             resumeExecutable.Text = selected.ResumeExecutable ?? "";
@@ -123,9 +125,9 @@ public sealed class AgentEntryDialog : Window
                 CliResult = new(cliPath, commandArguments, string.IsNullOrWhiteSpace(input.Text) ? null : input.Text, (string)outputFormat.SelectedItem,
                     string.IsNullOrWhiteSpace(working.Text) ? null : working.Text.Trim(), variables.Count == 0 ? null : variables,
                     resumePath.Length == 0 ? null : resumePath, resumeCommands.Length == 0 ? null : resumeCommands,
-                    string.IsNullOrWhiteSpace(resumeInputText) ? null : resumeInputText);
+                    string.IsNullOrWhiteSpace(resumeInputText) ? null : resumeInputText, selectedPreset?.Id);
             }
-            Result = new(name.Text.Trim(), existing?.Host ?? "manual", configPath,
+            Result = new(name.Text.Trim(), selectedPreset?.Host ?? existing?.Host ?? "manual", configPath,
                 cliPath.Length > 0 && Path.IsPathFullyQualified(cliPath) ? cliPath : null,
                 string.IsNullOrWhiteSpace(version.Text) ? null : version.Text.Trim(), instructionPaths);
             DialogResult = true;

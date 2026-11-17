@@ -54,8 +54,19 @@ internal static class SchemaValidation
         if (result.Details is { Count: > 0 })
         {
             foreach (var detail in result.Details)
+            {
+                // if/then/else/not sub-results describe the conditional's internals, not independent user errors.
+                if (FromConditionalBranch(detail)) continue;
                 Collect(detail, receipt, diagnostics);
+            }
         }
+    }
+
+    private static bool FromConditionalBranch(EvaluationResults result)
+    {
+        var path = result.EvaluationPath.ToString();
+        if (path.Length == 0) return false;
+        return path.TrimStart('/').Split('/').Any(segment => segment is "if" or "then" or "else" or "not");
     }
 
     private static ProtocolDiagnostic MapError(

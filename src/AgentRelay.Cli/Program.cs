@@ -59,6 +59,7 @@ public static class RelayCli
                     var result = await action(service, new Values(parse, options, flags, cancellationToken));
                     var code = result switch
                     {
+                        FileHandoffSyncResult sync when sync.Errors.Length > 0 || sync.DeliveryErrors.Length > 0 => 5,
                         TaskView { Task.ErrorCode: "execution_unknown" } when name is "run" or "dispatch" => 6,
                         TaskView { Task.State: TaskState.DeliveryUnknown } when name is "dispatch" or "approve" or "retry" => 6,
                         TaskView { Task.State: TaskState.AwaitingManual or TaskState.AwaitingConfirmation } when name is "dispatch" or "approve" or "retry" => 4,
@@ -198,18 +199,20 @@ public static class RelayCli
         });
         Sync(handoff, "create", "读取短清单，不要求 Agent 查找会话 ID", ["manifest!"],
             (s,v) => s.CreateFileHandoffFromContext(ManualTransfers.Parse(File.ReadAllText(v.Get("manifest")),s.Agents())));
-        Sync(handoff, "configure", "首次投递前设置单轮时限和自动投递，指定 --author 启用验收模式",
-            ["task!", "author", "criteria", "max-rounds", "generate-criteria?", "independent-acceptance?", "turn-timeout-minutes", "auto-deliver?"],
+        Sync(handoff, "configure", "首次投递前设置单轮时限和自动投递，指定 --author 启用验收模式（可用 --reviewer 选第三方验收方）",
+            ["task!", "author", "reviewer", "criteria", "max-rounds", "generate-criteria?", "independent-acceptance?", "turn-timeout-minutes", "auto-deliver?"],
             (s,v) =>
             {
                 var author = v.Optional("author");
+                var reviewer = v.Optional("reviewer");
                 var criteria = v.Optional("criteria");
                 var generate = v.Flag("generate-criteria");
                 var independent = v.Flag("independent-acceptance");
-                if (author is null && (criteria is not null || v.Optional("max-rounds") is not null || generate || independent))
+                if (author is null && (reviewer is not null || criteria is not null || v.Optional("max-rounds") is not null || generate || independent))
                     throw new RelayException("collaboration_author", "请先用 --author 启用验收模式，再配置验收选项。");
                 var collaboration = author is null ? null : new CollaborationOptions(author, generate ? null : criteria,
-                    v.Number("max-rounds", 5), GenerateCriteria: generate, ReviewerFinal: true, IndependentAcceptance: independent);
+                    v.Number("max-rounds", 5), GenerateCriteria: generate, ReviewerFinal: true, IndependentAcceptance: independent,
+                    ReviewerId: reviewer);
                 return s.ConfigureFileHandoff(v.Get("task"), new(collaboration, v.Flag("auto-deliver"),
                     v.Optional("turn-timeout-minutes") is null ? null : v.Number("turn-timeout-minutes", 0)));
             });

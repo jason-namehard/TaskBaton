@@ -121,6 +121,48 @@ public sealed class CliTests
     }
 
     [TestMethod]
+    public async Task HandoffSyncReturnsNonZeroWhenAReceiptCannotBeImported()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "AgentRelay.Tests", Guid.NewGuid().ToString());
+        var service = new RelayService(home); service.Initialize();
+        service.RegisterManual("agent-a", "manual", "A"); service.RegisterManual("agent-b", "manual", "B");
+        var source = Path.Combine(home, "request.md"); File.WriteAllText(source, "Do work.");
+        var task = service.CreateFileHandoff(new("agent-a", "agent-b", source)).Task;
+        File.WriteAllText(service.ManualReceiptPath(task),
+            """{"task_id":"wrong","attempt_id":"wrong","sender":"agent-b","turn":0,"status":"done","needs_reply":false,"unexpected":1}""");
+        try
+        {
+            var result = await Invoke("--home", home, "handoff", "sync");
+            Assert.AreEqual(5, result.Code);
+            Assert.IsFalse(result.Json.GetProperty("ok").GetBoolean());
+            var errors = result.Json.GetProperty("data").GetProperty("errors");
+            Assert.IsGreaterThan(0, errors.GetArrayLength());
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
+    [TestMethod]
+    public async Task HandoffConfigureAcceptsAThirdPartyReviewer()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "AgentRelay.Tests", Guid.NewGuid().ToString());
+        var service = new RelayService(home); service.Initialize();
+        service.RegisterManual("agent-a", "manual", "A"); service.RegisterManual("agent-b", "manual", "B");
+        service.RegisterManual("agent-c", "manual", "C");
+        var source = Path.Combine(home, "request.md"); File.WriteAllText(source, "Do work.");
+        var task = service.CreateFileHandoff(new("agent-a", "agent-b", source)).Task;
+        try
+        {
+            var result = await Invoke("--home", home, "handoff", "configure", "--task", task.TaskId,
+                "--author", "agent-b", "--reviewer", "agent-c", "--criteria", "Everything passes");
+            Assert.AreEqual(0, result.Code);
+            var updated = service.Status(task.TaskId).Task;
+            Assert.AreEqual("agent-b", updated.Collaboration!.AuthorId);
+            Assert.AreEqual("agent-c", updated.Collaboration.ReviewerId);
+        }
+        finally { Directory.Delete(home, recursive: true); }
+    }
+
+    [TestMethod]
     public async Task HandoffVerifyAndLintReturnTheProtocolExitCodes()
     {
         var root = Path.Combine(Path.GetTempPath(), "AgentRelay.Tests", Guid.NewGuid().ToString());

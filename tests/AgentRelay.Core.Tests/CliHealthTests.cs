@@ -162,4 +162,28 @@ public sealed class CliHealthTests
         StringAssert.Contains(prompt, "不要自行安装");
         StringAssert.Contains(prompt, "cli-recipe doctor");
     }
+
+    [TestMethod]
+    public async Task WindowsPrefersTheCmdShimOverTheExtensionlessPosixShim()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Inconclusive("Windows PATHEXT behavior is required.");
+        var toolDir = Path.Combine(root, "tools"); Directory.CreateDirectory(toolDir);
+        File.WriteAllText(Path.Combine(toolDir, "probe-agent"), "#!/bin/sh\nexit 0\n");
+        File.WriteAllText(Path.Combine(toolDir, "probe-agent.cmd"), "@echo off\r\nexit /b 0\r\n");
+        File.WriteAllText(Path.Combine(toolDir, "probe-run.cmd"), "@echo off\r\necho {\"accepted\":true}\r\n");
+        var previous = Environment.GetEnvironmentVariable("PATH");
+        Environment.SetEnvironmentVariable("PATH", toolDir + Path.PathSeparator + previous);
+        try
+        {
+            var resolved = RelayProcess.ResolveExecutable("probe-agent");
+            Assert.IsNotNull(resolved);
+            StringAssert.EndsWith(resolved!, ".cmd", StringComparison.OrdinalIgnoreCase);
+            Import(new("probe-agent", ["{prompt}"], null, null), "text");
+            Assert.AreEqual("pass", Status("create.executable"));
+            var run = await RelayProcess.RunAsync("probe-run", [], null, TimeSpan.FromSeconds(10));
+            Assert.AreEqual(0, run.ExitCode);
+            StringAssert.Contains(run.Output, "accepted");
+        }
+        finally { Environment.SetEnvironmentVariable("PATH", previous); }
+    }
 }

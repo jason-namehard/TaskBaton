@@ -94,6 +94,8 @@ public sealed class TaskRecord
     public int? MaxTurns { get; set; }
     public int? TurnTimeoutMinutes { get; set; }
     public bool AutoDeliver { get; set; }
+    // A late receipt that arrived after the turn deadline never starts the next turn automatically; the user clears this.
+    public string? AutoDeliveryHold { get; set; }
     public UnattendedHandoffRun? UnattendedRun { get; set; }
     public string? ParallelGroupId { get; set; }
     public bool IsParallelMerge { get; set; }

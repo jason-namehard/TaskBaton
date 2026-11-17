@@ -77,6 +77,9 @@ expected field when a case needs a finer assertion.
 | `handoff.session_not_found` | 5 | The exact session id does not exist in the host store. |
 | `handoff.session_mismatch` | 5 | A resume returned a different session id. |
 | `receipt.field_required` | 3 | A required receipt field is missing. |
+| `receipt.version_unsupported` | 3 | `handoff_version` is not `"1"`. |
+| `receipt.timestamp_not_utc` | 3 | A receipt timestamp does not end in `Z`. |
+| `receipt.path_unsafe` | 3 | A receipt result/artifact path escapes the handoff root. |
 | `receipt.field_invalid` / `receipt.schema_invalid` | 3 | A field has the wrong shape or violates the schema. |
 | `receipt.id_mismatch` | 5 | `handoff_id`/`task_id`/`attempt_id`/`turn`/`sender` does not match the request. |
 | `receipt.needs_reply_required` | 3 | `status=done` without `needs_reply`. |

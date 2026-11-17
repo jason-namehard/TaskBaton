@@ -28,15 +28,15 @@ foreach ($id in @('agent-a','agent-b')) {
 Invoke-Relay @('permission','set','--from','agent-a','--to','agent-b','--decision','allow') | Out-Null
 Invoke-Relay @('desktop','configure','--executable',$Helper) | Out-Null
 $request = Join-Path $WorkDirectory 'request.md'
-Set-Content -LiteralPath $request 'Agent Relay 本地通知测试：结果为 54。' -Encoding utf8
+Set-Content -LiteralPath $request 'TaskBaton 本地通知测试：结果为 54。' -Encoding utf8
 $task = (Invoke-Relay @('task','dispatch','--from','agent-a','--to','agent-b','--request',$request,'--mode','manual','--idempotency-key','desktop-test')).data.task
 Set-Content -LiteralPath $task.result_path '## 测试结果
-54；本通知用于 Agent Relay 桌面能力验证。' -Encoding utf8
+54；本通知用于 TaskBaton 桌面能力验证。' -Encoding utf8
 $done = Invoke-Relay @('task','complete','--task',$task.task_id,'--attempt',$task.attempt_id,'--sender','agent-b',
     '--status','succeeded','--result',$task.result_path,'--idempotency-key','done')
 if ($done.data.continuation.desktop_state -ne 'submitted') { throw ($done.data.continuation | ConvertTo-Json) }
 if (Get-Process AgentRelay.Notify -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $Helper}) {
-    throw 'Close existing Agent Relay notification windows before verifying cold activation'
+    throw 'Close existing TaskBaton notification windows before verifying cold activation'
 }
 $registration = @(Get-ChildItem HKCU:\Software\Classes\CLSID | ForEach-Object {
     $key = Join-Path $_.PSPath 'LocalServer32'

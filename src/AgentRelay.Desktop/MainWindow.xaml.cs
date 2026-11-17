@@ -47,6 +47,8 @@ public partial class MainWindow : Window
         DismissErrorButton.Content = Icons.Create("Close", size: 15);
         ErrorIcon.Child = Icons.Create("Alert", size: 17, brushKey: "BadBrush");
         DismissInfoButton.Content = Icons.Create("Close", size: 15);
+        AutomationProperties.SetName(DismissInfoButton, "Close notice");
+        DismissInfoButton.ToolTip = "Close notice";
         InfoIcon.Child = Icons.Create("Info", size: 17, brushKey: "InfoBrush");
         PageHelp.Content = Icons.Create("Help", size: 16);
         VersionLabel.Text = "v" + RelayVersion.Current;
@@ -207,7 +209,7 @@ public partial class MainWindow : Window
 
     private static readonly Dictionary<string, (string Subtitle, string? Help)> PageText = new(StringComparer.Ordinal)
     {
-        ["Home"] = ("Handoffs between your Agents and their progress", "Relay stores collaboration messages, requests and temporary replies. Keep final deliverables and long-term references in your project folder; relay files expire under the retention policy."),
+        ["Home"] = ("Handoffs between your Agents and their progress", "TaskBaton stores collaboration messages, requests and temporary replies. Keep final deliverables and long-term references in your project folder; relay files expire under the retention policy."),
         ["Agents"] = ("Registered Agents and how Relay reaches them", "One-click setup is for a new node. To change an existing node, select it and use Edit Agent. An Agent bridge connects Relay to the Agent through ACP or its CLI; ACP is used when the host supports it. Without a bridge you copy prompts by hand."),
         ["Connections"] = ("One line per pair of Agents; the graph is read-only", "A → B means the recipient has a calling recipe. A double arrow means both directions have one. Green means available; gray means no recipe. Relay chooses automatic delivery from the recipient's verified bridge; manual copy always works, and the graph never pauses a direction."),
         ["Settings"] = ("Appearance, notifications, relay storage and advanced options", null)

@@ -192,7 +192,7 @@ public sealed class CliProbeDialog : Window
         {
             var selected=boxes.Where(pair=>pair.Box.IsChecked==true).Select(pair=>pair.Candidate).ToArray();
             if(selected.Length==0)return "Select at least one probe.";
-            var sessions=string.Join(", ",selected.Select(item=>item.SessionId??"(no session)"));
+            var sessions=string.Join(", ",selected.Select(item=>item.SessionId??T("None")));
             if(ThemedMessageBox.Show(this,string.Format(System.Globalization.CultureInfo.CurrentUICulture,
                     T("Clean up {0} selected probe(s) for {1}? Verification stays enabled. Sessions used by real tasks, items whose ownership cannot be confirmed, and unsupported items are kept and reported. Selected sessions: {2}"),
                     selected.Length,AgentName(),sessions),
@@ -230,7 +230,7 @@ public sealed class CliProbeDialog : Window
                 "failed"=>"Cleanup failed", "pending"=>"Cleanup pending",
                 _=>throw new InvalidOperationException("Unknown probe cleanup item status: "+item.Status)
             });
-            var detail=kind+" · "+status+(item.SessionId is null?"":"\n"+T("Session")+": "+item.SessionId)+"\n"+item.Message;
+            var detail=kind+" · "+status+(item.ProbeId is null?"":"\n"+T("Probe")+": "+item.ProbeId)+(item.SessionId is null?"":"\n"+T("Session")+": "+item.SessionId)+"\n"+item.Message;
             if(item.Path is not null)detail+="\n"+T("Path")+": "+item.Path;
             if(item.BackupPath is not null)detail+="\n"+T("Backup path")+": "+item.BackupPath;
             return detail;

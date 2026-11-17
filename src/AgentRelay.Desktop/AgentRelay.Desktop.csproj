@@ -8,6 +8,8 @@
     <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>AgentRelay.Desktop</AssemblyName>
     <Product>TaskBaton</Product>
+    <FileDescription>TaskBaton Desktop</FileDescription>
+    <AssemblyTitle>TaskBaton Desktop</AssemblyTitle>
     <ApplicationIcon>Assets/AgentRelay.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>

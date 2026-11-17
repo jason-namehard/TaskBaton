@@ -54,6 +54,23 @@ public sealed class FileDeliveryTests
         service.ConfirmCliProbe(agent, probe.ProbeId, true);
     }
 
+    /// <summary>A recipe with an exact resume command plus delivery evidence, so auto-delivery can actually start.</summary>
+    private void VerifyResume(string agent)
+    {
+        var recipe = Recipe(agent) with { Resume = Recipe(agent).Create with { Input = "{session_id}\n{prompt}" } };
+        service.ImportCliRecipe(agent, RelayJson.Write(recipe));
+        var current = service.CliExtension(agent)!;
+        var evidence = new CliDeliveryEvidence("seed-task", 0, "source-session", DateTimeOffset.UtcNow);
+        new RelayStore(service.Home).Write(s =>
+        {
+            s.Execute("UPDATE cli_extensions SET json=$json WHERE agent_id=$id",
+                ("$json", RelayJson.Write(current with { CreateEvidence = evidence, ResumeEvidence = evidence })),
+                ("$id", agent));
+            return true;
+        });
+        Assert.IsTrue(service.CliExtension(agent)!.CanResume);
+    }
+
     private TaskRecord Create() => service.CreateFileHandoff(new("agent-a", "agent-b", source, "Review")).Task;
     private int Calls(string agent) => File.Exists(CountFile(agent)) ? File.ReadAllLines(CountFile(agent)).Length : 0;
 
@@ -97,11 +114,12 @@ public sealed class FileDeliveryTests
     }
 
     [TestMethod]
-    public async Task LateReceiptAfterDeadlineDoesNotAutoSendTheNextTurn()
+    public async Task LateReceiptHoldsAutomaticDeliveryUntilTheUserDecides()
     {
-        await Verify("agent-a");
         await Verify("agent-b");
+        VerifyResume("agent-a");
         var task = Create();
+        service.BindManualTaskSession(task.TaskId, "agent-a", "source-session");
         task = service.ConfigureFileHandoff(task.TaskId, new(AutoDeliver: true)).Task;
         await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
         Assert.AreEqual(1, Calls("agent-b"));
@@ -114,8 +132,46 @@ public sealed class FileDeliveryTests
         await service.SyncFileHandoffsAsync(true);
         var after = service.Status(task.TaskId).Task;
         Assert.AreEqual("agent-a", after.AwaitingAgentId);
-        Assert.AreEqual(0, Calls("agent-a"));
+        Assert.AreEqual("late_receipt", after.AutoDeliveryHold);
         Assert.IsFalse(service.CanAutoDeliver(after));
+        var progress = service.FileHandoffProgress(after);
+        Assert.AreEqual("cli_ready", progress.Delivery);
+        Assert.IsTrue(progress.Status!.NeedsUser);
+        Assert.AreEqual(0, Calls("agent-a"));
+        service.AllowAutomaticDelivery(task.TaskId);
+        var allowed = service.Status(task.TaskId).Task;
+        Assert.IsNull(allowed.AutoDeliveryHold);
+        Assert.IsTrue(service.CanAutoDeliver(allowed));
+    }
+
+    [TestMethod]
+    public async Task PortableProtocolReceiptIsImportedBySync()
+    {
+        await Verify("agent-b");
+        var task = Create();
+        await service.SendFileHandoffAsync(task.TaskId, service.FileHandoffPrompt(task));
+        var receiptPath = service.ManualReceiptPath(task);
+        Directory.CreateDirectory(Path.GetDirectoryName(receiptPath)!);
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName(receiptPath)!, "reply.md"), "done");
+        File.WriteAllText(receiptPath, RelayJson.Write(new
+        {
+            handoff_version = "1",
+            handoff_id = Guid.NewGuid().ToString(),
+            task_id = task.TaskId,
+            attempt_id = task.AttemptId,
+            turn = 0,
+            sender = "agent-b",
+            status = "done",
+            needs_reply = true,
+            result = new { path = "reply.md" },
+            next_action = "Continue with the review.",
+            written_at = DateTimeOffset.UtcNow.ToString("O"),
+            idempotency_key = "task/turn-0/receipt"
+        }));
+        var sync = await service.SyncFileHandoffsAsync(false);
+        Assert.IsEmpty(sync.Errors, string.Join("; ", sync.Errors.Select(error => error.Message)));
+        Assert.HasCount(1, sync.UpdatedTaskIds);
+        Assert.AreEqual("agent-a", service.Status(task.TaskId).Task.AwaitingAgentId);
     }
 
     [TestMethod]

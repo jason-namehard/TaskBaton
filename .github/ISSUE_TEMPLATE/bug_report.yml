@@ -5,8 +5,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Agent Relay version
-      placeholder: 0.1.0-preview.5
+      label: TaskBaton version (formerly Agent Relay)
+      placeholder: 0.4.0
     validations:
       required: true
   - type: input

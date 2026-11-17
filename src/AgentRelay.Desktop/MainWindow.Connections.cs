@@ -37,9 +37,9 @@ public partial class MainWindow
                 directions.Children.Add(frame);
                 var route = RouteLine(direction.From, direction.To, 20, 13); route.Margin = new(0, 0, 10, 0); row.Children.Add(route);
                 var available = direction.Display != "Unavailable";
-                var explanation = Muted(available
+                var explanation = Muted(T(available
                     ? "A calling method is registered. Relay sends automatically only when this recipient's bridge is verified; otherwise copy the prompt."
-                    : "No calling recipe. Copy a handoff prompt, or set up a bridge for the recipient.", 12.5, new(0, 8, 0, 0));
+                    : "No calling recipe. Copy a handoff prompt, or set up a bridge for the recipient."), 12.5, new(0, 8, 0, 0));
                 Grid.SetRow(explanation, 1); Grid.SetColumnSpan(explanation, 2); row.Children.Add(explanation);
                 var stateName = "ConnectionState_" + direction.From.Replace('-', '_') + "_" + direction.To.Replace('-', '_');
                 var pill = Pill(GraphText.State(direction.Display, preferences.Language), available ? "ok" : "off");
@@ -56,7 +56,7 @@ public partial class MainWindow
                     AutomationProperties.SetAutomationId(extend, extend.Name);
                 }
             }
-            side.Children.Add(Muted("This graph is informational. Relay no longer pauses individual directions; automatic delivery follows the recipient's verified bridge, and copying a prompt by hand always works.", 12.5, new(2, 10, 2, 6)));
+            side.Children.Add(Muted(T("This graph is informational. Relay no longer pauses individual directions; automatic delivery follows the recipient's verified bridge, and copying a prompt by hand always works."), 12.5, new(2, 10, 2, 6)));
             Styled(Add(Row(side), "Manual handoff", () => { Go("Home"); return Task.CompletedTask; }), "LinkButtonStyle");
         }
         var graph = new ConnectionGraph(service.Agents(), edges, Select, preferences.Language, this, AgentName, service.CliExtensions().ToDictionary(e => e.AgentId), AvatarKey);

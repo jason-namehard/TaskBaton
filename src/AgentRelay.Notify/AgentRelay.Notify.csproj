@@ -11,6 +11,8 @@
     <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <AssemblyName>AgentRelay.Notify</AssemblyName>
     <Product>TaskBaton</Product>
+    <FileDescription>TaskBaton Notifications</FileDescription>
+    <AssemblyTitle>TaskBaton Notifications</AssemblyTitle>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK.Foundation" Version="1.8.260803002" />

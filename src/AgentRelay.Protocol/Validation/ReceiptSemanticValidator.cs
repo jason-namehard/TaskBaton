@@ -208,6 +208,13 @@ internal static class ReceiptSemanticValidator
                         "open_items",
                         "outcome=approved must not have open items."));
                 }
+                if (receipt.NeedsReply == false && receipt.Review?.IsReviewerFinal != true)
+                {
+                    diagnostics.Add(ProtocolDiagnostic.Validation(
+                        ProtocolDiagnosticCodes.ReceiptReviewFinalInvalid,
+                        "needs_reply",
+                        "outcome=approved without review.final must keep needs_reply=true so the author can accept the delivery."));
+                }
                 break;
 
             case "submitted":

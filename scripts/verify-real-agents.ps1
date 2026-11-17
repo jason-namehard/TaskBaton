@@ -62,7 +62,7 @@ $agentA = [Diagnostics.Process]::Start($start)
 $events = $agentA.StandardOutput.ReadToEndAsync()
 $diagnostics = $agentA.StandardError.ReadToEndAsync()
 $memory = 'ORIGIN-' + [guid]::NewGuid().ToString('N')
-$agentA.StandardInput.Write("记住原任务码 $memory ，此码不要写入交接指令，仅你记住。以后收到 Agent Relay 继续消息时，读取结果并报告此原任务码和计算结果，不要重复派发。当前轮不要调用工具。请给 Agent B 写一份简短中文任务：计算 4、9、16、25 的和，说明计算过程，返回标记 RELAY-PHASE2-54。你只写交接指令，不要自行解答。")
+$agentA.StandardInput.Write("记住原任务码 $memory ，此码不要写入交接指令，仅你记住。以后收到 TaskBaton 继续消息时，读取结果并报告此原任务码和计算结果，不要重复派发。当前轮不要调用工具。请给 Agent B 写一份简短中文任务：计算 4、9、16、25 的和，说明计算过程，返回标记 RELAY-PHASE2-54。你只写交接指令，不要自行解答。")
 $agentA.StandardInput.Close()
 if (-not $agentA.WaitForExit($TimeoutSeconds * 1000)) {
     $agentA.Kill($true)

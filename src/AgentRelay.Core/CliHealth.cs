@@ -69,9 +69,14 @@ public sealed partial class RelayService
             yield return new("host.parity.dsh", "warn", "DSH 命令行（headless）与桌面的工具集不同：它不能续接桌面建的会话；Relay 新建的会话在桌面继续时，第一轮会整段重新计费，之后再命中缓存。改用 dsh-desktop 调用方案，可由运行中的 DSH 桌面执行回合，两边请求一致。");
         if (format == "acp" && Path.GetFileNameWithoutExtension(recipe.Create.Executable)
                 .Equals("codex-acp", StringComparison.OrdinalIgnoreCase))
-            yield return ResolveExecutable("codex") is null
+        {
+            yield return RelayProcess.ResolveExecutable("codex") is null
                 ? new("host.codex.cli", "fail", "Codex ACP 适配器还需要 Codex CLI 本体。请先安装 Codex，再重新检查。")
-                : new("host.codex.cli", "pass", "已找到 Codex CLI；ACP 适配器会把它接到 Relay 的 ACP 接口。");
+                : new("host.codex.cli", "pass", "已找到 Codex CLI。");
+            yield return RelayProcess.ResolveExecutable("codex-acp") is null
+                ? new("host.codex.adapter", "fail", "缺少 codex-acp 适配器；请安装 @agentclientprotocol/codex-acp 后再检查。")
+                : new("host.codex.adapter", "pass", "已找到 codex-acp 适配器。");
+        }
         if (format == "dsh-desktop")
         {
             var dshHome = recipe.Create.Environment?.GetValueOrDefault("DSH_HOME");
@@ -205,18 +210,5 @@ public sealed partial class RelayService
         catch (JsonException) { return false; } // An unreadable host file means the CLI cannot use it either.
     }
 
-    private static string? ResolveExecutable(string executable)
-    {
-        if (Path.IsPathFullyQualified(executable)) return File.Exists(executable) ? executable : null;
-        var extensions = OperatingSystem.IsWindows()
-            ? (Environment.GetEnvironmentVariable("PATHEXT") ?? ".EXE;.CMD;.BAT").Split(';').Prepend("")
-            : [""];
-        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-        foreach (var extension in extensions)
-        {
-            var candidate = Path.Combine(directory.Trim('"'), executable + extension);
-            if (File.Exists(candidate)) return candidate;
-        }
-        return null;
-    }
+    private static string? ResolveExecutable(string executable) => RelayProcess.ResolveExecutable(executable);
 }

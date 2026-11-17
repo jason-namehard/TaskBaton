@@ -30,7 +30,7 @@ public sealed partial class RelayService
     /// <summary>Unattended sends need the exact capability already proven and no unresolved host blocker.</summary>
     public bool CanAutoDeliver(TaskRecord task)
     {
-        if (task.ManualResendTurn == task.ManualTurn || !CanSendFileHandoff(task)) return false;
+        if (task.AutoDeliveryHold is not null || task.ManualResendTurn == task.ManualTurn || !CanSendFileHandoff(task)) return false;
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         return CliExtension(recipient) is { } extension && AutomaticRouteReady(task, extension,
             TaskSession(task.TaskId, recipient, SessionPurpose(task, recipient))?.SessionId is not null);
@@ -43,6 +43,8 @@ public sealed partial class RelayService
 
     public string? FileDeliveryMessage(TaskRecord task)
     {
+        if (task.AutoDeliveryHold is not null)
+            return "迟到回执已接收；Relay 不会自动开始下一轮。请检查结果后手动发送，或明确允许自动发送。";
         var recipient = task.AwaitingAgentId ?? task.RecipientId;
         var extension = CliExtension(recipient);
         if (extension?.Block is {} block) return block.Message;
@@ -185,6 +187,8 @@ public sealed partial class RelayService
             current.CliFileError = null; current.CliFileSessionId = null; current.Mode = "cli"; current.AdapterId = "cli:" + recipient;
             current.CliFileOperation = resume ? "resume" : "create"; current.CliFileRevision = extension.Revision;
             current.SendStartedAt = Now;
+            // An explicit manual send is the user's decision to continue after a late receipt.
+            if (!automatic) current.AutoDeliveryHold = null;
             s.Save(current); s.Event(current, "file.cli_submitting", "operator", Now, resume ? "resume " + binding!.SessionId : "create");
             return true;
         });
@@ -326,6 +330,17 @@ public sealed partial class RelayService
             return View(task, s);
         });
     }
+
+    /// <summary>The user explicitly allows later turns to resume automatic delivery after a late receipt.</summary>
+    public TaskView AllowAutomaticDelivery(string taskId) => store.Write(s =>
+    {
+        var task = s.Task(taskId);
+        if (Terminal(task.State)) throw new RelayException("handoff_finished", "已结束的交接不能恢复自动投递。", 5);
+        if (task.AutoDeliveryHold is null) return ManualView(task);
+        task.AutoDeliveryHold = null;
+        s.Save(task); s.Event(task, "handoff.auto_delivery_allowed", "operator", Now);
+        return ManualView(task);
+    });
 
     private void RecordCliDeliveryEvidence(StoreSession s, TaskRecord task, ManualReceipt receipt)
     {

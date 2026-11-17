@@ -21,7 +21,11 @@ AppName=TaskBaton
 AppVersion={#ReleaseVersion}
 AppPublisher=TaskBaton contributors
 AppPublisherURL=https://github.com/jason-namehard/agent-relay
+#ifdef TestInstallDir
+DefaultDirName={#TestInstallDir}
+#else
 DefaultDirName={localappdata}\Programs\Agent Relay
+#endif
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -31,11 +35,20 @@ SetupIconFile={#IconPath}
 UninstallDisplayIcon={app}\app\gui\AgentRelay.Desktop.exe
 LicenseFile={#SourcePath}\LICENSE
 OutputDir={#OutputPath}
+#ifdef TestAppId
+OutputBaseFilename=AgentRelay-v{#ReleaseVersion}-windows-x64-test-setup
+#else
 OutputBaseFilename=AgentRelay-v{#ReleaseVersion}-windows-x64-setup
+#endif
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+#ifdef TestAppId
+; A test installer must never close or replace the formal installation's processes.
+CloseApplications=no
+#else
 CloseApplications=yes
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

@@ -5,6 +5,7 @@ param(
     [string]$BuildDirectory,
     [string]$TestAppId,
     [string]$TestLocationPath,
+    [string]$TestInstallDir,
     [switch]$NoRestore
 )
 $ErrorActionPreference='Stop'
@@ -20,7 +21,8 @@ if (Test-Path -LiteralPath $build) { throw "Build directory already exists: $bui
 $stage=Join-Path $build 'payload'
 $isolated=Join-Path $build 'dotnet-artifacts'
 New-Item -ItemType Directory -Path $output,$build -Force | Out-Null
-$installer=Join-Path $output "AgentRelay-v$version-windows-x64-setup.exe"
+$installerName = if ($TestAppId) { "AgentRelay-v$version-windows-x64-test-setup.exe" } else { "AgentRelay-v$version-windows-x64-setup.exe" }
+$installer=Join-Path $output $installerName
 if (Test-Path -LiteralPath $installer) { throw "Installer already exists: $installer" }
 if (-not $NoRestore) {
     & $Dotnet restore (Join-Path $projectRoot 'AgentRelay.slnx') --locked-mode
@@ -58,11 +60,14 @@ $arguments=@("${definePrefix}SourcePath=$stage","${definePrefix}ReleaseVersion=$
 if ($TestAppId) {
     $arguments+="${definePrefix}TestAppId=$TestAppId"
     if (-not $TestLocationPath) { $TestLocationPath=Join-Path $build 'relay.location.json' }
+    if (-not $TestInstallDir) { $TestInstallDir=Join-Path $build 'test-install' }
+    $arguments+="${definePrefix}TestInstallDir=$([IO.Path]::GetFullPath($TestInstallDir))"
 }
 if ($TestLocationPath) {
     if (-not $TestAppId) { throw 'TestLocationPath requires TestAppId.' }
     $arguments+="${definePrefix}TestLocationPath=$([IO.Path]::GetFullPath($TestLocationPath))"
 }
+if ($TestInstallDir -and -not $TestAppId) { throw 'TestInstallDir requires TestAppId.' }
 & $compiler @arguments (Join-Path $PSScriptRoot 'windows-installer.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 Get-Item -LiteralPath $installer | Select-Object FullName,Length

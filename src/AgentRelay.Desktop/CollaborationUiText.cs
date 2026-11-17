@@ -92,6 +92,8 @@ internal static class CollaborationUiText
         Add("Relay sends this turn to {0} through CLI automatically.","本轮将由 Relay 自动通过 CLI 发送给 {0}。","本輪將由 Relay 自動透過 CLI 傳送給 {0}。","この回は Relay が CLI で {0} に自動送信します。","이번 회차는 Relay가 CLI로 {0}에게 자동 전송합니다.","Relay envía este turno a {0} por CLI automáticamente.");
         Add("Not received · Allow resending","确认未收到 · 允许重发","確認未收到 · 允許重傳","未着を確認 · 再送を許可","미수신 확인 · 재전송 허용","No recibido · Permitir reenviar");
         Add("Continue waiting","继续等待","繼續等待","待機を続ける","계속 기다리기","Seguir esperando");
+        Add("Allow automatic sends","允许自动发送","允許自動傳送","自動送信を許可","자동 전송 허용","Permitir envíos automáticos");
+        Add("The late receipt is already recorded. Allow Relay to resume automatic delivery for later turns?","迟到回执已经记录。是否允许 Relay 在后续轮次恢复自动投递？","延遲回執已經記錄。是否允許 Relay 在後續輪次恢復自動投遞？","遅延した応答は記録済みです。以降のターンで自動送信を再開しますか？","지연된 회신은 이미 기록되었습니다. 이후 턴에서 자동 전송을 다시 허용할까요?","El recibo tardío ya está registrado. ¿Permitir que Relay reanude el envío automático en turnos posteriores?");
         Add("Check for receipts now","立即检查回执","立即檢查回執","今すぐ応答を確認","지금 회신 확인","Buscar confirmaciones ahora");
         Add("View target conversation","查看目标会话","查看目標會話","相手の会話を確認","대상 대화 보기","Ver conversación de destino");
         Add("Saved conversation ID for {0}","{0} 已记录的会话 ID","{0} 已記錄的會話 ID","{0} の保存済み会話 ID","{0}에 저장된 대화 ID","ID de conversación guardado para {0}");

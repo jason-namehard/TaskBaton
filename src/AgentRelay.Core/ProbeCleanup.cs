@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace AgentRelay.Core;
 
 public sealed record ProbeCleanupItem(string? SessionId, string Kind, string Status, string Message,
-    string? Path = null, string? BackupPath = null);
+    string? Path = null, string? BackupPath = null, string? ProbeId = null);
 public sealed record ProbeCleanupResult(string AgentId, IReadOnlyList<ProbeCleanupItem> Items)
 {
     public bool Complete => Items.All(IsComplete);
@@ -84,7 +84,8 @@ public sealed partial class RelayService
         if (extension.CreateProbe is { SessionCleaned: false, SessionId: { Length: > 0 } legacy } &&
             (probeIds is null || probeIds.Contains(extension.CreateProbe.ProbeId)) &&
             !recorded.Any(a => a.ProbeId == extension.CreateProbe.ProbeId))
-            items.Add(new(legacy, "session", "unverified", "旧探针没有新建前的会话记录，无法确认归属，已保留。"));
+            items.Add(new(legacy, "session", "unverified", "旧探针没有新建前的会话记录，无法确认归属，已保留。",
+                ProbeId: extension.CreateProbe.ProbeId));
 
         foreach (var artifact in artifacts)
         {
@@ -141,6 +142,9 @@ public sealed partial class RelayService
                     }
                 }
             }
+
+            for (var index = start; index < items.Count; index++)
+                if (items[index].ProbeId is null) items[index] = items[index] with { ProbeId = artifact.ProbeId };
 
             if (items.Skip(start).All(ProbeCleanupResult.IsComplete))
                 store.Write(s =>

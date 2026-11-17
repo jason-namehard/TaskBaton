@@ -104,7 +104,7 @@ public sealed class ReceiptDocument
     /// <summary>Whether this receipt completes the handoff. <c>failed</c> parks a task but does not complete it.</summary>
     public bool IsTerminalCompletion =>
         Status == "done"
-        && (IsLegacyAuthorAccept || IsReviewerFinalApproval || NeedsReply == false);
+        && (IsLegacyAuthorAccept || IsReviewerFinalApproval || (NeedsReply == false && Outcome != "approved"));
 
     public static ReceiptDocument LoadFile(string path) => Load(File.ReadAllText(path));
 

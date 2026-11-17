@@ -150,18 +150,18 @@ public sealed partial class RelayService
             ? "当前安装位置没有可确认的 Relay CLI。不要猜测程序路径；请用户在 Relay 中选择“安装交接规则 → 手动选择指令文件”。"
             : $"{relayCommand} --home \"{Home}\" guidance install --agent \"{agentId}\" --file \"<该文件的绝对路径>\" --approve";
         var verify = string.IsNullOrWhiteSpace(relayCommand)
-            ? ""
-            : $"\n4. 再运行 {relayCommand} --home \"{Home}\" guidance list，确认本 Agent 已登记。";
+            ? "\n4. 如果找不到文件或命令无法运行，不要猜测，也不要声称已安装；告诉用户在 Relay 中选择“安装交接规则 → 手动选择指令文件”。"
+            : $"\n4. 再运行 {relayCommand} --home \"{Home}\" guidance list，确认本 Agent 已登记。\n5. 如果找不到文件或命令无法运行，不要猜测，也不要声称已安装；告诉用户在 Relay 中选择“安装交接规则 → 手动选择指令文件”。";
         var prompt = $$"""
             Relay 交接规则部署请求：{{requestId}}
 
             请为 Agent {{name}}（{{agentId}}）部署 Relay 交接规则。Relay 无法判断你的宿主实际加载哪个指令文件，因此不要按目录或文件名猜测。
+            同一份提示词只能用于一个 Agent；如果要为另一个 Agent 部署，必须重新生成，不能复用本请求。
 
             1. 先确认你的宿主在会话启动时实际加载的常驻指令文件（例如 AGENTS.md、CLAUDE.md 或宿主专用的 md 文件）。如果有多个候选，列出路径并询问用户哪一个真正生效。
             2. 把该文件的绝对路径和下面这句一行规则告诉用户。在用户明确同意前不要修改文件，也不要修改其他 Agent 的指令文件。
             3. 用户同意后运行：
                {{install}}{{verify}}
-            5. 如果找不到文件或命令无法运行，不要猜测，也不要声称已安装；告诉用户在 Relay 中选择“安装交接规则 → 手动选择指令文件”。
 
             一行规则：{{rule}}
             详细规则文件（按需读取）：{{instructions}}

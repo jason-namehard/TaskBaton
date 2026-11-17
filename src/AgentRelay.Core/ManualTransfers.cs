@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace AgentRelay.Core;
@@ -59,7 +60,36 @@ public static class ManualTransfers
         return draft with { From = from, To = to, File = Path.GetFullPath(draft.File) };
     }
 
-    public static ManualReceipt ParseReceipt(string json) => Read<ManualReceipt>(json);
+    public static ManualReceipt ParseReceipt(string json, string? baseDirectory = null) =>
+        Read<ManualReceipt>(NormalizeProtocolReceipt(json, baseDirectory));
+
+    /// <summary>
+    /// A handoff/1 receipt.json uses the portable protocol shape. Map its portable fields onto the ledger's receipt
+    /// contract before deserializing; unknown protocol keys must not be rejected as a bad user reply.
+    /// </summary>
+    internal static string NormalizeProtocolReceipt(string json, string? baseDirectory = null)
+    {
+        JsonNode? node;
+        try { node = JsonNode.Parse(json); }
+        catch (JsonException) { return json; }
+        if (node is not JsonObject obj || !obj.ContainsKey("handoff_version")) return json;
+        if (obj["result"] is JsonObject result && obj["result_file"] is null &&
+            result["path"] is JsonValue pathValue && pathValue.TryGetValue<string>(out var path) &&
+            !string.IsNullOrWhiteSpace(path))
+        {
+            if (!Path.IsPathFullyQualified(path) && baseDirectory is not null)
+                path = Path.GetFullPath(Path.Combine(baseDirectory, path));
+            obj["result_file"] = path;
+        }
+        if (obj["status"] is JsonValue statusValue && statusValue.TryGetValue<string>(out var status) && status == "failed" &&
+            obj["next_action"] is null && obj["error"] is JsonObject error &&
+            error["message"] is JsonValue messageValue && messageValue.TryGetValue<string>(out var message))
+            obj["next_action"] = message;
+        foreach (var key in new[] { "handoff_version", "handoff_id", "written_at", "idempotency_key", "verification",
+                     "session", "artifacts", "side_effects_possible", "result", "error", "review" })
+            obj.Remove(key);
+        return obj.ToJsonString();
+    }
 
     private static T Read<T>(string json)
     {
@@ -342,7 +372,7 @@ public sealed partial class RelayService
                         continue;
                     }
                     var json = File.ReadAllText(path);
-                    var receipt = ManualTransfers.ParseReceipt(json);
+                    var receipt = ManualTransfers.ParseReceipt(json, Path.GetDirectoryName(path));
                     // A 0.3.0 prompt named one receipt for the whole attempt; the receipt itself declares its turn.
                     var turn = knownTurn ?? receipt.Turn;
                     if (knownTurn is not null && receipt.Turn != knownTurn)
@@ -478,6 +508,8 @@ public sealed partial class RelayService
                 throw new RelayException("handoff_paused", "交接已暂停，等待用户决定；暂停期间不接收新的回执。");
             task.State = task.PausedFrom ?? throw new RelayException("handoff_state_inconsistent",
                 "账本缺少此交接暂停前的状态，无法导入该回执。其他任务仍可同步。", 5);
+            // A late receipt proves the turn eventually arrived, but it must not silently start the next paid turn.
+            if (task.PauseReason == "turn_timeout" && task.AutoDeliver) task.AutoDeliveryHold = "late_receipt";
             task.PauseReason = null; task.PauseMessage = null; task.PausedFrom = null;
             task.DeadlineAt = Now + TurnTimeout(s, task);
             s.Event(task, "handoff.late_receipt", receipt.Sender, Now, "turn=" + receipt.Turn + " reason=resumed");

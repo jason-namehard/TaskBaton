@@ -13,7 +13,8 @@ public static class RelayProcess
         IReadOnlyDictionary<string, string>? environment = null, string? workingDirectory = null,
         Action<string>? onLine = null)
     {
-        var start = new ProcessStartInfo(executable)
+        var fileName = ResolveExecutable(executable) ?? executable;
+        var start = new ProcessStartInfo(fileName)
         {
             UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true
@@ -49,6 +50,29 @@ public static class RelayProcess
             return new ProcessResult(-1, await output, await error, true);
         }
         return new ProcessResult(process.ExitCode, await output, await error, false);
+    }
+
+    /// <summary>
+    /// Resolves a bare command the way Windows will actually start it. PATHEXT entries come first so an npm
+    /// <c>claude.cmd</c> wins over its extensionless POSIX shim, which CreateProcess cannot execute.
+    /// </summary>
+    internal static string? ResolveExecutable(string executable)
+    {
+        if (Path.IsPathFullyQualified(executable)) return File.Exists(executable) ? executable : null;
+        var extensions = OperatingSystem.IsWindows()
+            ? (Environment.GetEnvironmentVariable("PATHEXT") ?? ".EXE;.CMD;.BAT")
+                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(extension => extension.StartsWith('.') ? extension : "." + extension)
+                .Append("")
+            : [""];
+        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var extension in extensions)
+        {
+            var candidate = Path.Combine(directory.Trim('"'), executable + extension);
+            if (File.Exists(candidate)) return candidate;
+        }
+        return null;
     }
 
     private static async Task<string> ReadLinesAsync(StreamReader reader, Action<string> onLine)

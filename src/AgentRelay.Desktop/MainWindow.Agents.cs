@@ -49,9 +49,17 @@ public partial class MainWindow
                 var resume = cli.ResumeExecutable is { Length: > 0 } resumeExecutable
                     ? new CliCommand(resumeExecutable, cli.ResumeArguments ?? [], cli.ResumeInput, cli.WorkingDirectory, cli.Environment)
                     : null;
+                var preset = cli.PresetId is { } presetId ? CliRecipePresetCatalog.Find(presetId) : null;
                 var recipe = priorRecipe is null
-                    ? new CliRecipe(1, draft.Name + " CLI", draft.Host, command, resume, [], "", "manual", "", "", cli.OutputFormat)
+                    ? new CliRecipe(1, preset?.Name ?? draft.Name + " CLI", preset?.Host ?? draft.Host, command, resume,
+                        preset?.Requires ?? [], "", preset?.Source ?? "manual", preset?.License ?? "", preset?.Notes ?? "", cli.OutputFormat)
                     : priorRecipe with { Create = command, Resume = resume, OutputFormat = cli.OutputFormat };
+                if (priorRecipe is not null && preset is not null)
+                    recipe = recipe with
+                    {
+                        Name = preset.Name, Host = preset.Host, Dependencies = preset.Requires,
+                        Source = preset.Source, License = preset.License, Limitations = preset.Notes
+                    };
                 if (priorRecipe is null || RelayJson.Write(recipe) != RelayJson.Write(priorRecipe))
                     service.ImportCliRecipe(id, RelayJson.Write(recipe));
             }

@@ -255,6 +255,7 @@ public sealed class ProbeCleanupTests
         Assert.AreEqual(2L, Scalar(database, "SELECT COUNT(*) FROM session"));
 
         var result = await service.CleanupCliProbeAsync("b", ["probe-two"]);
+        Assert.IsTrue(result.Items.All(item => item.ProbeId == "probe-two"), RelayJson.Write(result));
         Assert.IsTrue(result.Items.Any(item => item.SessionId == "probe-two" && item.Status == "removed"), RelayJson.Write(result));
         Assert.AreEqual(1L, Scalar(database, "SELECT COUNT(*) FROM session WHERE id='probe-one'"));
         Assert.AreEqual(0L, Scalar(database, "SELECT COUNT(*) FROM session WHERE id='probe-two'"));

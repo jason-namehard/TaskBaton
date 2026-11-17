@@ -40,6 +40,15 @@ public partial class MainWindow
             Add(actions,"Recheck and restore bridge",()=>RecheckBridge(task.AwaitingAgentId??task.RecipientId));
         if (!demo && service.CanSendFileHandoff(task) && !sendingTasks.Contains(task.TaskId))
             Add(actions,"Send via bridge",()=>{StartCliSend(task.TaskId,expectedTurn:task.ManualTurn);return Task.CompletedTask;});
+        if (task.AutoDeliveryHold is not null)
+            Add(actions,"Allow automatic sends",()=>
+            {
+                if (ThemedMessageBox.Show(this,T("The late receipt is already recorded. Allow Relay to resume automatic delivery for later turns?"),
+                        T("Allow automatic sends"),MessageBoxButton.OKCancel,MessageBoxImage.Question)!=MessageBoxResult.OK)
+                { reviewCancelled=true; return Task.CompletedTask; }
+                service.AllowAutomaticDelivery(task.TaskId);
+                return Task.CompletedTask;
+            });
     }
 
     private void AddFileRecoveryActions(Panel actions, TaskRecord task)

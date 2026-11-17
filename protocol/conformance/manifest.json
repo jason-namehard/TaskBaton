@@ -72,7 +72,7 @@
       "id": "handoff-session-latest",
       "file": "cases/invalid/handoff.session-latest.json",
       "kind": "handoff",
-      "level": "L4",
+      "level": "L1",
       "expect": "invalid",
       "error": "handoff.session_exact_required"
     },
@@ -80,7 +80,7 @@
       "id": "receipt-done-needs-reply-without-next",
       "file": "cases/invalid/receipt.done-needs-reply-without-next.json",
       "kind": "receipt",
-      "level": "L2",
+      "level": "L1",
       "expect": "invalid",
       "error": "receipt.next_action_required"
     },
@@ -88,7 +88,7 @@
       "id": "receipt-failed-without-error",
       "file": "cases/invalid/receipt.failed-without-error.json",
       "kind": "receipt",
-      "level": "L2",
+      "level": "L1",
       "expect": "invalid",
       "error": "receipt.error_required"
     },
@@ -96,7 +96,7 @@
       "id": "receipt-changes-requested-without-open-items",
       "file": "cases/invalid/receipt.changes-requested-without-open-items.json",
       "kind": "receipt",
-      "level": "L2",
+      "level": "L1",
       "expect": "invalid",
       "error": "receipt.open_items_required"
     },
@@ -104,7 +104,7 @@
       "id": "receipt-accepted-without-deliverable",
       "file": "cases/invalid/receipt.accepted-without-deliverable.json",
       "kind": "receipt",
-      "level": "L2",
+      "level": "L1",
       "expect": "invalid",
       "error": "receipt.deliverable_required"
     },
