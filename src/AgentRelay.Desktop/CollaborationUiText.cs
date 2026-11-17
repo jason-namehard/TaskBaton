@@ -93,7 +93,9 @@ internal static class CollaborationUiText
         Add("Not received · Allow resending","确认未收到 · 允许重发","確認未收到 · 允許重傳","未着を確認 · 再送を許可","미수신 확인 · 재전송 허용","No recibido · Permitir reenviar");
         Add("Continue waiting","继续等待","繼續等待","待機を続ける","계속 기다리기","Seguir esperando");
         Add("Allow automatic sends","允许自动发送","允許自動傳送","自動送信を許可","자동 전송 허용","Permitir envíos automáticos");
+        Add("Close notice","关闭提示","關閉提示","通知を閉じる","알림 닫기","Cerrar aviso");
         Add("The late receipt is already recorded. Allow Relay to resume automatic delivery for later turns?","迟到回执已经记录。是否允许 Relay 在后续轮次恢复自动投递？","延遲回執已經記錄。是否允許 Relay 在後續輪次恢復自動投遞？","遅延した応答は記録済みです。以降のターンで自動送信を再開しますか？","지연된 회신은 이미 기록되었습니다. 이후 턴에서 자동 전송을 다시 허용할까요?","El recibo tardío ya está registrado. ¿Permitir que Relay reanude el envío automático en turnos posteriores?");
+        Add("The late receipt is already recorded. Continue this task and allow automatic delivery for later turns?","迟到回执已经记录。是否继续本任务，并允许后续轮次自动投递？","延遲回執已經記錄。是否繼續本任務，並允許後續輪次自動投遞？","遅延した応答は記録済みです。このタスクを続行し、以降のターンで自動送信を許可しますか？","지연된 회신은 이미 기록되었습니다. 이 작업을 계속하고 이후 턴에서 자동 전송을 허용할까요?","El recibo tardío ya está registrado. ¿Continuar esta tarea y permitir el envío automático en turnos posteriores?");
         Add("Check for receipts now","立即检查回执","立即檢查回執","今すぐ応答を確認","지금 회신 확인","Buscar confirmaciones ahora");
         Add("View target conversation","查看目标会话","查看目標會話","相手の会話を確認","대상 대화 보기","Ver conversación de destino");
         Add("Saved conversation ID for {0}","{0} 已记录的会话 ID","{0} 已記錄的會話 ID","{0} の保存済み会話 ID","{0}에 저장된 대화 ID","ID de conversación guardado para {0}");

@@ -47,8 +47,9 @@ public partial class MainWindow : Window
         DismissErrorButton.Content = Icons.Create("Close", size: 15);
         ErrorIcon.Child = Icons.Create("Alert", size: 17, brushKey: "BadBrush");
         DismissInfoButton.Content = Icons.Create("Close", size: 15);
-        AutomationProperties.SetName(DismissInfoButton, "Close notice");
-        DismissInfoButton.ToolTip = "Close notice";
+        AutomationProperties.SetName(DismissInfoButton, T("Close notice"));
+        AutomationProperties.SetAutomationId(DismissInfoButton, "DismissInfoButton");
+        DismissInfoButton.ToolTip = T("Close notice");
         InfoIcon.Child = Icons.Create("Info", size: 17, brushKey: "InfoBrush");
         PageHelp.Content = Icons.Create("Help", size: 16);
         VersionLabel.Text = "v" + RelayVersion.Current;

@@ -43,9 +43,13 @@ public partial class MainWindow
         if (task.AutoDeliveryHold is not null)
             Add(actions,"Allow automatic sends",()=>
             {
-                if (ThemedMessageBox.Show(this,T("The late receipt is already recorded. Allow Relay to resume automatic delivery for later turns?"),
+                var paused = task.State == TaskState.Paused;
+                if (ThemedMessageBox.Show(this,T(paused
+                            ? "The late receipt is already recorded. Continue this task and allow automatic delivery for later turns?"
+                            : "The late receipt is already recorded. Allow Relay to resume automatic delivery for later turns?"),
                         T("Allow automatic sends"),MessageBoxButton.OKCancel,MessageBoxImage.Question)!=MessageBoxResult.OK)
                 { reviewCancelled=true; return Task.CompletedTask; }
+                if (paused) service.ContinueFileHandoff(task.TaskId);
                 service.AllowAutomaticDelivery(task.TaskId);
                 return Task.CompletedTask;
             });

@@ -29,7 +29,7 @@ internal static class SchemaValidation
         {
             diagnostics.Add(ProtocolDiagnostic.Validation(
                 receipt ? ProtocolDiagnosticCodes.ReceiptSchemaInvalid : ProtocolDiagnosticCodes.HandoffSchemaInvalid,
-                null,
+                PointerToField(results.InstanceLocation.ToString()),
                 "JSON Schema validation failed."));
         }
 

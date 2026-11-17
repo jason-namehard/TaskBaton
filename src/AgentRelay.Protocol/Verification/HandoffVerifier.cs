@@ -126,8 +126,10 @@ public sealed class HandoffVerifier
             if (taskContext?.Cancelled == true)
                 state.MarkCancelled();
 
-            stateResult = new HandoffTaskStateMachine(state).Evaluate(receipt, taskContext?.Now);
-            diagnostics.AddRange(stateResult.Diagnostics);
+            // A receipt that already failed validation must not be reported as applied.
+            if (!diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error))
+                stateResult = new HandoffTaskStateMachine(state).Evaluate(receipt, taskContext?.Now);
+            if (stateResult is not null) diagnostics.AddRange(stateResult.Diagnostics);
         }
 
         if (taskContext?.SessionStore is not null && handoff.Frontmatter.Session is not null)

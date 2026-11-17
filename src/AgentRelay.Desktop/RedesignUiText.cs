@@ -85,8 +85,8 @@ internal static class RedesignUiText
 
         // Connections
         Add("Set up a bridge for {0}", "为 {0} 配置桥接", "為 {0} 設定橋接", "{0} のブリッジを設定", "{0}의 브리지 설정", "Configurar un puente para {0}");
-        Add("This graph is informational. Relay chooses automatic delivery from the recipient's verified bridge; manual copy always works.", "连接图仅作示意。自动投递取决于接收方已验证的桥接；手动复制始终可用。", "連線圖僅作示意。自動投遞取決於接收方已驗證的橋接；手動複製始終可用。",
-            "この図は情報表示です。自動送信は受信側の検証済みブリッジに従い、手動コピーは常に可能です。", "이 그래프는 정보용입니다. 자동 전송은 수신자의 검증된 브리지에 따르며 수동 복사는 항상 가능합니다.", "Este gráfico es informativo. El envío automático depende del puente verificado del receptor; la copia manual siempre funciona.");
+        Add("This graph is informational. Relay no longer pauses individual directions; automatic delivery follows the recipient's verified bridge, and copying a prompt by hand always works.", "连接图仅作示意。Relay 不再暂停单个方向；自动投递取决于接收方已验证的桥接，手动复制提示词始终可用。", "連線圖僅作示意。Relay 不再暫停單一方向；自動投遞取決於接收方已驗證的橋接，手動複製提示詞始終可用。",
+            "この図は情報表示です。Relay は個別の方向を停止しません。自動送信は受信側の検証済みブリッジに従い、手動コピーは常に可能です。", "이 그래프는 정보용입니다. Relay는 개별 방향을 중지하지 않으며 자동 전송은 수신자의 검증된 브리지에 따르고 수동 복사는 항상 가능합니다.", "Este gráfico es informativo. Relay ya no pausa direcciones individuales; el envío automático depende del puente verificado del receptor y la copia manual siempre funciona.");
         Add("A calling method is registered. Relay sends automatically only when this recipient's bridge is verified; otherwise copy the prompt.","已登记调用方案。只有接收方桥接验证通过时 Relay 才自动发送；否则请复制提示词。","已登記呼叫方案。只有接收方橋接驗證通過時 Relay 才自動傳送；否則請複製提示詞。","呼び出し方法は登録済みです。受信側のブリッジが検証済みのときだけ自動送信し、それ以外はプロンプトをコピーします。","호출 방법이 등록되어 있습니다. 수신자의 브리지가 검증된 경우에만 자동 전송하며, 아니면 프롬프트를 복사하세요.","Hay un método de llamada registrado. Relay solo envía automáticamente si el puente del receptor está verificado; si no, copia el prompt.");
         Add("No calling recipe. Copy a handoff prompt, or set up a bridge for the recipient.","缺少调用方案。请复制交接提示词，或为接收方配置桥接。","缺少呼叫方案。請複製交接提示詞，或為接收方設定橋接。","呼び出し方法がありません。プロンプトをコピーするか、受信側のブリッジを設定してください。","호출 설정이 없습니다. 전달 프롬프트를 복사하거나 수신자의 브리지를 설정하세요.","No hay método de llamada. Copia el prompt o configura un puente para el receptor.");
 

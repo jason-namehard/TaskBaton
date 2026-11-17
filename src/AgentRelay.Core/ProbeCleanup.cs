@@ -86,6 +86,11 @@ public sealed partial class RelayService
             !recorded.Any(a => a.ProbeId == extension.CreateProbe.ProbeId))
             items.Add(new(legacy, "session", "unverified", "旧探针没有新建前的会话记录，无法确认归属，已保留。",
                 ProbeId: extension.CreateProbe.ProbeId));
+        if (extension.ResumeProbe is { SessionCleaned: false, SessionId: { Length: > 0 } legacyResume } &&
+            (probeIds is null || probeIds.Contains(extension.ResumeProbe.ProbeId)) &&
+            !recorded.Any(a => a.ProbeId == extension.ResumeProbe.ProbeId))
+            items.Add(new(legacyResume, "session", "unverified", "旧续接探针没有新建前的会话记录，无法确认归属，已保留。",
+                ProbeId: extension.ResumeProbe.ProbeId));
 
         foreach (var artifact in artifacts)
         {
@@ -93,7 +98,8 @@ public sealed partial class RelayService
             var start = items.Count;
             if (!artifact.Completed)
             {
-                items.Add(new(artifact.SessionId, "session", "pending", "探针未正常结束，无法确认是否仍在运行；已保留其产物。"));
+                items.Add(new(artifact.SessionId, "session", "pending", "探针未正常结束，无法确认是否仍在运行；已保留其产物。",
+                    ProbeId: artifact.ProbeId));
                 continue;
             }
 

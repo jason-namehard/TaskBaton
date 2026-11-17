@@ -234,6 +234,17 @@ public sealed class ProbeCleanupTests
     }
 
     [TestMethod]
+    public async Task SelectingALegacyResumeProbeReturnsItsRetainedRow()
+    {
+        var source = new SessionDiscoverySource("zcode", zcode);
+        Seed("b", "probe-session", source);
+        var resume = service.CliExtension("b")!.ResumeProbe!;
+        var result = await service.CleanupCliProbeAsync("b", [resume.ProbeId]);
+        Assert.IsTrue(result.Items.Any(item => item.ProbeId == resume.ProbeId && item.Status == "unverified"),
+            RelayJson.Write(result));
+    }
+
+    [TestMethod]
     public async Task CleanupOnlyTouchesTheSelectedProbeForTheSameAgent()
     {
         AddSession("probe-one"); AddSession("probe-two");

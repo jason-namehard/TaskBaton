@@ -613,7 +613,12 @@ internal static partial class Program
             Check(Find<TextBox>(dialog,"AgentEntryCli").Text=="codex-acp"&&
                 (string?)Find<ComboBox>(dialog,"AgentEntryOutputFormat").SelectedItem=="acp",
                 "The Codex ACP preset is available as a reviewable starting point");
-            dialog.Close();return Task.CompletedTask;
+            Find<TextBox>(dialog,"AgentEntryName").Text="Codex ACP fixture";
+            Press(dialog,"SaveAgentEntry");
+            Check(dialog.CliResult is { Arguments.Length: 0, OutputFormat: "acp" } &&
+                dialog.Result is { Host: "codex", Name: "Codex ACP fixture" },
+                "The Codex ACP preset can be saved without inventing a prompt argument");
+            return Task.CompletedTask;
         });
         var automaticOptions=new CliHandoffDialog(window,station,"en");
         await Show(automaticOptions,dialog=>

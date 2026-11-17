@@ -108,12 +108,15 @@ public sealed class AgentEntryDialog : Window
             }
             else if (resumeCommands.Length > 0)
                 throw new RelayException("cli_resume_executable_required", ui.T("Enter a resume executable before its arguments."));
-            if (cliPath.Length > 0 && !Path.IsPathFullyQualified(cliPath) && commandArguments.Length == 0 && string.IsNullOrWhiteSpace(input.Text))
+            var acp = (string)outputFormat.SelectedItem is "acp" or "dsh-desktop";
+            if (!acp && cliPath.Length > 0 && !Path.IsPathFullyQualified(cliPath) && commandArguments.Length == 0 && string.IsNullOrWhiteSpace(input.Text))
                 throw new RelayException("cli_arguments_required", ui.T("A PATH command needs calling arguments; to record only a program, use its full path."));
-            if (commandArguments.Length > 0 || !string.IsNullOrWhiteSpace(input.Text))
+            if (acp && cliPath.Length == 0)
+                throw new RelayException("cli_executable_required", ui.T("Enter a CLI program before its arguments."));
+            if (acp || commandArguments.Length > 0 || !string.IsNullOrWhiteSpace(input.Text))
             {
                 if (cliPath.Length == 0) throw new RelayException("cli_executable_required", ui.T("Enter a CLI program before its arguments."));
-                if (!commandArguments.Any(argument => argument.Contains("{prompt}", StringComparison.Ordinal)) && !input.Text.Contains("{prompt}", StringComparison.Ordinal))
+                if (!acp && !commandArguments.Any(argument => argument.Contains("{prompt}", StringComparison.Ordinal)) && !input.Text.Contains("{prompt}", StringComparison.Ordinal))
                     throw new RelayException("cli_prompt_required", ui.T("CLI arguments must include {prompt}."));
                 var variables = new Dictionary<string, string>();
                 foreach (var line in environment.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

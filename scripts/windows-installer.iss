@@ -79,7 +79,11 @@ Name: "{autodesktop}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe
 #endif
 
 [Run]
+#ifdef TestAppId
+Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Parameters: "--home ""{app}\data"""; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
+#else
 Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
+#endif
 
 [CustomMessages]
 english.UninstallData=Delete Relay configuration and task records?%n%nCurrent relay station: %1%n%nThis removes the Relay database (including Agent configuration and task history), desktop preferences, and Relay's registered handoff rules. Files in the workspace, other files in the station, and your own instructions are kept. This cannot be undone.%n%nChoose No to keep configuration and task records.
@@ -96,6 +100,22 @@ chinesesimplified.UninstallLocationFailed=无法读取当前 Relay 中转站。�
 chinesetraditional.UninstallLocationFailed=無法讀取目前 Relay 中轉站。設定與規則會保留，請重新安裝 Relay 後檢查。
 
 [Code]
+#ifdef TestLocationPath
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  LocationFile, DataDirectory: String;
+begin
+  // A test installation must never point at the formal location file or ledger.
+  if CurStep = ssPostInstall then
+  begin
+    LocationFile := '{#TestLocationPath}';
+    ForceDirectories(ExtractFileDir(LocationFile));
+    DataDirectory := StringChangeEx(ExpandConstant('{app}\data'), '\', '\\', True);
+    SaveStringToFile(LocationFile, '{"home":"' + DataDirectory + '"}', False);
+  end;
+end;
+#endif
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Cli, LocationFile, PlanFile, ReportFile, ErrorFile, Home, Args, Detail: String;

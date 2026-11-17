@@ -56,10 +56,20 @@ public sealed class ConformanceManifestTests
         string? semantic)
     {
         _ = id;
-        _ = level;
         using var temp = new TempDirectory();
         var verifier = new HandoffVerifier(TestPaths.SchemaSet);
         var handoffPath = temp.File("HANDOFF.md");
+
+        // The manifest's L1 label must describe what the schema layer actually decides.
+        if (level == "L1")
+        {
+            var schemaDiagnostics = kind == "handoff"
+                ? TestPaths.SchemaSet.ValidateHandoff(TestPaths.FrontmatterJson(file))
+                : TestPaths.SchemaSet.ValidateReceipt(TestPaths.ReceiptFromFixture(file).Raw);
+            Assert.AreEqual(expect == "valid", !schemaDiagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error),
+                $"{file}: manifest says L1 {expect}, schema says " +
+                string.Join(" | ", schemaDiagnostics.Select(diagnostic => $"{diagnostic.Code}@{diagnostic.Field}")));
+        }
 
         VerificationResult result;
         if (kind == "handoff")
