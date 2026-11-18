@@ -1,4 +1,4 @@
-# HANDOFF.md — Portable handoff between coding agents
+﻿# HANDOFF.md — Portable handoff between coding agents
 
 Status: **Draft v1** (`handoff/1`) · 2026-11-13
 Maintainer: TaskBaton (formerly Agent Relay)

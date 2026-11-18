@@ -1,4 +1,4 @@
-# Agent 配置、按需规则与文件回执
+﻿# Agent 配置、按需规则与文件回执
 
 ## 统一节点录入
 
@@ -13,7 +13,7 @@ Agent 可将完整配置保存为 JSON 后，通过发布包的本机接口填�
 ```
 
 ```powershell
-dotnet .\relay.dll --home <中转站目录> agent setup --manifest <配置JSON路径>
+dotnet .\taskbaton.dll --home <中转站目录> agent setup --manifest <配置JSON路径>
 # 更新既有节点时额外提供 --id <节点ID>
 ```
 
@@ -21,7 +21,7 @@ dotnet .\relay.dll --home <中转站目录> agent setup --manifest <配置JSON�
 
 也可使用纯手动表单：名称、可选配置/指令文件，以及独立的 CLI 调用区。CLI 区分别填写程序、每行一个参数、可选标准输入模板、输出格式和工作目录。参数或标准输入必须包含 `{prompt}`；只记录程序路径时仍需补齐调用方式才能测试。GUI 不要求粘贴和解析一整段 Agent 配置。
 
-演示模式会禁用真实探针，这不表示 CLI 失败。正式配置请运行 `gui/AgentRelay.Desktop.exe`；已在演示中登记的资料可从设置保留当前数据并转为正式使用。
+演示模式会禁用真实探针，这不表示 CLI 失败。正式配置请运行 `gui/TaskBaton.Desktop.exe`；已在演示中登记的资料可从设置保留当前数据并转为正式使用。
 
 ## 一行常驻规则
 
@@ -30,9 +30,9 @@ dotnet .\relay.dll --home <中转站目录> agent setup --manifest <配置JSON�
 这一行仍占用少量上下文；详细内容按需读取，不保证任意宿主都会自动触发。用户后续编辑会保留。每次安装保留原始备份，移除仅剥离本工具区块，不用旧备份覆盖整份用户文件。
 
 ```powershell
-dotnet .\relay.dll --home <中转站目录> guidance preview --agent <节点ID> --file <指令文件>
-dotnet .\relay.dll --home <中转站目录> guidance install --agent <节点ID> --file <指令文件> --approve
-dotnet .\relay.dll --home <中转站目录> guidance remove --all
+dotnet .\taskbaton.dll --home <中转站目录> guidance preview --agent <节点ID> --file <指令文件>
+dotnet .\taskbaton.dll --home <中转站目录> guidance install --agent <节点ID> --file <指令文件> --approve
+dotnet .\taskbaton.dll --home <中转站目录> guidance remove --all
 ```
 
 删除便携目录不会执行卸载程序，删除前需在 GUI 或 CLI 移除规则。
@@ -63,26 +63,26 @@ CLI 也能直接创建。将下列占位值替换为实际登记节点和准确�
 
 ```powershell
 # 只保存，不调用目标
-dotnet .\relay.dll --home <中转站目录> handoff cli-create --manifest <清单JSON路径>
+dotnet .\taskbaton.dll --home <中转站目录> handoff cli-create --manifest <清单JSON路径>
 # 明确同意真实调用后，创建并发送
-dotnet .\relay.dll --home <中转站目录> handoff cli-create --manifest <清单JSON路径> --send --approve
+dotnet .\taskbaton.dll --home <中转站目录> handoff cli-create --manifest <清单JSON路径> --send --approve
 # 发送已创建任务的当前轮次
-dotnet .\relay.dll --home <中转站目录> handoff send --task <任务ID> --approve
+dotnet .\taskbaton.dll --home <中转站目录> handoff send --task <任务ID> --approve
 ```
 
 文件交接（含“新建交接”创建的任务）在首次投递前也可设置协作方式；回执导入和自动投递由 Core 执行，GUI 与 CLI 共用：
 
 ```powershell
 # 首次投递前：指定作者、验收标准、验收轮数、单轮时限，并允许自动投递
-dotnet .\relay.dll --home <中转站目录> handoff configure --task <任务ID> --author <作者节点ID> --criteria "<验收标准>" --max-rounds 5 --turn-timeout-minutes 60 --auto-deliver
+dotnet .\taskbaton.dll --home <中转站目录> handoff configure --task <任务ID> --author <作者节点ID> --criteria "<验收标准>" --max-rounds 5 --turn-timeout-minutes 60 --auto-deliver
 # 导入回执；加 --deliver 时发送已允许自动投递且能力已验证的轮次
-dotnet .\relay.dll --home <中转站目录> handoff sync --deliver --approve
+dotnet .\taskbaton.dll --home <中转站目录> handoff sync --deliver --approve
 # 当前处理者、阶段、投递方式、是否在等用户
-dotnet .\relay.dll --home <中转站目录> handoff progress --task <任务ID>
+dotnet .\taskbaton.dll --home <中转站目录> handoff progress --task <任务ID>
 # 继续已暂停任务；轮数用完时须追加轮数，说明会放在下一轮请求开头
-dotnet .\relay.dll --home <中转站目录> handoff continue --task <任务ID> --note "<说明>" --extra-rounds 2
+dotnet .\taskbaton.dll --home <中转站目录> handoff continue --task <任务ID> --note "<说明>" --extra-rounds 2
 # 确认本轮未送达后允许再发送一次
-dotnet .\relay.dll --home <中转站目录> handoff allow-resend --task <任务ID> --reason "<原因>" --approve
+dotnet .\taskbaton.dll --home <中转站目录> handoff allow-resend --task <任务ID> --reason "<原因>" --approve
 ```
 
 `task status` 对文件交接返回 `progress` 对象：`current_agent_id`、`phase`、`waiting_on`（`agent`/`user`/`none`）、`delivery`（`cli_auto`/`cli_ready`/`cli_in_flight`/`agent_working`/`cli_unconfirmed`/`copy_prompt`/`none`）、`turn`、`max_turns`、`review_round`、`max_review_rounds`、`next_if_passed`、`next_if_changed`、`pause_reason`、`pause_message`、`finished` 与 `completion`（`delivered`/`completed`/`operator_completed`/`cancelled`/`failed`/`timed_out`）。
@@ -188,7 +188,7 @@ GUI 通过文件事件读取回执，启动和手动刷新也会补读。已接�
 方案可由一键配置直接导入，也可在编辑 Agent 中分区填写；CLI 仍提供 JSON 导入接口。包含 `version/name/host/output_format/create/resume/login/dependencies/supported_versions/source/license/limitations`；可选 `login` 是展示给用户的登录命令，Relay 不执行；命令含 `executable`、`arguments` 数组、可选 `input`、`working_directory` 和非敏感 `environment`。`{prompt}` 为必需模板变量，续接还需准确的 `{session_id}`，禁止 `latest` 之类隐式目标。
 
 ```powershell
-dotnet .\relay.dll --home <中转站目录> cli-recipe import --agent <节点ID> --manifest <调用方案JSON>
+dotnet .\taskbaton.dll --home <中转站目录> cli-recipe import --agent <节点ID> --manifest <调用方案JSON>
 ```
 
 导入只保存，不启动模型、安装程序或启用连接。Relay 负责读取下列原生输出，目标程序无需改成专用回执格式：
@@ -210,17 +210,17 @@ dotnet .\relay.dll --home <中转站目录> cli-recipe import --agent <节点ID>
 配置检查不调用模型，只看本机前提：程序与入口文件是否存在、工作目录、续接命令、WorkBuddy 自带 CLI 与权限参数、Zcode 命令行的账号套餐与默认模型、当前阻塞和验证状态。Agent 管理的“检查 CLI 配置”按钮与下列命令等价；一键配置导入方案后也会运行它，把未通过项告诉用户。
 
 ```powershell
-dotnet .\relay.dll --home <中转站目录> cli-recipe doctor --agent <节点ID>
-dotnet .\relay.dll --home <中转站目录> cli-recipe confirm --agent <节点ID> --probe <探针ID> --visible
+dotnet .\taskbaton.dll --home <中转站目录> cli-recipe doctor --agent <节点ID>
+dotnet .\taskbaton.dll --home <中转站目录> cli-recipe confirm --agent <节点ID> --probe <探针ID> --visible
 ```
 
 导入方案后，一键配置还要按 Relay 自带的 `relay-cache-parity` 技能做缓存对齐：让 Relay 续接会话时发出的请求与该 Agent 桌面端一致，用户在两边切换时不必为整段历史重新付费。技能写在 `<中转站目录>\skills\relay-cache-parity\SKILL.md`，配置提示词里会给出这个路径；也可以复制到 Agent 自己的技能目录。静态检查必须做；需要真实调用模型的对照实验，先说明轮数和会话，并取得用户同意。
 
 ```powershell
-dotnet .\relay.dll --home <中转站目录> skill list
-dotnet .\relay.dll --home <中转站目录> skill install --name relay-cache-parity --target <Agent 技能目录>
+dotnet .\taskbaton.dll --home <中转站目录> skill list
+dotnet .\taskbaton.dll --home <中转站目录> skill install --name relay-cache-parity --target <Agent 技能目录>
 # 逐次请求的输入与缓存读取；对照桌面轮与 Relay 轮（目前支持 Zcode、Hermes）
-dotnet .\relay.dll --home <中转站目录> agent cache-check --agent <节点ID> --session <会话ID>
+dotnet .\taskbaton.dll --home <中转站目录> agent cache-check --agent <节点ID> --session <会话ID>
 ```
 
 `confirm` 记录用户已在宿主中看到探针会话，与测试窗口中的勾选相同。一键配置发现宿主需另装官方 CLI、ACP 适配器或其他桥接时，只向用户说明名称、来源、许可证、用途及不安装的后果（只能复制提示词手动交接），得到同意才安装，并写入方案 `dependencies`；需要交互登录的，把登录命令写入 `login`，由用户自己运行。

@@ -1,4 +1,4 @@
-# TaskBaton（原 Agent Relay）桌面交互规格
+﻿# TaskBaton（原 Agent Relay）桌面交互规格
 
 版本：0.1.0-preview.14。Windows WPF 四页界面，中文使用微软雅黑字体；协议标识和用户路径不做翻译。
 

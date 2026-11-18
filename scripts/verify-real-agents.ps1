@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory)][string]$Codex,
     [Parameter(Mandatory)][string]$Amq,
     [Parameter(Mandatory)][string]$ConfigPath,
@@ -17,10 +17,10 @@ if ([string]::IsNullOrWhiteSpace($WorkDirectory)) {
 $WorkDirectory = [IO.Path]::GetFullPath($WorkDirectory)
 New-Item -ItemType Directory -Path $WorkDirectory -Force | Out-Null
 $dataRoot = Join-Path $WorkDirectory 'relay'
-$buildTarget = if ($McpMigration) { 'AgentRelay.slnx' } else { 'src/AgentRelay.Cli/AgentRelay.Cli.csproj' }
+$buildTarget = if ($McpMigration) { 'TaskBaton.slnx' } else { 'src/TaskBaton.Cli/TaskBaton.Cli.csproj' }
 & $Dotnet build (Join-Path $projectRoot $buildTarget) -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
-$cli = Join-Path $projectRoot 'src/AgentRelay.Cli/bin/Release/net10.0/relay.dll'
+$cli = Join-Path $projectRoot 'src/TaskBaton.Cli/bin/Release/net10.0/taskbaton.dll'
 function Invoke-Relay([string[]]$Arguments) {
     $response = & $Dotnet $cli --home $dataRoot @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Relay command failed: $($response -join [Environment]::NewLine)" }
@@ -91,7 +91,7 @@ if ($ResumeOrigin) {
 $dispatchArguments = @('task','dispatch','--from','agent-a','--to','agent-b','--request',$request,
     '--mode','auto','--idempotency-key','real-flow-1','--execute','--execution-timeout-seconds',"$TimeoutSeconds") + $originArguments
 if ($McpMigration) {
-    $mcpDll = Join-Path $projectRoot 'src/AgentRelay.Mcp/bin/Release/net10.0/relay-mcp.dll'
+    $mcpDll = Join-Path $projectRoot 'src/TaskBaton.Mcp/bin/Release/net10.0/taskbaton-mcp.dll'
     $runtime = (Get-Command $Dotnet).Source
     $hostConfig = Join-Path $WorkDirectory 'host-config.toml'
     $legacyArgs = @($mcpDll,'--home',$dataRoot,'--agent','agent-a','--route-id','legacy') | ConvertTo-Json -Compress

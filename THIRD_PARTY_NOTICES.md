@@ -1,4 +1,4 @@
-# 第三方来源与许可
+﻿# 第三方来源与许可
 
 TaskBaton（原 Agent Relay）的应用代码按本仓库 MIT License 提供。研究对象不是本项目源码的授权来源；没有把 AMQ、Multiagent Handoff、Agents Handoff、AgentBus、ACP Router 或 CC Switch 的应用源码复制进本仓库。设计依据及固定研究提交见 [研究文档](docs/ROADMAP_AND_RESEARCH.md)。
 
@@ -12,8 +12,8 @@ Windows 安装器使用 [Inno Setup](https://github.com/jrsoftware/issrc) 构建
 | --- | --- | --- | --- |
 | Microsoft.Data.Sqlite / Microsoft.Data.Sqlite.Core | 10.0.13 | MIT；.NET Foundation and Contributors | SQLite 驱动 |
 | System.CommandLine | 2.0.13 | MIT；.NET Foundation and Contributors | 命令行解析及帮助 |
-| [YamlDotNet](https://github.com/aaubry/YamlDotNet) | 18.1.0 | MIT；Copyright (c) Antoine Aubry and contributors | 读取 HANDOFF.md 的 YAML frontmatter（AgentRelay.Protocol） |
-| [JsonSchema.Net](https://github.com/gregsdennis/json-everything) | 8.0.5 | MIT；Copyright (c) Greg Dennis | JSON Schema 2020-12 校验（AgentRelay.Protocol） |
+| [YamlDotNet](https://github.com/aaubry/YamlDotNet) | 18.1.0 | MIT；Copyright (c) Antoine Aubry and contributors | 读取 HANDOFF.md 的 YAML frontmatter（TaskBaton.Protocol） |
+| [JsonSchema.Net](https://github.com/gregsdennis/json-everything) | 8.0.5 | MIT；Copyright (c) Greg Dennis | JSON Schema 2020-12 校验（TaskBaton.Protocol） |
 | JsonPointer.Net / Json.More.Net | 6.0.1 / 2.2.0 | MIT；Copyright (c) Greg Dennis | JsonSchema.Net 的传递依赖 |
 | Humanizer.Core | 3.0.1 | MIT；Copyright (c) Humanizr contributors | JsonSchema.Net 的传递依赖 |
 | SQLitePCLRaw.bundle_e_sqlite3 / core / lib.e_sqlite3 / provider.e_sqlite3 | 2.1.13 | Apache-2.0；Copyright 2014–2024 SourceGear, LLC | SQLite 原生桥接及二进制 |

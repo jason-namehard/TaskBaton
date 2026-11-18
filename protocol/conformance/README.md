@@ -1,4 +1,4 @@
-# Conformance fixtures — handoff/1
+﻿# Conformance fixtures — handoff/1
 
 These fixtures are the executable part of [`../HANDOFF.md`](../HANDOFF.md).
 They are intentionally implementation-neutral: any relay, CLI, or desktop app can
@@ -38,7 +38,7 @@ The shipped .NET test project copies these fixtures and schemas to its output an
 runs all manifest cases plus L2–L5 checks:
 
 ```powershell
-dotnet test tests/AgentRelay.Protocol.Tests -c Release
+dotnet test tests/TaskBaton.Protocol.Tests -c Release
 ```
 
 A throwaway reference check for L1 (Python + `jsonschema`) is acceptable during

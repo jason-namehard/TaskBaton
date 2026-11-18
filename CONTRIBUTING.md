@@ -1,4 +1,4 @@
-# Contributing to TaskBaton (formerly Agent Relay)
+﻿# Contributing to TaskBaton (formerly Agent Relay)
 
 欢迎提交可复现的缺陷、宿主接入证据和范围明确的改进。缺陷报告请包含版本、平台、复现步骤、预期与实际行为，以及脱敏后的错误码。演示模式可用于不含认证的复现。
 
@@ -16,7 +16,7 @@ pwsh ./scripts/package.ps1 -Flavor Portable
 Windows 额外执行：
 
 ```powershell
-dotnet restore src/AgentRelay.Notify/AgentRelay.Notify.csproj --locked-mode
+dotnet restore src/TaskBaton.Notify/TaskBaton.Notify.csproj --locked-mode
 pwsh ./scripts/test-desktop.ps1
 pwsh ./scripts/check-licenses.ps1 -IncludeDesktop
 pwsh ./scripts/package.ps1 -Flavor Windows

@@ -1,4 +1,4 @@
-# 预览版发布流程
+﻿# 预览版发布流程
 
 版本由 `Directory.Build.props` 的 `Version` 定义。CLI 的 `--version`、MCP serverInfo、GUI 和分发包使用同一版本；`relay_version=1` 是 JSON 协议版本，不随产品版本更名。
 
@@ -12,7 +12,7 @@
 示例命令（替换版本和目标提交）：
 
 ```powershell
-git tag -a v0.1.0-preview.1 <verified-commit> -m 'Agent Relay 0.1.0-preview.1'
+git tag -a v0.1.0-preview.1 <verified-commit> -m 'TaskBaton 0.1.0-preview.1'
 git push origin v0.1.0-preview.1
 ```
 
@@ -24,7 +24,7 @@ git push origin v0.1.0-preview.1
 
 ## Windows 安装版
 
-在 Windows x64 上先安装 [Inno Setup](https://jrsoftware.org/isinfo.php)，然后用 `pwsh ./scripts/build-installer.ps1 -InnoCompiler <ISCC.exe 路径> -OutputDirectory <输出目录>` 构建 `AgentRelay-v<Version>-windows-x64-setup.exe`。安装版将 CLI、MCP、GUI 和通知运行库一并打包；脚本验证运行时构建的依赖与锁定的项目依赖一致，并检查安装内容不包含账本或认证文件。
+在 Windows x64 上先安装 [Inno Setup](https://jrsoftware.org/isinfo.php)，然后用 `pwsh ./scripts/build-installer.ps1 -InnoCompiler <ISCC.exe 路径> -OutputDirectory <输出目录>` 构建 `TaskBaton-v<Version>-windows-x64-setup.exe`。安装版将 CLI、MCP、GUI 和通知运行库一并打包；脚本验证运行时构建的依赖与锁定的项目依赖一致，并检查安装内容不包含账本或认证文件。
 
 安装器按当前用户安装；卸载默认保留数据，并可选择移除当前站点登记的规则、清除账本与偏好。工作区文件保留；其他站点规则需分别处理。没有代码签名时，Windows 可能提示未知发布者。
 

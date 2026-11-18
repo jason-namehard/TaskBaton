@@ -1,18 +1,32 @@
-param([string]$Dotnet = 'dotnet', [switch]$IncludeDesktop, [string]$OutputDirectory)
+﻿param([string]$Dotnet = 'dotnet', [switch]$IncludeDesktop, [string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$destination = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $projectRoot 'artifacts/relay' }
-& $Dotnet publish (Join-Path $projectRoot 'src/AgentRelay.Cli/AgentRelay.Cli.csproj') -c Release --no-restore -o $destination
+$destination = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $projectRoot 'artifacts/taskbaton' }
+& $Dotnet publish (Join-Path $projectRoot 'src/TaskBaton.Cli/TaskBaton.Cli.csproj') -c Release --no-restore -o $destination
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed' }
-& $Dotnet publish (Join-Path $projectRoot 'src/AgentRelay.Mcp/AgentRelay.Mcp.csproj') -c Release --no-restore -o (Join-Path $destination 'mcp')
+& $Dotnet publish (Join-Path $projectRoot 'src/TaskBaton.Mcp/TaskBaton.Mcp.csproj') -c Release --no-restore -o (Join-Path $destination 'mcp')
 if ($LASTEXITCODE -ne 0) { throw 'MCP publish failed' }
+# Keep the old entry-point names working for existing scripts and host configs.
+$companionExtensions = @('.exe', '.dll', '.runtimeconfig.json', '.deps.json')
+foreach ($alias in @('relay', 'tb')) {
+    foreach ($extension in $companionExtensions) {
+        $source = Join-Path $destination ('taskbaton' + $extension)
+        if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $destination ($alias + $extension)) }
+    }
+}
+foreach ($extension in $companionExtensions) {
+    $mcpSource = Join-Path (Join-Path $destination 'mcp') ('taskbaton-mcp' + $extension)
+    if (Test-Path -LiteralPath $mcpSource) {
+        Copy-Item -LiteralPath $mcpSource -Destination (Join-Path (Join-Path $destination 'mcp') ('relay-mcp' + $extension))
+    }
+}
 if ($IncludeDesktop) {
     if (-not $IsWindows) { throw 'The desktop helper must be built on Windows' }
-    & $Dotnet publish (Join-Path $projectRoot 'src/AgentRelay.Desktop/AgentRelay.Desktop.csproj') -c Release --no-restore -o (Join-Path $destination 'gui')
+    & $Dotnet publish (Join-Path $projectRoot 'src/TaskBaton.Desktop/TaskBaton.Desktop.csproj') -c Release --no-restore -o (Join-Path $destination 'gui')
     if ($LASTEXITCODE -ne 0) { throw 'Desktop GUI publish failed' }
-    & $Dotnet publish (Join-Path $projectRoot 'src/AgentRelay.Notify/AgentRelay.Notify.csproj') -c Release --no-restore -o (Join-Path $destination 'desktop')
+    & $Dotnet publish (Join-Path $projectRoot 'src/TaskBaton.Notify/TaskBaton.Notify.csproj') -c Release --no-restore -o (Join-Path $destination 'desktop')
     if ($LASTEXITCODE -ne 0) { throw 'Desktop publish failed' }
-    $assets = Get-Content (Join-Path $projectRoot 'src/AgentRelay.Notify/obj/project.assets.json') -Raw | ConvertFrom-Json
+    $assets = Get-Content (Join-Path $projectRoot 'src/TaskBaton.Notify/obj/project.assets.json') -Raw | ConvertFrom-Json
     $runtimeRoot = Join-Path $destination 'licenses/dotnet-runtime'
     New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
     foreach ($pack in $assets.project.frameworks.PSObject.Properties.Value.downloadDependencies) {

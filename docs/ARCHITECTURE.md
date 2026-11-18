@@ -1,10 +1,10 @@
-# TaskBaton（原 Agent Relay）架构
+﻿# TaskBaton（原 Agent Relay）架构
 
 状态：Phase 5 已落地。实际能力见 [PHASE1](PHASE1.md) 至 [PHASE5](PHASE5.md)。协议字段和状态以 [PROTOCOL](PROTOCOL.md) 为准。
 
 ## 协议层
 
-可移植的交接契约以 [`protocol/HANDOFF.md`](../protocol/HANDOFF.md) 为准（`handoff/1` 草案，附 schema 与一致性测试样本），`AgentRelay.Protocol` 的校验器提供可执行检查。本机任务账本、状态机与 CLI/MCP 契约见 [PROTOCOL](PROTOCOL.md)。前者定义“交接什么、什么算有效回执”，后者定义本应用如何落账。内部标识、路径与程序集名中的 `AgentRelay` 保留不变。
+可移植的交接契约以 [`protocol/HANDOFF.md`](../protocol/HANDOFF.md) 为准（`handoff/1` 草案，附 schema 与一致性测试样本），`TaskBaton.Protocol` 的校验器提供可执行检查。本机任务账本、状态机与 CLI/MCP 契约见 [PROTOCOL](PROTOCOL.md)。前者定义“交接什么、什么算有效回执”，后者定义本应用如何落账。内部标识、程序集、项目目录和数据根已改为 `TaskBaton`（CLI `taskbaton`、MCP `taskbaton-mcp`）。协议字段、MCP 工具名、`.relay` 控制目录、`relay_*` 回执/版本字段、`{relay_home}` 模板变量、通知能力标识 `agent-relay-desktop:1`、交接标记 `<!-- agent-relay:... -->` 和旧适配器 ID `relay-mcp` 仍是外部契约，保留不变。
 
 ## 组件与依赖方向
 
@@ -68,7 +68,7 @@ sequenceDiagram
 
 ## 持久化与并发
 
-建议账本位置 `%LOCALAPPDATA%\AgentRelay\relay.db`；临时目录 `%LOCALAPPDATA%\AgentRelay\workspace\<task_id>\`；AMQ 根目录在受管 `transport\amq\`，与 Git 工作区分离。`RELAY_HOME` 可显式覆盖本项目数据根目录，迁移须验证，不静默寻找替代目录。
+账本默认位置 `%LOCALAPPDATA%\TaskBaton\taskbaton.db`（已有 `relay.db` 的中转站继续使用该文件）；临时目录在数据根的 `workspace\<task_id>\`；AMQ 根目录在受管 `transport\amq\`，与 Git 工作区分离。`TASKBATON_HOME` 优先，`RELAY_HOME` 兼容旧环境；位置记录先读 `taskbaton.location.json`，再读旧 `relay.location.json`。旧默认目录 `%LOCALAPPDATA%\AgentRelay` 会在首次解析时复制到新目录并校验账本，旧目录保留用于回滚；复制失败则继续使用旧目录，不删除数据。
 
 SQLite 表包括 `settings`、`agents`、`permissions`、`adapters`、`tasks`、`callbacks`、`events`、`artifacts`、`outbox`、`notifications`，Phase 2 增加 `executors/executions`，Phase 3 增加 `resumers/continuations/desktop`，Phase 4 增加 `adapter_sources/migrations/migration_events`。当前尝试保存在任务聚合内，旧尝试通过产物、回调和事件关联；迁移原始、候选和备份文件保存在独立的 migrations 目录，不进入任务 TTL。事件和当前状态同事务提交，写事务串行化并递增 `revision`，不另建事件溯源框架。幂等键用唯一约束，原始请求字段直接比较，不增加摘要层。
 

@@ -1,0 +1,12 @@
+﻿<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TaskBaton.Cli/TaskBaton.Cli.csproj" />
+    <Project Path="src/TaskBaton.Core/TaskBaton.Core.csproj" />
+    <Project Path="src/TaskBaton.Mcp/TaskBaton.Mcp.csproj" />
+    <Project Path="src/TaskBaton.Protocol/TaskBaton.Protocol.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TaskBaton.Core.Tests/TaskBaton.Core.Tests.csproj" />
+    <Project Path="tests/TaskBaton.Protocol.Tests/TaskBaton.Protocol.Tests.csproj" />
+  </Folder>
+</Solution>

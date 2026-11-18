@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Dotnet = 'dotnet',
     [string]$Helper,
     [string]$WorkDirectory
@@ -6,13 +6,13 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows) { throw 'Desktop verification requires Windows and an interactive user session' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
-if ([string]::IsNullOrWhiteSpace($Helper)) { $Helper = Join-Path $projectRoot 'artifacts/relay/desktop/AgentRelay.Notify.exe' }
+if ([string]::IsNullOrWhiteSpace($Helper)) { $Helper = Join-Path $projectRoot 'artifacts/taskbaton/desktop/TaskBaton.Notify.exe' }
 if ([string]::IsNullOrWhiteSpace($WorkDirectory)) { $WorkDirectory = Join-Path $projectRoot ('artifacts/desktop-test/' + [guid]::NewGuid()) }
 $Helper = [IO.Path]::GetFullPath($Helper)
 $WorkDirectory = [IO.Path]::GetFullPath($WorkDirectory)
 New-Item -ItemType Directory -Path $WorkDirectory -Force | Out-Null
 $dataRoot = Join-Path $WorkDirectory 'relay'
-$cli = Join-Path $projectRoot 'artifacts/relay/relay.dll'
+$cli = Join-Path $projectRoot 'artifacts/taskbaton/taskbaton.dll'
 function Invoke-Relay([string[]]$Arguments) {
     $raw = & $Dotnet $cli --home $dataRoot @Arguments
     if ($LASTEXITCODE -notin @(0,4)) { throw ($raw -join [Environment]::NewLine) }
@@ -35,7 +35,7 @@ Set-Content -LiteralPath $task.result_path '## 测试结果
 $done = Invoke-Relay @('task','complete','--task',$task.task_id,'--attempt',$task.attempt_id,'--sender','agent-b',
     '--status','succeeded','--result',$task.result_path,'--idempotency-key','done')
 if ($done.data.continuation.desktop_state -ne 'submitted') { throw ($done.data.continuation | ConvertTo-Json) }
-if (Get-Process AgentRelay.Notify -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $Helper}) {
+if (Get-Process TaskBaton.Notify -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $Helper}) {
     throw 'Close existing TaskBaton notification windows before verifying cold activation'
 }
 $registration = @(Get-ChildItem HKCU:\Software\Classes\CLSID | ForEach-Object {
@@ -81,7 +81,7 @@ try {
     Start-Sleep -Seconds 2
     $copied = [Windows.Forms.Clipboard]::GetText()
     if ($copied -ne $done.data.prompt) { throw 'Cold notification activation did not copy the correct continuation prompt' }
-    $window = @(Get-Process AgentRelay.Notify | Where-Object {$_.Path -eq $Helper})
+    $window = @(Get-Process TaskBaton.Notify | Where-Object {$_.Path -eq $Helper})
     if ($window.Count -ne 1 -or $window[0].MainWindowTitle -ne 'TaskBaton') { throw 'Expected one continuation window from cold activation' }
     $window[0].CloseMainWindow() | Out-Null
     if (-not $window[0].WaitForExit(10000)) { throw 'Notification process did not exit after closing its window' }

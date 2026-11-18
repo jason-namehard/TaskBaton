@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>TaskBaton.Protocol</RootNamespace>
+    <AssemblyName>TaskBaton.Protocol</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JsonSchema.Net" Version="8.0.5" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\protocol\schemas\handoff.schema.json"
+                      LogicalName="TaskBaton.Protocol.Schemas.handoff.schema.json" />
+    <EmbeddedResource Include="..\..\protocol\schemas\receipt.schema.json"
+                      LogicalName="TaskBaton.Protocol.Schemas.receipt.schema.json" />
+  </ItemGroup>
+
+</Project>

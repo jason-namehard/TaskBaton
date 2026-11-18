@@ -1,4 +1,4 @@
-name: Bug report
+﻿name: Bug report
 description: 报告可复现的错误；请勿附带认证、完整配置或私人日志。
 title: "[Bug] "
 body:

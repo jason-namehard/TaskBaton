@@ -1,4 +1,4 @@
-# TaskBaton（原 Agent Relay）适配器与迁移
+﻿# TaskBaton（原 Agent Relay）适配器与迁移
 
 状态：AMQ 传输、Codex 只读单次执行、精确会话继续、Windows 通知、stdio MCP 与经审阅的 JSON/TOML 迁移已实现。适配器不得持有独立任务状态机；任务契约见 [PROTOCOL](PROTOCOL.md)。
 

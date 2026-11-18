@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>taskbaton</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../TaskBaton.Core/TaskBaton.Core.csproj" />
+    <ProjectReference Include="../TaskBaton.Protocol/TaskBaton.Protocol.csproj" />
+    <PackageReference Include="System.CommandLine" Version="2.0.13" />
+  </ItemGroup>
+</Project>

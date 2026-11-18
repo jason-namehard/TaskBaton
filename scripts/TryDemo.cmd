@@ -1,2 +1,2 @@
-@echo off
-start "" "%~dp0gui\AgentRelay.Desktop.exe" --demo
+﻿@echo off
+start "" "%~dp0gui\TaskBaton.Desktop.exe" --demo

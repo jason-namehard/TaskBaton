@@ -1,4 +1,4 @@
-#ifndef SourcePath
+﻿#ifndef SourcePath
   #error SourcePath is required
 #endif
 #ifndef ReleaseVersion
@@ -15,7 +15,7 @@
 #ifdef TestAppId
 AppId={#TestAppId}
 #else
-AppId={{6476C39F-39A5-4BF2-AFC7-1E9371D4B556}
+AppId={{3C9E5B7A-6D24-4F81-9B3A-2E8F1D6C4A70}
 #endif
 AppName=TaskBaton
 AppVersion={#ReleaseVersion}
@@ -24,7 +24,7 @@ AppPublisherURL=https://github.com/jason-namehard/TaskBaton
 #ifdef TestInstallDir
 DefaultDirName={#TestInstallDir}
 #else
-DefaultDirName={localappdata}\Programs\Agent Relay
+DefaultDirName={localappdata}\Programs\TaskBaton
 #endif
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -32,13 +32,13 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.19041
 SetupIconFile={#IconPath}
-UninstallDisplayIcon={app}\app\gui\AgentRelay.Desktop.exe
+UninstallDisplayIcon={app}\app\gui\TaskBaton.Desktop.exe
 LicenseFile={#SourcePath}\LICENSE
 OutputDir={#OutputPath}
 #ifdef TestAppId
-OutputBaseFilename=AgentRelay-v{#ReleaseVersion}-windows-x64-test-setup
+OutputBaseFilename=TaskBaton-v{#ReleaseVersion}-windows-x64-test-setup
 #else
-OutputBaseFilename=AgentRelay-v{#ReleaseVersion}-windows-x64-setup
+OutputBaseFilename=TaskBaton-v{#ReleaseVersion}-windows-x64-setup
 #endif
 Compression=lzma2
 SolidCompression=yes
@@ -71,33 +71,33 @@ Source: "{#SourcePath}\licenses\*"; DestDir: "{app}\docs\licenses"; Flags: ignor
 
 [Icons]
 #ifdef TestAppId
-Name: "{autoprograms}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Parameters: "--home ""{app}\data"""; WorkingDir: "{app}\app\gui"
-Name: "{autodesktop}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Parameters: "--home ""{app}\data"""; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
+Name: "{autoprograms}\{#TestAppId}"; Filename: "{app}\app\gui\TaskBaton.Desktop.exe"; Parameters: "--home ""{app}\data"""; WorkingDir: "{app}\app\gui"
+Name: "{autodesktop}\{#TestAppId}"; Filename: "{app}\app\gui\TaskBaton.Desktop.exe"; Parameters: "--home ""{app}\data"""; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
 #else
-Name: "{autoprograms}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"
-Name: "{autodesktop}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
+Name: "{autoprograms}\TaskBaton"; Filename: "{app}\app\gui\TaskBaton.Desktop.exe"; WorkingDir: "{app}\app\gui"
+Name: "{autodesktop}\TaskBaton"; Filename: "{app}\app\gui\TaskBaton.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
 #endif
 
 [Run]
 #ifdef TestAppId
-Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Parameters: "--home ""{app}\data"""; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\app\gui\TaskBaton.Desktop.exe"; Parameters: "--home ""{app}\data"""; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
 #else
-Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\app\gui\TaskBaton.Desktop.exe"; Description: "{cm:LaunchProgram,TaskBaton}"; Flags: nowait postinstall skipifsilent
 #endif
 
 [CustomMessages]
-english.UninstallData=Delete Relay configuration and task records?%n%nCurrent relay station: %1%n%nThis removes the Relay database (including Agent configuration and task history), desktop preferences, and Relay's registered handoff rules. Files in the workspace, other files in the station, and your own instructions are kept. This cannot be undone.%n%nChoose No to keep configuration and task records.
-chinesesimplified.UninstallData=是否清除 Relay 配置和任务记录？%n%n当前中转站：%1%n%n这会删除 Relay 账本（包括 Agent 配置和任务记录）、桌面偏好，以及已登记的交接规则。工作区文件、中转站中的其他文件和你的其他指令都会保留。此操作无法撤销。%n%n选择“否”可保留配置和任务记录。
-chinesetraditional.UninstallData=是否清除 Relay 設定和任務紀錄？%n%n目前中轉站：%1%n%n這會刪除 Relay 帳本（包括 Agent 設定和任務紀錄）、桌面偏好，以及已登記的交接規則。工作區檔案、中轉站中的其他檔案和你的其他指令都會保留。此操作無法復原。%n%n選擇「否」可保留設定和任務紀錄。
-english.UninstallRules=Remove Relay's registered handoff rules from Agent instruction files? Other instructions and task data will be kept.
-chinesesimplified.UninstallRules=是否从 Agent 指令文件中移除 Relay 已登记的交接规则？其他指令和任务数据会保留。
-chinesetraditional.UninstallRules=是否從 Agent 指令檔案中移除 Relay 已登記的交接規則？其他指令和任務資料會保留。
-english.UninstallFailed=Relay could not complete the selected cleanup. The software will still be uninstalled, but some rules or data may remain. Reinstall Relay to review them. Details: %1
-chinesesimplified.UninstallFailed=Relay 未能完成所选清理。软件仍会卸载，但部分规则或数据可能保留。请重新安装 Relay 后检查。详情：%1
-chinesetraditional.UninstallFailed=Relay 無法完成所選清理。軟體仍會解除安裝，但部分規則或資料可能保留。請重新安裝 Relay 後檢查。詳情：%1
-english.UninstallLocationFailed=Could not read the current Relay station. Configuration and rules will be kept. Reinstall Relay to review them.
-chinesesimplified.UninstallLocationFailed=无法读取当前 Relay 中转站。配置与规则会保留，请重新安装 Relay 后检查。
-chinesetraditional.UninstallLocationFailed=無法讀取目前 Relay 中轉站。設定與規則會保留，請重新安裝 Relay 後檢查。
+english.UninstallData=Delete TaskBaton configuration and task records?%n%nCurrent TaskBaton station: %1%n%nThis removes the TaskBaton database (including Agent configuration and task history), desktop preferences, and TaskBaton's registered handoff rules. Files in the workspace, other files in the station, and your own instructions are kept. This cannot be undone.%n%nChoose No to keep configuration and task records.
+chinesesimplified.UninstallData=是否清除 TaskBaton 配置和任务记录？%n%n当前中转站：%1%n%n这会删除 TaskBaton 账本（包括 Agent 配置和任务记录）、桌面偏好，以及已登记的交接规则。工作区文件、中转站中的其他文件和你的其他指令都会保留。此操作无法撤销。%n%n选择“否”可保留配置和任务记录。
+chinesetraditional.UninstallData=是否清除 TaskBaton 設定和任務紀錄？%n%n目前中轉站：%1%n%n這會刪除 TaskBaton 帳本（包括 Agent 設定和任務紀錄）、桌面偏好，以及已登記的交接規則。工作區檔案、中轉站中的其他檔案和你的其他指令都會保留。此操作無法復原。%n%n選擇「否」可保留設定和任務紀錄。
+english.UninstallRules=Remove TaskBaton's registered handoff rules from Agent instruction files? Other instructions and task data will be kept.
+chinesesimplified.UninstallRules=是否从 Agent 指令文件中移除 TaskBaton 已登记的交接规则？其他指令和任务数据会保留。
+chinesetraditional.UninstallRules=是否從 Agent 指令檔案中移除 TaskBaton 已登記的交接規則？其他指令和任務資料會保留。
+english.UninstallFailed=TaskBaton could not complete the selected cleanup. The software will still be uninstalled, but some rules or data may remain. Reinstall TaskBaton to review them. Details: %1
+chinesesimplified.UninstallFailed=TaskBaton 未能完成所选清理。软件仍会卸载，但部分规则或数据可能保留。请重新安装 TaskBaton 后检查。详情：%1
+chinesetraditional.UninstallFailed=TaskBaton 無法完成所選清理。軟體仍會解除安裝，但部分規則或資料可能保留。請重新安裝 TaskBaton 後檢查。詳情：%1
+english.UninstallLocationFailed=Could not read the current TaskBaton station. Configuration and rules will be kept. Reinstall TaskBaton to review them.
+chinesesimplified.UninstallLocationFailed=无法读取当前 TaskBaton 中转站。配置与规则会保留，请重新安装 TaskBaton 后检查。
+chinesetraditional.UninstallLocationFailed=無法讀取目前 TaskBaton 中轉站。設定與規則會保留，請重新安裝 TaskBaton 後檢查。
 
 [Code]
 #ifdef TestLocationPath
@@ -117,6 +117,63 @@ begin
 end;
 #endif
 
+#ifndef TestAppId
+const
+  LegacyAppId = '{6476C39F-39A5-4BF2-AFC7-1E9371D4B556}';
+
+function LegacyUninstaller(out InstallDirectory: String): String;
+var
+  Uninstaller: String;
+begin
+  Result := '';
+  InstallDirectory := ExpandConstant('{localappdata}\Programs\Agent Relay');
+  if RegQueryStringValue(HKCU,
+       'Software\Microsoft\Windows\CurrentVersion\Uninstall\' + LegacyAppId + '_is1',
+       'UninstallString', Uninstaller) then
+  begin
+    Uninstaller := RemoveQuotes(Uninstaller);
+    if FileExists(Uninstaller) then Result := Uninstaller;
+  end;
+  if (Result = '') and FileExists(InstallDirectory + '\unins000.exe') then
+    Result := InstallDirectory + '\unins000.exe';
+end;
+
+function ImageIsRunning(const ImageName: String): Boolean;
+var
+  Command, OutputFile: String;
+  Lines: TArrayOfString;
+  Code, I: Integer;
+begin
+  Result := False;
+  OutputFile := ExpandConstant('{tmp}\taskbaton-process-check.txt');
+  Command := '/c tasklist /FI "IMAGENAME eq ' + ImageName + '" /NH /FO CSV > "' + OutputFile + '"';
+  if not Exec(ExpandConstant('{cmd}'), Command, '', SW_HIDE, ewWaitUntilTerminated, Code) then Exit;
+  if LoadStringsFromFile(OutputFile, Lines) then
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      if Pos('"' + ImageName + '"', Lines[I]) > 0 then Result := True;
+  DeleteFile(OutputFile);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Uninstaller, InstallDirectory, Arguments: String;
+  Code: Integer;
+begin
+  Result := '';
+  if ImageIsRunning('AgentRelay.Desktop.exe') or ImageIsRunning('AgentRelay.Notify.exe') then
+  begin
+    Result := '检测到旧版 Agent Relay 仍在运行。请先从托盘退出 Agent Relay 桌面程序和通知窗口，再重新运行 TaskBaton 安装程序。旧版程序退出后，安装程序会自动静默卸载旧版并保留数据。';
+    Exit;
+  end;
+  Uninstaller := LegacyUninstaller(InstallDirectory);
+  if Uninstaller = '' then Exit;
+  Arguments := '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL';
+  // The old silent uninstaller explicitly preserves configuration and task data.
+  if not Exec(Uninstaller, Arguments, InstallDirectory, SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+    Result := '无法静默卸载旧版 Agent Relay（退出码 ' + IntToStr(Code) + '）。未继续安装；请手动卸载旧版后重试。';
+end;
+#endif
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Cli, LocationFile, PlanFile, ReportFile, ErrorFile, Home, Args, Detail: String;
@@ -125,14 +182,14 @@ var
   RemoveData, RemoveRules: Boolean;
 begin
   if (CurUninstallStep <> usUninstall) or UninstallSilent then Exit;
-  Cli := ExpandConstant('{app}\app\relay.exe');
-  LocationFile := ExpandConstant('{localappdata}\AgentRelay\relay.location.json');
+  Cli := ExpandConstant('{app}\app\taskbaton.exe');
+  LocationFile := ExpandConstant('{localappdata}\TaskBaton\taskbaton.location.json');
 #ifdef TestLocationPath
   LocationFile := '{#TestLocationPath}';
 #endif
-  PlanFile := ExpandConstant('{tmp}\agent-relay-uninstall-plan.txt');
-  ReportFile := ExpandConstant('{tmp}\agent-relay-uninstall-report.json');
-  ErrorFile := ExpandConstant('{tmp}\agent-relay-uninstall-error.txt');
+  PlanFile := ExpandConstant('{tmp}\taskbaton-uninstall-plan.txt');
+  ReportFile := ExpandConstant('{tmp}\taskbaton-uninstall-report.json');
+  ErrorFile := ExpandConstant('{tmp}\taskbaton-uninstall-error.txt');
   Args := 'uninstall plan --location-file "' + LocationFile + '" --output "' + PlanFile + '"';
   if not Exec(Cli, Args, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) or
      not LoadStringsFromFile(PlanFile, Lines) or (GetArrayLength(Lines) <> 1) then begin

@@ -1,4 +1,4 @@
-# TaskBaton（原 Agent Relay）
+﻿# TaskBaton（原 Agent Relay）
 
 [English](README.md) | **简体中文**
 
@@ -24,7 +24,7 @@ TaskBaton（任务接力棒）是给同时使用多个 AI Agent 的人准备的�
 
 ### 60 秒体验桌面演示
 
-下载并完整解压 [Windows x64 便携 ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64.zip)，双击 `TryDemo.cmd`。在「任务」里打开一条已完成的样例，可以看到原始请求、回复和处理记录。演示会创建独立的本机中转站并使用预设结果：无需安装或登录模型账号，也不会调用模型。这些是预设结果，不是探针，也不是与真实 Agent 的一次真实交接。
+下载并完整解压 [Windows x64 便携 ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/TaskBaton-v0.5.0-windows-x64.zip)，双击 `TryDemo.cmd`。在「任务」里打开一条已完成的样例，可以看到原始请求、回复和处理记录。演示会创建独立的本机中转站并使用预设结果：无需安装或登录模型账号，也不会调用模型。这些是预设结果，不是探针，也不是与真实 Agent 的一次真实交接。
 
 试过之后，欢迎[提交试用反馈](https://github.com/jason-namehard/TaskBaton/issues/new?template=trial_feedback.yml)。你平时会把哪两个 Agent 搭配使用？第一次交接卡在哪一步？
 
@@ -33,15 +33,15 @@ TaskBaton（任务接力棒）是给同时使用多个 AI Agent 的人准备的�
 从 [发布页](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0) 下载 TaskBaton 0.5.0 的 Windows x64 安装包，也可以在 PowerShell 运行：
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
-Start-Process '.\AgentRelay-setup.exe' -Wait
+Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/TaskBaton-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'TaskBaton-setup.exe'
+Start-Process '.\TaskBaton-setup.exe' -Wait
 ```
 
-安装包没有代码签名，默认按当前用户安装到 `%LOCALAPPDATA%\Programs\Agent Relay`；桌面程序、CLI 和 MCP 都自带 .NET 运行库。安装后从开始菜单启动，或运行：
+安装包没有代码签名，默认按当前用户安装到 `%LOCALAPPDATA%\Programs\TaskBaton`；桌面程序、CLI 和 MCP 都自带 .NET 运行库。安装后从开始菜单启动，或运行：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\Agent Relay\app\gui\AgentRelay.Desktop.exe"
-& "$env:LOCALAPPDATA\Programs\Agent Relay\app\relay.exe" --help    # app\mcp\relay-mcp.exe 同样是自包含的
+& "$env:LOCALAPPDATA\Programs\TaskBaton\app\gui\TaskBaton.Desktop.exe"
+& "$env:LOCALAPPDATA\Programs\TaskBaton\app\taskbaton.exe" --help    # app\mcp\taskbaton-mcp.exe 同样是自包含的
 ```
 
 0.4.0 构建通过了隔离安装、覆盖升级和卸载验收（27 项检查）。0.5.0 安装包发布前必须完成自己的隔离安装验收。升级前请先从托盘退出 TaskBaton。
@@ -52,14 +52,14 @@ Start-Process '.\AgentRelay-setup.exe' -Wait
 
 ```powershell
 $version = 'v0.5.0'
-$zip = "AgentRelay-$version-windows-x64.zip"
+$zip = "TaskBaton-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest "https://github.com/jason-namehard/TaskBaton/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
-Expand-Archive $zip -DestinationPath ".\AgentRelay-$version"
-Set-Location ".\AgentRelay-$version"
+Expand-Archive $zip -DestinationPath ".\TaskBaton-$version"
+Set-Location ".\TaskBaton-$version"
 
 .\TryDemo.cmd                    # 隔离演示：样本 Agent 与预设任务，无需模型账号，不调用模型
-.\gui\AgentRelay.Desktop.exe     # 正式使用
+.\gui\TaskBaton.Desktop.exe     # 正式使用
 ```
 
 <details>
@@ -77,7 +77,7 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 
 </details>
 
-运行要求：安装版的桌面程序、CLI 与 MCP 都自带运行库；便携 ZIP 的 CLI 与 MCP（`relay.dll`、`mcp\relay-mcp.dll`）需要 [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。没有代码签名，Windows 可能给出安全提示。「无需账号」指的是 TaskBaton 自身和演示；接入的 Agent 仍按各自宿主的账号、权限和模型计费。
+运行要求：安装版的桌面程序、CLI 与 MCP 都自带运行库；便携 ZIP 的 CLI 与 MCP（`taskbaton.dll`、`mcp\taskbaton-mcp.dll`；旧名 `relay.dll`、`relay-mcp.dll` 保留为兼容入口）需要 [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。没有代码签名，Windows 可能给出安全提示。「无需账号」指的是 TaskBaton 自身和演示；接入的 Agent 仍按各自宿主的账号、权限和模型计费。
 
 ## 四个主页面
 
@@ -168,7 +168,7 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 
 ```powershell
 git clone https://github.com/jason-namehard/TaskBaton.git
-cd agent-relay
+cd taskbaton
 dotnet restore --locked-mode
 dotnet test --configuration Release --no-restore
 ```
@@ -176,7 +176,7 @@ dotnet test --configuration Release --no-restore
 覆盖 Core、CLI、MCP 与核心测试。桌面程序与通知辅助程序需在 Windows 上单独构建（PowerShell 7）：
 
 ```powershell
-dotnet restore src/AgentRelay.Notify/AgentRelay.Notify.csproj --locked-mode
+dotnet restore src/TaskBaton.Notify/TaskBaton.Notify.csproj --locked-mode
 pwsh ./scripts/test-desktop.ps1
 pwsh ./scripts/check-licenses.ps1 -IncludeDesktop
 pwsh ./scripts/package.ps1 -Flavor Windows
@@ -189,10 +189,10 @@ pwsh ./scripts/package.ps1 -Flavor Windows
 <details>
 <summary>CLI 与 stdio MCP</summary>
 
-`dotnet .\relay.dll --help` 列出命令；MCP 服务不支持 `--help`。宿主为每个 Agent 启动一个 MCP 实例：
+`dotnet .\taskbaton.dll --help` 列出命令；MCP 服务不支持 `--help`。宿主为每个 Agent 启动一个 MCP 实例：
 
 ```powershell
-dotnet .\mcp\relay-mcp.dll --home <中转站目录> --agent <已登记的 Agent ID>
+dotnet .\mcp\taskbaton-mcp.dll --home <中转站目录> --agent <已登记的 Agent ID>
 ```
 
 工具：`relay_task_dispatch`、`relay_task_ack`、`relay_task_start`、`relay_task_complete`、`relay_task_fail`、`relay_task_status`、`relay_prompt_show`。调用方身份在启动时固定。
@@ -204,9 +204,9 @@ dotnet .\mcp\relay-mcp.dll --home <中转站目录> --agent <已登记的 Agent 
 
 | 程序 | 顺序 |
 | --- | --- |
-| CLI、MCP | `--home` → `RELAY_HOME` → `%LOCALAPPDATA%\AgentRelay` |
-| 桌面程序 | `--home` → `RELAY_HOME` → 设置页选定的目录 → `%LOCALAPPDATA%\AgentRelay` |
-| 演示 | `%LOCALAPPDATA%\AgentRelay.Demos\` 下的新目录 |
+| CLI、MCP | `--home` → `TASKBATON_HOME` → `RELAY_HOME` → 新位置记录 → 旧 `relay.location.json` → `%LOCALAPPDATA%\TaskBaton`（会迁移旧 `%LOCALAPPDATA%\AgentRelay` 中转站） |
+| 桌面程序 | `--home` → `TASKBATON_HOME` → `RELAY_HOME` → 设置页选定的目录 → `%LOCALAPPDATA%\TaskBaton`（会迁移旧 `%LOCALAPPDATA%\AgentRelay` 中转站） |
+| 演示 | `%LOCALAPPDATA%\TaskBaton.Demos\` 下的新目录 |
 
 在 **设置 → 中转站 → 查看中转文件** 中选择文件，可以查看完整路径、归属和任务引用。**预览清理**列出已超过保留期且没有活跃任务引用的 TaskBaton 文件。确认后逐项复核，保留预览后被改动或被任务引用的文件。用户原件、项目交付物、任务控制文件和归属未确认的文件均保留。默认保留期为 3 天。
 
@@ -217,7 +217,7 @@ dotnet .\mcp\relay-mcp.dll --home <中转站目录> --agent <已登记的 Agent 
 ## 已知限制
 
 - 预览软件，确有缺口：真实宿主的会话创建、可见性与续接需要在该宿主中实际测试；模拟桥接不构成真实集成证据。Windows 不同显示缩放和多显示器下的表现仍需人工检查。
-- 没有后台服务或计划任务。桌面程序运行时才监控回执；所有进程关闭后，超时工作要等下次 `relay recover`（CLI）或下次启动。
+- 没有后台服务或计划任务。桌面程序运行时才监控回执；所有进程关闭后，超时工作要等下次 `taskbaton recover`（CLI）或下次启动。
 - 卸载清理只覆盖当前中转站登记的规则；用过的其他站点需要分别处理。删除安装目录或解压目录都不能代替卸载或移除规则。
 - 取消任务只结束 TaskBaton 的跟踪和后续投递，不会终止已经在工作的 Agent。删除任务会移除账本记录，文件保留到后续清理。
 

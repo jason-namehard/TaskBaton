@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>taskbaton-mcp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../TaskBaton.Core/TaskBaton.Core.csproj" />
+    <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+  </ItemGroup>
+</Project>

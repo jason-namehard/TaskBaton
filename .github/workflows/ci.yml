@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 on:
   push:
     branches: [main]
@@ -20,12 +20,12 @@ jobs:
       - run: dotnet restore --locked-mode
       - name: Restore Windows notification helper
         if: runner.os == 'Windows'
-        run: dotnet restore src/AgentRelay.Notify/AgentRelay.Notify.csproj --locked-mode
+        run: dotnet restore src/TaskBaton.Notify/TaskBaton.Notify.csproj --locked-mode
       - run: dotnet test --configuration Release --no-restore
       - name: Windows GUI interaction tests
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./scripts/test-desktop.ps1 -WorkDirectory "${{ runner.temp }}/agent-relay-desktop-smoke"
+        run: ./scripts/test-desktop.ps1 -WorkDirectory "${{ runner.temp }}/taskbaton-desktop-smoke"
       - name: Check direct and transitive package licenses
         shell: pwsh
         run: ./scripts/check-licenses.ps1 -IncludeDesktop:($IsWindows)

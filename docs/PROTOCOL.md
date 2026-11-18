@@ -1,4 +1,4 @@
-# TaskBaton（原 Agent Relay）协议提案
+﻿# TaskBaton（原 Agent Relay）协议提案
 
 状态：`relay_version: 1`，单次执行、精确会话继续、stdio MCP 与经审阅的配置迁移已实现。跨进程 JSON 使用 UTF-8，时间使用带 `Z` 的 UTC RFC 3339；GUI 按用户时区显示。实际命令见 [README](../README.md)。
 
@@ -28,7 +28,7 @@
 }
 ```
 
-Relay 另写 `recorded_at` 和事务序号，不按客户端时钟决定事件顺序。信封可用相对 `RELAY_HOME` 的路径；Phase 1 本机 CLI 与账本使用完整受管路径。完成前检查文件存在、可读、未过期。`task.completed` 必须提供成功状态和结果文件；`task.failed` 必须提供失败状态、`error_code`、可读说明和失败报告文件。`side_effects_possible` 未报告时为 `null`，显式标注可能产生副作用时为 `true`，不把未知当成无副作用。
+Relay 另写 `recorded_at` 和事务序号，不按客户端时钟决定事件顺序。信封可用相对 `TASKBATON_HOME`（兼容旧 `RELAY_HOME`）的路径；Phase 1 本机 CLI 与账本使用完整受管路径。完成前检查文件存在、可读、未过期。`task.completed` 必须提供成功状态和结果文件；`task.failed` 必须提供失败状态、`error_code`、可读说明和失败报告文件。`side_effects_possible` 未报告时为 `null`，显式标注可能产生副作用时为 `true`，不把未知当成无副作用。
 
 | 事件 | 生产者与含义 |
 | --- | --- |

@@ -1,4 +1,4 @@
-# Phase 3 — Exact Session Continuation
+﻿# Phase 3 — Exact Session Continuation
 
 日期：2026-10-22。验证平台为 Windows 11 `10.0.22631`、.NET SDK `10.0.402`、Codex CLI `0.163.0-alpha.11`、AMQ `0.104.0`。
 
@@ -18,18 +18,18 @@
 
 ```powershell
 dotnet restore --locked-mode
-dotnet restore src/AgentRelay.Notify/AgentRelay.Notify.csproj --locked-mode
+dotnet restore src/TaskBaton.Notify/TaskBaton.Notify.csproj --locked-mode
 dotnet test -c Release --no-restore
 pwsh ./scripts/check-licenses.ps1 -IncludeDesktop
 pwsh ./scripts/publish.ps1 -IncludeDesktop
 
-$relay = './artifacts/relay/relay.dll'
+$relay = './artifacts/taskbaton/taskbaton.dll'
 $dataRoot = Join-Path $PWD '.relay'
 dotnet $relay --home $dataRoot init
-dotnet $relay --home $dataRoot desktop configure --executable ./artifacts/relay/desktop/AgentRelay.Notify.exe
+dotnet $relay --home $dataRoot desktop configure --executable ./artifacts/taskbaton/desktop/TaskBaton.Notify.exe
 ```
 
-CLI 需要 .NET 10 runtime；Windows x64 通知程序自带 .NET 与 Windows App SDK 运行库。首次发送通知时由 App SDK 注册该可执行文件的当前用户 COM 激活入口和应用标识；不注册系统计划任务、服务或 Agent 插件。请保留发布目录位置；移动或删除前在原位置运行 `AgentRelay.Notify.exe --unregister`，移动后在新位置重新登记通知程序。`desktop disable` 停止该数据目录的后续提醒。
+CLI 需要 .NET 10 runtime；Windows x64 通知程序自带 .NET 与 Windows App SDK 运行库。首次发送通知时由 App SDK 注册该可执行文件的当前用户 COM 激活入口和应用标识；不注册系统计划任务、服务或 Agent 插件。请保留发布目录位置；移动或删除前在原位置运行 `TaskBaton.Notify.exe --unregister`，移动后在新位置重新登记通知程序。`desktop disable` 停止该数据目录的后续提醒。
 
 为请求方登记精确会话恢复方式，之前需按 README 注册并 validate A 的配置和 CLI 路径：
 

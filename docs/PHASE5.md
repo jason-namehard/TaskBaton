@@ -1,6 +1,6 @@
-# Phase 5 — Windows GUI
+﻿# Phase 5 — Windows GUI
 
-日期：2026-10-23。`AgentRelay.Desktop` 是原生 WPF 管理界面，CLI、MCP、GUI 共用 `RelayService` 和 SQLite。GUI 不承担任务推理，不创建常驻服务、计划任务、文件 watcher 或周期查询。
+日期：2026-10-23。`TaskBaton.Desktop` 是原生 WPF 管理界面，CLI、MCP、GUI 共用 `RelayService` 和 SQLite。GUI 不承担任务推理，不创建常驻服务、计划任务、文件 watcher 或周期查询。
 
 `0.1.0-preview.2` 增加六语界面、莫兰迪配色与配置助手；操作见 [配置助手与外观](CONFIGURATION_ASSISTANT.md)。
 
@@ -9,12 +9,12 @@
 Windows x64 分发包中运行：
 
 ```powershell
-./gui/AgentRelay.Desktop.exe
+./gui/TaskBaton.Desktop.exe
 # 使用与 CLI/MCP 相同的数据目录：
-./gui/AgentRelay.Desktop.exe --home C:/relay-data
+./gui/TaskBaton.Desktop.exe --home C:/relay-data
 ```
 
-数据目录优先取 `--home`，其次 `RELAY_HOME`，默认 `%LOCALAPPDATA%/AgentRelay`。首次启动创建账本，已有账本增加缺少的表。启动做一次 `RecoverAsync`，可能处理已持久化的运输和会话继续操作；不会重新启动未知执行的模型。运行期间 `Refresh` 只读，`Recover` 为明确的管理操作。
+数据目录优先取 `--home`，其次 `TASKBATON_HOME`、`RELAY_HOME`，再读新旧位置记录，默认 `%LOCALAPPDATA%/TaskBaton`（首次会把旧 `%LOCALAPPDATA%/AgentRelay` 复制过来并保留旧目录）。首次启动创建账本，已有账本增加缺少的表。启动做一次 `RecoverAsync`，可能处理已持久化的运输和会话继续操作；不会重新启动未知执行的模型。运行期间 `Refresh` 只读，`Recover` 为明确的管理操作。
 
 GUI 与通知程序均使用自包含 .NET 运行库；CLI、MCP 仍需要 .NET 10 runtime。Windows 项目单独构建，跨平台 solution 保持 Linux 可用。
 
@@ -59,7 +59,7 @@ Windows 写事务提交后，以 `RegisterWindowMessage` 与非阻塞 `PostMessa
 ```powershell
 dotnet restore --locked-mode
 dotnet test -c Release --no-restore
-dotnet restore src/AgentRelay.Notify/AgentRelay.Notify.csproj --locked-mode
+dotnet restore src/TaskBaton.Notify/TaskBaton.Notify.csproj --locked-mode
 pwsh ./scripts/test-desktop.ps1
 pwsh ./scripts/check-licenses.ps1 -IncludeDesktop
 pwsh ./scripts/publish.ps1 -IncludeDesktop

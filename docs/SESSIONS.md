@@ -1,4 +1,4 @@
-# Session Registry 与精确续接
+﻿# Session Registry 与精确续接
 
 会话绑定回答“这个任务的下一轮应进入哪一段对话”。新建会话时，Relay 从适配器结构化结果登记真实 ID；使用已有对话时，由用户明确选择一次。同一任务 attempt 的后续 A → B → A → B 使用双方已绑定的准确 ID，不重新猜测目标。
 
@@ -20,7 +20,7 @@
 
 来源 Agent 的名称不能证明当前 Session。普通剪贴板中的 `{from,to,file,message?}` 也无法提供调用进程身份，因此界面显示来源未识别，并允许用户选择一次；模型不需要查找或填写自己的 ID。
 
-只有调用适配器已有准确会话上下文时，才能自动登记来源。精确 resume 调用会注入 `AGENT_RELAY_CALLER_AGENT_ID`、`AGENT_RELAY_CALLER_SESSION_ID`、`AGENT_RELAY_CALLER_HOST`、`AGENT_RELAY_CALLER_CWD`，以及可获取的 profile。通过上下文入口创建新交接时，发送方必须与该上下文一致。尚未返回会话 ID 的新建调用不能提前声称已经识别其来源。
+只有调用适配器已有准确会话上下文时，才能自动登记来源。精确 resume 调用会同时注入 `TASKBATON_CALLER_AGENT_ID`、`TASKBATON_CALLER_SESSION_ID`、`TASKBATON_CALLER_HOST`、`TASKBATON_CALLER_CWD`（以及可获取的 profile）和旧的 `AGENT_RELAY_CALLER_*` 同名变量；读取时优先新前缀，再回退旧前缀。通过上下文入口创建新交接时，发送方必须与该上下文一致。尚未返回会话 ID 的新建调用不能提前声称已经识别其来源。
 
 这些是本机适配器传递的上下文，不是要求模型搜查文件、返回会话 ID 或修改宿主 UI。长期规则负责短 handoff 格式，每轮任务不重复注入完整协议。
 
@@ -123,7 +123,7 @@ $env:ZCODE_BUILTIN_PROVIDER_CONFIG_FILE = "D:\Zcode\resources\config\provider\zc
 
 ## 续接会话的缓存对齐（各宿主）
 
-续接原会话是为了让供应商复用提示缓存，前提是两次请求的前缀（工具定义、系统提示、历史）逐字相同。各宿主构建前缀的方式不同，对齐的可行性也不同。完整方法写在 Relay 自带的技能 `src/AgentRelay.Core/Skills/relay-cache-parity/SKILL.md` 里；一键配置会让 Agent 按它检查。逐次用量用 `relay agent cache-check --agent <ID> --session <会话>` 读取。
+续接原会话是为了让供应商复用提示缓存，前提是两次请求的前缀（工具定义、系统提示、历史）逐字相同。各宿主构建前缀的方式不同，对齐的可行性也不同。完整方法写在 Relay 自带的技能 `src/TaskBaton.Core/Skills/relay-cache-parity/SKILL.md` 里；一键配置会让 Agent 按它检查。逐次用量用 `relay agent cache-check --agent <ID> --session <会话>` 读取。
 
 | 宿主 | 类型 | 现状 |
 | --- | --- | --- |
@@ -170,15 +170,15 @@ DSH 认证阻塞现在可在任务详情或 Agent 管理点击“重新检测并
 在发布包目录使用 .NET 10，替换示例中的节点、任务和目录：
 
 ```powershell
-dotnet .\relay.dll --home <中转站目录> handoff cli-create --manifest <CLI任务清单>
-dotnet .\relay.dll --home <中转站目录> handoff cli-create --manifest <CLI任务清单> --send --approve
-dotnet .\relay.dll --home <中转站目录> handoff send --task <任务ID> --approve
-dotnet .\relay.dll --home <中转站目录> session query --agent <节点ID> --refresh
-dotnet .\relay.dll --home <中转站目录> session capabilities --agent <节点ID>
-dotnet .\relay.dll --home <中转站目录> session source --agent <节点ID> --provider dsh --directory <宿主数据根目录>
-dotnet .\relay.dll --home <中转站目录> session bindings --task <任务ID>
-dotnet .\relay.dll --home <中转站目录> session bind --task <任务ID> --agent <节点ID> --session <准确会话ID>
-dotnet .\relay.dll --home <中转站目录> session new --task <任务ID> --agent <节点ID>
+dotnet .\taskbaton.dll --home <中转站目录> handoff cli-create --manifest <CLI任务清单>
+dotnet .\taskbaton.dll --home <中转站目录> handoff cli-create --manifest <CLI任务清单> --send --approve
+dotnet .\taskbaton.dll --home <中转站目录> handoff send --task <任务ID> --approve
+dotnet .\taskbaton.dll --home <中转站目录> session query --agent <节点ID> --refresh
+dotnet .\taskbaton.dll --home <中转站目录> session capabilities --agent <节点ID>
+dotnet .\taskbaton.dll --home <中转站目录> session source --agent <节点ID> --provider dsh --directory <宿主数据根目录>
+dotnet .\taskbaton.dll --home <中转站目录> session bindings --task <任务ID>
+dotnet .\taskbaton.dll --home <中转站目录> session bind --task <任务ID> --agent <节点ID> --session <准确会话ID>
+dotnet .\taskbaton.dll --home <中转站目录> session new --task <任务ID> --agent <节点ID>
 ```
 
 `cli-create` 不加 `--send` 只保存工作要求和绑定，发送必须显式 `--approve`；清单结构见 [配置与回执](CONFIGURATION_ASSISTANT.md)。`source` 的 provider 可选 `dsh`、`zcode`、`hermes`、`workbuddy`，数据目录应与该提供器对应。查询只读元数据，`capabilities` 返回已登记方案声明的能力，不代表实际调用已经验证。`bind` 保存用户提供的精确 ID，保存不等于已验证；自动发送前仍核实存在。未知提供器或不能访问的存储不会回退到 latest。自动投递需任务允许且该 Agent 对应能力已验证，见 [配置与回执](CONFIGURATION_ASSISTANT.md#高级-cli-接口扩充)；真实发送和续接可能产生模型费用。

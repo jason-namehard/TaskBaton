@@ -1,4 +1,4 @@
-# Phase 4 — MCP & Reviewed Migrations
+﻿# Phase 4 — MCP & Reviewed Migrations
 
 日期：2026-10-22。CLI、stdio MCP 和 Windows 通知共用一个核心与 SQLite 账本。
 
@@ -20,10 +20,10 @@ dotnet test -c Release --no-restore
 pwsh ./scripts/check-licenses.ps1
 pwsh ./scripts/publish.ps1
 
-$relay = './artifacts/relay/relay.dll'
+$relay = './artifacts/taskbaton/taskbaton.dll'
 $dataRoot = Join-Path $PWD '.relay'
 dotnet $relay --home $dataRoot init
-dotnet ./artifacts/relay/mcp/relay-mcp.dll --home $dataRoot --agent agent-a
+dotnet ./artifacts/taskbaton/mcp/taskbaton-mcp.dll --home $dataRoot --agent agent-a
 ```
 
 已有数据目录先运行 `init` 增加 `adapter_sources`、`migrations`、`migration_events` 表。Agent 须事先 register/validate，方向权限默认拒绝。MCP 不负责注册、改变权限、批准配置或启用旧入口停用；这些管理操作保留在 CLI。stdio 进程由客户端持有，stdin EOF 后退出，不创建 HTTP 服务或常驻 Relay 服务。
@@ -33,7 +33,7 @@ dotnet ./artifacts/relay/mcp/relay-mcp.dll --home $dataRoot --agent agent-a
 ```toml
 [mcp_servers.agent_relay]
 command = "C:/tools/dotnet/dotnet.exe"
-args = ["C:/agent-relay/mcp/relay-mcp.dll", "--home", "C:/agent-relay/.relay", "--agent", "agent-a", "--route-id", "<migration UUID>"]
+args = ["C:/taskbaton/mcp/taskbaton-mcp.dll", "--home", "C:/taskbaton/.relay", "--agent", "agent-a", "--route-id", "<migration UUID>"]
 tool_timeout_sec = 240
 ```
 
@@ -80,7 +80,7 @@ dotnet $relay --home $dataRoot adapter inspect-config --path C:/Users/you/.codex
   "target_path": "C:/Users/you/.codex/config.toml",
   "format": "toml",
   "before": "",
-  "after": "\n[mcp_servers.agent_relay]\ncommand = 'C:/tools/dotnet/dotnet.exe'\nargs = ['C:/agent-relay/mcp/relay-mcp.dll', '--home', 'C:/agent-relay/.relay', '--agent', 'agent-a', '--route-id', '{{migration_id}}']\ntool_timeout_sec = 240\n",
+  "after": "\n[mcp_servers.agent_relay]\ncommand = 'C:/tools/dotnet/dotnet.exe'\nargs = ['C:/taskbaton/mcp/taskbaton-mcp.dll', '--home', 'C:/taskbaton/.relay', '--agent', 'agent-a', '--route-id', '{{migration_id}}']\ntool_timeout_sec = 240\n",
   "purpose": "install"
 }
 ```
@@ -107,7 +107,7 @@ dotnet $relay --home $dataRoot migration recover --id $id
 dotnet $relay --home $dataRoot adapter sources
 ```
 
-迁移快照和备份在 `RELAY_HOME/migrations/<id>/`，不进入任务产物 TTL。备份包含原配置，按本机私有数据保存，不放进 GitHub 或发布包。源版本记录不可被不同内容覆盖；来源、修订或能力发生变化时登记准确的新版本。
+迁移快照和备份在 `TASKBATON_HOME/migrations/<id>/`（兼容 `RELAY_HOME`），不进入任务产物 TTL。备份包含原配置，按本机私有数据保存，不放进 GitHub 或发布包。源版本记录不可被不同内容覆盖；来源、修订或能力发生变化时登记准确的新版本。
 
 ## 已核实的结果
 

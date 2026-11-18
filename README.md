@@ -1,4 +1,4 @@
-# TaskBaton (formerly Agent Relay)
+﻿# TaskBaton (formerly Agent Relay)
 
 **English** | [简体中文](README.zh.md)
 
@@ -24,7 +24,7 @@ Current release: `0.5.0`, with a Windows x64 desktop installer. The CLI and stdi
 
 ### Try the demo in 60 seconds
 
-Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
+Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/TaskBaton-v0.5.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
 
 If you try it, [share your feedback](https://github.com/jason-namehard/TaskBaton/issues/new?template=trial_feedback.yml). Which agents do you use together, and where did your first handoff get stuck?
 
@@ -33,15 +33,15 @@ If you try it, [share your feedback](https://github.com/jason-namehard/TaskBaton
 Download [TaskBaton 0.5.0 for Windows x64](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0), or run in PowerShell:
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
-Start-Process '.\AgentRelay-setup.exe' -Wait
+Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/TaskBaton-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'TaskBaton-setup.exe'
+Start-Process '.\TaskBaton-setup.exe' -Wait
 ```
 
-The unsigned installer defaults to a per-user installation under `%LOCALAPPDATA%\Programs\Agent Relay` and bundles the .NET runtime for the desktop app, CLI and MCP server. Start it from the Start menu, or run:
+The unsigned installer defaults to a per-user installation under `%LOCALAPPDATA%\Programs\TaskBaton` and bundles the .NET runtime for the desktop app, CLI and MCP server. Start it from the Start menu, or run:
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\Agent Relay\app\gui\AgentRelay.Desktop.exe"
-& "$env:LOCALAPPDATA\Programs\Agent Relay\app\relay.exe" --help    # app\mcp\relay-mcp.exe is self-contained too
+& "$env:LOCALAPPDATA\Programs\TaskBaton\app\gui\TaskBaton.Desktop.exe"
+& "$env:LOCALAPPDATA\Programs\TaskBaton\app\taskbaton.exe" --help    # app\mcp\taskbaton-mcp.exe is self-contained too
 ```
 
 The 0.4.0 build passed the isolated install, upgrade and uninstall acceptance suite (27 checks). The 0.5.0 installer must pass its own isolated acceptance before release. Exit TaskBaton from the tray before upgrading.
@@ -52,14 +52,14 @@ Download the ZIP from the [release page](https://github.com/jason-namehard/TaskB
 
 ```powershell
 $version = 'v0.5.0'
-$zip = "AgentRelay-$version-windows-x64.zip"
+$zip = "TaskBaton-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest "https://github.com/jason-namehard/TaskBaton/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
-Expand-Archive $zip -DestinationPath ".\AgentRelay-$version"
-Set-Location ".\AgentRelay-$version"
+Expand-Archive $zip -DestinationPath ".\TaskBaton-$version"
+Set-Location ".\TaskBaton-$version"
 
 .\TryDemo.cmd                    # isolated demo: sample Agents, preset tasks, no model account, no model calls
-.\gui\AgentRelay.Desktop.exe     # normal use
+.\gui\TaskBaton.Desktop.exe     # normal use
 ```
 
 <details>
@@ -77,7 +77,7 @@ Local and CI builds are not claimed to be byte-for-byte reproducible.
 
 </details>
 
-Requirements: the installer and the desktop app bundle their runtime, including the installed `relay.exe` and `mcp\relay-mcp.exe`. The portable ZIP's CLI and MCP server (`relay.dll`, `mcp\relay-mcp.dll`) need the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0). There is no code signing, so Windows may show a security prompt. "No account" refers to TaskBaton itself and the demo; the agents you connect still use their own accounts, permissions and model billing.
+Requirements: the installer and the desktop app bundle their runtime, including the installed `taskbaton.exe` and `mcp\taskbaton-mcp.exe`; the old `relay.exe` and `relay-mcp.exe` names remain as compatibility shims. The portable ZIP's CLI and MCP server (`taskbaton.dll`, `mcp\taskbaton-mcp.dll`, plus the old `relay.dll`/`relay-mcp.dll` shims) need the [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0). There is no code signing, so Windows may show a security prompt. "No account" refers to TaskBaton itself and the demo; the agents you connect still use their own accounts, permissions and model billing.
 
 ## The four pages
 
@@ -172,7 +172,7 @@ Requires the .NET 10 SDK (see `global.json`). From a fresh clone, in PowerShell:
 
 ```powershell
 git clone https://github.com/jason-namehard/TaskBaton.git
-cd agent-relay
+cd taskbaton
 dotnet restore --locked-mode
 dotnet test --configuration Release --no-restore
 ```
@@ -180,7 +180,7 @@ dotnet test --configuration Release --no-restore
 This covers Core, CLI, MCP and the core test suite. The desktop app and notification helper build separately on Windows (PowerShell 7):
 
 ```powershell
-dotnet restore src/AgentRelay.Notify/AgentRelay.Notify.csproj --locked-mode
+dotnet restore src/TaskBaton.Notify/TaskBaton.Notify.csproj --locked-mode
 pwsh ./scripts/test-desktop.ps1
 pwsh ./scripts/check-licenses.ps1 -IncludeDesktop
 pwsh ./scripts/package.ps1 -Flavor Windows
@@ -193,10 +193,10 @@ The installer is built with Inno Setup: `pwsh ./scripts/build-installer.ps1` (pa
 <details>
 <summary>CLI and stdio MCP</summary>
 
-`dotnet .\relay.dll --help` lists the commands; the MCP server does not implement `--help`. A host starts one MCP instance per Agent:
+`dotnet .\taskbaton.dll --help` lists the commands; the MCP server does not implement `--help`. A host starts one MCP instance per Agent:
 
 ```powershell
-dotnet .\mcp\relay-mcp.dll --home <relay folder> --agent <registered Agent id>
+dotnet .\mcp\taskbaton-mcp.dll --home <relay folder> --agent <registered Agent id>
 ```
 
 Tools: `relay_task_dispatch`, `relay_task_ack`, `relay_task_start`, `relay_task_complete`, `relay_task_fail`, `relay_task_status`, `relay_prompt_show`. The caller identity is fixed at startup. CLI output and most detailed documents are currently in Chinese.
@@ -208,9 +208,9 @@ Tools: `relay_task_dispatch`, `relay_task_ack`, `relay_task_start`, `relay_task_
 
 | Program | Order |
 | --- | --- |
-| CLI, MCP | `--home` → `RELAY_HOME` → `%LOCALAPPDATA%\AgentRelay` |
-| Desktop app | `--home` → `RELAY_HOME` → folder chosen in Settings → `%LOCALAPPDATA%\AgentRelay` |
-| Demo | A new folder under `%LOCALAPPDATA%\AgentRelay.Demos\` |
+| CLI, MCP | `--home` → `TASKBATON_HOME` → `RELAY_HOME` → new location record → old `relay.location.json` → `%LOCALAPPDATA%\TaskBaton` (migrating an old `%LOCALAPPDATA%\AgentRelay` home) |
+| Desktop app | `--home` → `TASKBATON_HOME` → `RELAY_HOME` → folder chosen in Settings → `%LOCALAPPDATA%\TaskBaton` (migrating an old `%LOCALAPPDATA%\AgentRelay` home) |
+| Demo | A new folder under `%LOCALAPPDATA%\TaskBaton.Demos\` |
 
 In **Settings → Relay storage → Review relay files**, select a file to see its full path, ownership and task references. **Preview cleanup** lists the exact expired TaskBaton-owned files eligible for deletion. After confirmation, TaskBaton rechecks the listed files and keeps files that changed or gained an active reference. Originals, project deliverables, control files and files of unverified ownership stay in place. The default retention period is 3 days.
 
@@ -221,7 +221,7 @@ After moving the relay folder in Settings, point the CLI and MCP at the new `--h
 ## Limits
 
 - Preview software with real gaps: real host creation, visibility and continuation need testing in that host; simulated bridges do not establish real integration. Windows display scaling and multi-monitor behaviour need manual checks.
-- No background service or scheduled task. A running desktop app monitors receipts; after every process closes, overdue work waits for the next `relay recover` (CLI) or the next launch.
+- No background service or scheduled task. A running desktop app monitors receipts; after every process closes, overdue work waits for the next `taskbaton recover` (CLI) or the next launch.
 - Uninstall cleanup only covers rules registered for the current relay folder. Other sites you used need separate handling. Deleting the install or ZIP folder does not replace uninstalling or removing rules.
 - Cancelling a task stops TaskBaton's tracking and further delivery; it does not stop an Agent that is already working. Deleting a task keeps the files and their ownership records so eligible TaskBaton copies can be reviewed for cleanup later.
 

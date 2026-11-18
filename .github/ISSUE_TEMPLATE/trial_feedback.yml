@@ -1,4 +1,4 @@
-name: TaskBaton trial feedback / TaskBaton 试用反馈
+﻿name: TaskBaton trial feedback / TaskBaton 试用反馈
 description: TaskBaton (formerly Agent Relay) trial feedback. 分享试过的场景、卡点或跑通的步骤。
 body:
   - type: input

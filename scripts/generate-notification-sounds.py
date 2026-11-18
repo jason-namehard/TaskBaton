@@ -1,4 +1,4 @@
-"""Write the project's soft notification cues as mono PCM WAV files."""
+﻿"""Write the project's soft notification cues as mono PCM WAV files."""
 
 import math
 from pathlib import Path
@@ -7,7 +7,7 @@ import wave
 
 
 RATE = 44100
-OUTPUT = Path(__file__).resolve().parents[1] / "src/AgentRelay.Desktop/Assets/Sounds"
+OUTPUT = Path(__file__).resolve().parents[1] / "src/TaskBaton.Desktop/Assets/Sounds"
 
 
 def piano(t, frequency):
