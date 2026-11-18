@@ -71,8 +71,8 @@ Source: "{#SourcePath}\licenses\*"; DestDir: "{app}\docs\licenses"; Flags: ignor
 
 [Icons]
 #ifdef TestAppId
-Name: "{autoprograms}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"
-Name: "{autodesktop}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
+Name: "{autoprograms}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Parameters: "--home ""{app}\data"""; WorkingDir: "{app}\app\gui"
+Name: "{autodesktop}\{#TestAppId}"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; Parameters: "--home ""{app}\data"""; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
 #else
 Name: "{autoprograms}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"
 Name: "{autodesktop}\TaskBaton"; Filename: "{app}\app\gui\AgentRelay.Desktop.exe"; WorkingDir: "{app}\app\gui"; Tasks: desktopicon
@@ -110,7 +110,8 @@ begin
   begin
     LocationFile := '{#TestLocationPath}';
     ForceDirectories(ExtractFileDir(LocationFile));
-    DataDirectory := StringChangeEx(ExpandConstant('{app}\data'), '\', '\\', True);
+    DataDirectory := ExpandConstant('{app}\data');
+    StringChangeEx(DataDirectory, '\', '\\', True);
     SaveStringToFile(LocationFile, '{"home":"' + DataDirectory + '"}', False);
   end;
 end;
