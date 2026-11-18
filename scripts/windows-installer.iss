@@ -169,7 +169,7 @@ begin
   if Uninstaller = '' then Exit;
   Arguments := '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL';
   // The old silent uninstaller explicitly preserves configuration and task data.
-  if not Exec(Uninstaller, Arguments, InstallDirectory, SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+  if not Exec(Uninstaller, Arguments, ExtractFileDir(Uninstaller), SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
     Result := '无法静默卸载旧版 Agent Relay（退出码 ' + IntToStr(Code) + '）。未继续安装；请手动卸载旧版后重试。';
 end;
 #endif
