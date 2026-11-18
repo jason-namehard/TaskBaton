@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
@@ -42,10 +43,10 @@ public static class TaskBatonHome
     /// location record, a migrated old default home, then the new default home.
     /// </summary>
     public static string Resolve(string? explicitHome = null, string? locationFile = null) =>
-        ResolveForRoot(LocalApplicationData, explicitHome, locationFile);
+        ResolveForRoot(LocalApplicationData, explicitHome, locationFile, checkRunningProcesses: true);
 
     internal static string ResolveForRoot(string localApplicationData, string? explicitHome = null,
-        string? locationFile = null)
+        string? locationFile = null, bool checkRunningProcesses = false)
     {
         if (!string.IsNullOrWhiteSpace(explicitHome)) return FullPath(explicitHome);
         if (EnvironmentHome is { } environmentHome) return FullPath(environmentHome);
@@ -59,7 +60,7 @@ public static class TaskBatonHome
             // A previous fallback may have recorded the old default home as the new location.
             // Retry the verified copy while the new default still does not exist.
             if (SamePath(location, defaultLocation) && SamePath(saved, legacyHome) && !Directory.Exists(defaultHome))
-                return MigrateLegacyHome(localApplicationData) ?? saved;
+                return MigrateLegacyHome(localApplicationData, checkRunningProcesses) ?? saved;
             return saved;
         }
 
@@ -68,11 +69,11 @@ public static class TaskBatonHome
             if (ReadLocation(LegacyLocationFileFor(localApplicationData)) is { } legacySaved)
             {
                 if (SamePath(legacySaved, legacyHome) && !Directory.Exists(defaultHome))
-                    return MigrateLegacyHome(localApplicationData) ?? legacySaved;
+                    return MigrateLegacyHome(localApplicationData, checkRunningProcesses) ?? legacySaved;
                 return legacySaved;
             }
             if (Directory.Exists(legacyHome) && !Directory.Exists(defaultHome))
-                return MigrateLegacyHome(localApplicationData) ?? FullPath(legacyHome);
+                return MigrateLegacyHome(localApplicationData, checkRunningProcesses) ?? FullPath(legacyHome);
         }
         return defaultHome;
     }
@@ -130,11 +131,14 @@ public static class TaskBatonHome
     /// then records the new location. Returns null when the copy cannot be verified; the caller
     /// then keeps using the old home and no user file is deleted.
     /// </summary>
-    internal static string? MigrateLegacyHome(string localApplicationData)
+    internal static string? MigrateLegacyHome(string localApplicationData, bool checkRunningProcesses = false)
     {
         var source = LegacyHomeFor(localApplicationData);
         var destination = DefaultHomeFor(localApplicationData);
         if (!Directory.Exists(source) || Directory.Exists(destination)) return null;
+        // Copying a live ledger can capture a mid-write WAL; let the old app finish or be closed first.
+        if (checkRunningProcesses && (Process.GetProcessesByName("AgentRelay.Desktop").Length > 0 ||
+            Process.GetProcessesByName("AgentRelay.Notify").Length > 0)) return null;
         var sourceDatabase = ResolveDatabasePath(source);
         if (!File.Exists(sourceDatabase)) return null;
         var expected = ReadCounts(sourceDatabase);

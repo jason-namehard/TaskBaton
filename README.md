@@ -12,7 +12,7 @@ TaskBaton (任务接力棒) is a local handoff layer for people who work with se
 
 If you use more than one agent, the work usually moves by copy and paste: you paste a request into one session, wait, copy the answer into another, and lose track of which session received what, whether it was picked up, and whether a changed file means the work is finished. TaskBaton keeps each handoff as a task in a local relay folder with a SQLite ledger, shows its progress in a Windows desktop app, and separates "the message was submitted" from "the task was completed with a receipt". You decide the agents and their roles; TaskBaton only needs to know who sends and who receives.
 
-Current release: `0.5.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
+Current release: `0.6.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
 
 ## What it is / what it is not
 
@@ -24,16 +24,16 @@ Current release: `0.5.0`, with a Windows x64 desktop installer. The CLI and stdi
 
 ### Try the demo in 60 seconds
 
-Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/TaskBaton-v0.5.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
+Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.6.0/TaskBaton-v0.6.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
 
 If you try it, [share your feedback](https://github.com/jason-namehard/TaskBaton/issues/new?template=trial_feedback.yml). Which agents do you use together, and where did your first handoff get stuck?
 
 ### Install on Windows x64
 
-Download [TaskBaton 0.5.0 for Windows x64](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0), or run in PowerShell:
+Download [TaskBaton 0.6.0 for Windows x64](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.6.0), or run in PowerShell:
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/TaskBaton-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'TaskBaton-setup.exe'
+Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.6.0/TaskBaton-v0.6.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'TaskBaton-setup.exe'
 Start-Process '.\TaskBaton-setup.exe' -Wait
 ```
 
@@ -44,14 +44,14 @@ The unsigned installer defaults to a per-user installation under `%LOCALAPPDATA%
 & "$env:LOCALAPPDATA\Programs\TaskBaton\app\taskbaton.exe" --help    # app\mcp\taskbaton-mcp.exe is self-contained too
 ```
 
-The 0.4.0 build passed the isolated install, upgrade and uninstall acceptance suite (27 checks). The 0.5.0 installer must pass its own isolated acceptance before release. Exit TaskBaton from the tray before upgrading.
+The 0.4.0 build passed the isolated install, upgrade and uninstall acceptance suite (27 checks). The 0.6.0 installer must pass its own isolated acceptance before release. Exit TaskBaton from the tray before upgrading.
 
 ### Download and verify the portable ZIP with PowerShell
 
-Download the ZIP from the [release page](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0) or with PowerShell. Extract the whole archive into a new folder; do not run files from inside the ZIP.
+Download the ZIP from the [release page](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.6.0) or with PowerShell. Extract the whole archive into a new folder; do not run files from inside the ZIP.
 
 ```powershell
-$version = 'v0.5.0'
+$version = 'v0.6.0'
 $zip = "TaskBaton-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
 Invoke-WebRequest "https://github.com/jason-namehard/TaskBaton/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip

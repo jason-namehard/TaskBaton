@@ -8,6 +8,6 @@
     <Authors>TaskBaton contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/jason-namehard/TaskBaton</RepositoryUrl>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
   </PropertyGroup>
 </Project>

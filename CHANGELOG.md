@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 — 2026-11-18
+
+- 内部标识、项目目录、命名空间、程序集改为 TaskBaton；CLI 主命令 `taskbaton`（别名 `tb`），MCP 为 `taskbaton-mcp`。
+- 安装目录改为 `%LOCALAPPDATA%\Programs\TaskBaton`；默认数据目录改为 `%LOCALAPPDATA%\TaskBaton`。
+- 数据文件改为 `taskbaton.db` / `taskbaton.location.json`；演示与规则目录改为 TaskBaton 名称。
+- 环境变量首选 `TASKBATON_HOME`，兼容 `RELAY_HOME`；调用上下文同时支持 `TASKBATON_CALLER_*` 与 `AGENT_RELAY_CALLER_*`。
+- 旧默认数据目录首次使用时复制到新目录，校验数据库与计数后切换，旧目录保留用于回滚；校验失败回退旧目录。
+- 安装器检测旧 AppId/旧安装目录，旧版运行中安全中止；退出后自动静默卸载旧版并保留数据。
+- 安装包保留 `relay.exe`、`relay-mcp.exe`、`tb.exe` 兼容入口；协议字段、`.relay` 控制目录、MCP 工具名与旧规则标记保持不变。
+
 ## 0.5.0 — 2026-11-18
 
 - 验收：可选择任意已登记 Agent 作为验收方；首次验收新建任务专用会话，后续复验续接同一会话，验收会话与工作会话分用途保存，不覆盖原会话。
