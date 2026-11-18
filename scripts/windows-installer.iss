@@ -20,7 +20,7 @@ AppId={{6476C39F-39A5-4BF2-AFC7-1E9371D4B556}
 AppName=TaskBaton
 AppVersion={#ReleaseVersion}
 AppPublisher=TaskBaton contributors
-AppPublisherURL=https://github.com/jason-namehard/agent-relay
+AppPublisherURL=https://github.com/jason-namehard/TaskBaton
 #ifdef TestInstallDir
 DefaultDirName={#TestInstallDir}
 #else

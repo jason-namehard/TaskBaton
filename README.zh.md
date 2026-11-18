@@ -2,8 +2,8 @@
 
 [English](README.md) | **简体中文**
 
-[![CI](https://github.com/jason-namehard/agent-relay/actions/workflows/ci.yml/badge.svg)](https://github.com/jason-namehard/agent-relay/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/jason-namehard/agent-relay?include_prereleases&label=latest)](https://github.com/jason-namehard/agent-relay/releases)
+[![CI](https://github.com/jason-namehard/TaskBaton/actions/workflows/ci.yml/badge.svg)](https://github.com/jason-namehard/TaskBaton/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jason-namehard/TaskBaton?include_prereleases&label=latest)](https://github.com/jason-namehard/TaskBaton/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT.svg)](LICENSE)
 
 TaskBaton（任务接力棒）是给同时使用多个 AI Agent 的人准备的本机交接层：把文件或请求从 A 交给 B，随时看清现在由谁处理，工作真正完成时才结束这一轮。
@@ -12,7 +12,7 @@ TaskBaton（任务接力棒）是给同时使用多个 AI Agent 的人准备的�
 
 同时用几个 Agent 时，工作通常靠复制粘贴推进：把请求贴进一个会话，等它回答，再把答案抄到另一个会话。很快你就分不清哪个会话收到了什么、对方有没有接手、文件变了是不是就代表做完了。TaskBaton 把每次交接记成本机中转站里的一条任务（SQLite 账本），在 Windows 桌面程序中展示进度，并把「消息已提交」和「任务已凭回执完成」分开。Agent 和分工由你决定，TaskBaton 只需要知道谁交给谁。
 
-当前版本为 `0.4.0`，提供 Windows x64 桌面安装包。CLI 与 stdio MCP 有 Windows 和 Linux 的 CI 覆盖。没有 macOS 桌面包、云端中转站，也没有在所有进程关闭后继续运行的后台服务。
+当前版本为 `0.5.0`，提供 Windows x64 桌面安装包。CLI 与 stdio MCP 有 Windows 和 Linux 的 CI 覆盖。没有 macOS 桌面包、云端中转站，也没有在所有进程关闭后继续运行的后台服务。
 
 ## 它是什么 / 不是什么
 
@@ -24,16 +24,16 @@ TaskBaton（任务接力棒）是给同时使用多个 AI Agent 的人准备的�
 
 ### 60 秒体验桌面演示
 
-下载并完整解压 [Windows x64 便携 ZIP](https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64.zip)，双击 `TryDemo.cmd`。在「任务」里打开一条已完成的样例，可以看到原始请求、回复和处理记录。演示会创建独立的本机中转站并使用预设结果：无需安装或登录模型账号，也不会调用模型。这些是预设结果，不是探针，也不是与真实 Agent 的一次真实交接。
+下载并完整解压 [Windows x64 便携 ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64.zip)，双击 `TryDemo.cmd`。在「任务」里打开一条已完成的样例，可以看到原始请求、回复和处理记录。演示会创建独立的本机中转站并使用预设结果：无需安装或登录模型账号，也不会调用模型。这些是预设结果，不是探针，也不是与真实 Agent 的一次真实交接。
 
-试过之后，欢迎[提交试用反馈](https://github.com/jason-namehard/agent-relay/issues/new?template=trial_feedback.yml)。你平时会把哪两个 Agent 搭配使用？第一次交接卡在哪一步？
+试过之后，欢迎[提交试用反馈](https://github.com/jason-namehard/TaskBaton/issues/new?template=trial_feedback.yml)。你平时会把哪两个 Agent 搭配使用？第一次交接卡在哪一步？
 
 ### Windows 安装包
 
-从 [发布页](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0) 下载 TaskBaton 0.4.0 的 Windows x64 安装包，也可以在 PowerShell 运行：
+从 [发布页](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0) 下载 TaskBaton 0.5.0 的 Windows x64 安装包，也可以在 PowerShell 运行：
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
+Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
 Start-Process '.\AgentRelay-setup.exe' -Wait
 ```
 
@@ -44,17 +44,17 @@ Start-Process '.\AgentRelay-setup.exe' -Wait
 & "$env:LOCALAPPDATA\Programs\Agent Relay\app\relay.exe" --help    # app\mcp\relay-mcp.exe 同样是自包含的
 ```
 
-0.4.0 构建通过了隔离安装、覆盖升级和卸载验收（27 项检查）。已发布的安装包尚未在干净虚拟机中一起实测。升级前请先从托盘退出 TaskBaton。
+0.4.0 构建通过了隔离安装、覆盖升级和卸载验收（27 项检查）。0.5.0 安装包发布前必须完成自己的隔离安装验收。升级前请先从托盘退出 TaskBaton。
 
 ### 使用 PowerShell 下载并核对便携 ZIP
 
-从 [Release 页面](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0) 下载，或用 PowerShell。请把压缩包完整解压到新目录，不要在 ZIP 里直接运行。
+从 [Release 页面](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0) 下载，或用 PowerShell。请把压缩包完整解压到新目录，不要在 ZIP 里直接运行。
 
 ```powershell
-$version = 'v0.4.0'
+$version = 'v0.5.0'
 $zip = "AgentRelay-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest "https://github.com/jason-namehard/agent-relay/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
+Invoke-WebRequest "https://github.com/jason-namehard/TaskBaton/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
 Expand-Archive $zip -DestinationPath ".\AgentRelay-$version"
 Set-Location ".\AgentRelay-$version"
 
@@ -66,7 +66,7 @@ Set-Location ".\AgentRelay-$version"
 <summary>核对下载的 ZIP 与 GitHub 资产摘要是否一致</summary>
 
 ```powershell
-$release = Invoke-RestMethod "https://api.github.com/repos/jason-namehard/agent-relay/releases/tags/$version"
+$release = Invoke-RestMethod "https://api.github.com/repos/jason-namehard/TaskBaton/releases/tags/$version"
 $asset = $release.assets | Where-Object name -eq $zip
 if (-not $asset.digest) { throw 'The release API did not provide an asset digest.' }
 $actual = 'sha256:' + (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -167,7 +167,7 @@ if ($actual -ne $asset.digest) { throw 'The file does not match the GitHub asset
 需要 .NET 10 SDK（见 `global.json`）。在全新克隆中，用 PowerShell：
 
 ```powershell
-git clone https://github.com/jason-namehard/agent-relay.git
+git clone https://github.com/jason-namehard/TaskBaton.git
 cd agent-relay
 dotnet restore --locked-mode
 dotnet test --configuration Release --no-restore
@@ -221,7 +221,7 @@ dotnet .\mcp\relay-mcp.dll --home <中转站目录> --agent <已登记的 Agent 
 - 卸载清理只覆盖当前中转站登记的规则；用过的其他站点需要分别处理。删除安装目录或解压目录都不能代替卸载或移除规则。
 - 取消任务只结束 TaskBaton 的跟踪和后续投递，不会终止已经在工作的 Agent。删除任务会移除账本记录，文件保留到后续清理。
 
-[上手指南](docs/GETTING_STARTED.md) · [配置与回执](docs/CONFIGURATION_ASSISTANT.md) · [会话管理](docs/SESSIONS.md) · [架构](docs/ARCHITECTURE.md) · [协议](protocol/HANDOFF.md) · [UI 规格](docs/UI_SPEC.md) · [适配器](docs/ADAPTERS.md) · [贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
+[上手指南](docs/GETTING_STARTED.md) · [配置与回执](docs/CONFIGURATION_ASSISTANT.md) · [会话管理](docs/SESSIONS.md) · [架构](docs/ARCHITECTURE.md) · [协议](protocol/HANDOFF.md) · [UI 规格](docs/UI_SPEC.md) · [适配器](docs/ADAPTERS.md) · [贡献指南](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/TaskBaton/issues)
 
 ## 许可
 

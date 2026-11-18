@@ -53,7 +53,7 @@ jobs:
           pattern: package-*
           merge-multiple: true
           path: release-assets
-      - name: Publish preview release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
@@ -70,5 +70,5 @@ jobs:
           fi
           gh release create "$RELEASE_TAG" release-assets/*.zip \
             --verify-tag "${release_flags[@]}" \
-            --title "Agent Relay $RELEASE_TAG" \
+            --title "TaskBaton $RELEASE_TAG" \
             --notes-file "docs/releases/$RELEASE_TAG.md"

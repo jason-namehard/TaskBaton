@@ -70,7 +70,7 @@ dotnet $relay --home $dataRoot adapter inspect-config --path C:/Users/you/.codex
   "source": {
     "adapter_id": "relay-mcp",
     "version": "0.4.0",
-    "repository": "https://github.com/jason-namehard/agent-relay",
+    "repository": "https://github.com/jason-namehard/TaskBaton",
     "revision": "<reviewed commit>",
     "license": "MIT",
     "capabilities": ["stdio_mcp", "completion_callback", "session_resume"],

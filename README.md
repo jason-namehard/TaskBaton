@@ -2,8 +2,8 @@
 
 **English** | [简体中文](README.zh.md)
 
-[![CI](https://github.com/jason-namehard/agent-relay/actions/workflows/ci.yml/badge.svg)](https://github.com/jason-namehard/agent-relay/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/jason-namehard/agent-relay?include_prereleases&label=latest)](https://github.com/jason-namehard/agent-relay/releases)
+[![CI](https://github.com/jason-namehard/TaskBaton/actions/workflows/ci.yml/badge.svg)](https://github.com/jason-namehard/TaskBaton/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/jason-namehard/TaskBaton?include_prereleases&label=latest)](https://github.com/jason-namehard/TaskBaton/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT.svg)](LICENSE)
 
 TaskBaton (任务接力棒) is a local handoff layer for people who work with several AI agents. Pass a file or request from A to B, see who holds the task now, and stop the loop when the work is actually done.
@@ -12,7 +12,7 @@ TaskBaton (任务接力棒) is a local handoff layer for people who work with se
 
 If you use more than one agent, the work usually moves by copy and paste: you paste a request into one session, wait, copy the answer into another, and lose track of which session received what, whether it was picked up, and whether a changed file means the work is finished. TaskBaton keeps each handoff as a task in a local relay folder with a SQLite ledger, shows its progress in a Windows desktop app, and separates "the message was submitted" from "the task was completed with a receipt". You decide the agents and their roles; TaskBaton only needs to know who sends and who receives.
 
-Current release: `0.4.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
+Current release: `0.5.0`, with a Windows x64 desktop installer. The CLI and stdio MCP server have Windows and Linux CI coverage. There is no macOS desktop package, no cloud relay and no background service after every process closes.
 
 ## What it is / what it is not
 
@@ -24,16 +24,16 @@ Current release: `0.4.0`, with a Windows x64 desktop installer. The CLI and stdi
 
 ### Try the demo in 60 seconds
 
-Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
+Download and extract the [Windows x64 portable ZIP](https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64.zip), then double-click `TryDemo.cmd`. In **Tasks**, open a completed sample to see the original request, the reply and the processing history. The demo uses a fresh local relay folder and preset results: it needs no installation or model account, and makes no model calls. These are preset results, not a probe and not a real handoff with a live Agent.
 
-If you try it, [share your feedback](https://github.com/jason-namehard/agent-relay/issues/new?template=trial_feedback.yml). Which agents do you use together, and where did your first handoff get stuck?
+If you try it, [share your feedback](https://github.com/jason-namehard/TaskBaton/issues/new?template=trial_feedback.yml). Which agents do you use together, and where did your first handoff get stuck?
 
 ### Install on Windows x64
 
-Download [TaskBaton 0.4.0 for Windows x64](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0), or run in PowerShell:
+Download [TaskBaton 0.5.0 for Windows x64](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0), or run in PowerShell:
 
 ```powershell
-Invoke-WebRequest 'https://github.com/jason-namehard/agent-relay/releases/download/v0.4.0/AgentRelay-v0.4.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
+Invoke-WebRequest 'https://github.com/jason-namehard/TaskBaton/releases/download/v0.5.0/AgentRelay-v0.5.0-windows-x64-setup.exe' -UseBasicParsing -OutFile 'AgentRelay-setup.exe'
 Start-Process '.\AgentRelay-setup.exe' -Wait
 ```
 
@@ -44,17 +44,17 @@ The unsigned installer defaults to a per-user installation under `%LOCALAPPDATA%
 & "$env:LOCALAPPDATA\Programs\Agent Relay\app\relay.exe" --help    # app\mcp\relay-mcp.exe is self-contained too
 ```
 
-The 0.4.0 build passed the isolated install, upgrade and uninstall acceptance suite (27 checks). The published installers have not been exercised together on a clean virtual machine. Exit TaskBaton from the tray before upgrading.
+The 0.4.0 build passed the isolated install, upgrade and uninstall acceptance suite (27 checks). The 0.5.0 installer must pass its own isolated acceptance before release. Exit TaskBaton from the tray before upgrading.
 
 ### Download and verify the portable ZIP with PowerShell
 
-Download the ZIP from the [release page](https://github.com/jason-namehard/agent-relay/releases/tag/v0.4.0) or with PowerShell. Extract the whole archive into a new folder; do not run files from inside the ZIP.
+Download the ZIP from the [release page](https://github.com/jason-namehard/TaskBaton/releases/tag/v0.5.0) or with PowerShell. Extract the whole archive into a new folder; do not run files from inside the ZIP.
 
 ```powershell
-$version = 'v0.4.0'
+$version = 'v0.5.0'
 $zip = "AgentRelay-$version-windows-x64.zip"
 $ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest "https://github.com/jason-namehard/agent-relay/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
+Invoke-WebRequest "https://github.com/jason-namehard/TaskBaton/releases/download/$version/$zip" -UseBasicParsing -OutFile $zip
 Expand-Archive $zip -DestinationPath ".\AgentRelay-$version"
 Set-Location ".\AgentRelay-$version"
 
@@ -66,7 +66,7 @@ Set-Location ".\AgentRelay-$version"
 <summary>Verify the downloaded ZIP against the GitHub asset digest</summary>
 
 ```powershell
-$release = Invoke-RestMethod "https://api.github.com/repos/jason-namehard/agent-relay/releases/tags/$version"
+$release = Invoke-RestMethod "https://api.github.com/repos/jason-namehard/TaskBaton/releases/tags/$version"
 $asset = $release.assets | Where-Object name -eq $zip
 if (-not $asset.digest) { throw 'The release API did not provide an asset digest.' }
 $actual = 'sha256:' + (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -171,7 +171,7 @@ The portable handoff contract is [`protocol/HANDOFF.md`](protocol/HANDOFF.md) (d
 Requires the .NET 10 SDK (see `global.json`). From a fresh clone, in PowerShell:
 
 ```powershell
-git clone https://github.com/jason-namehard/agent-relay.git
+git clone https://github.com/jason-namehard/TaskBaton.git
 cd agent-relay
 dotnet restore --locked-mode
 dotnet test --configuration Release --no-restore
@@ -225,7 +225,7 @@ After moving the relay folder in Settings, point the CLI and MCP at the new `--h
 - Uninstall cleanup only covers rules registered for the current relay folder. Other sites you used need separate handling. Deleting the install or ZIP folder does not replace uninstalling or removing rules.
 - Cancelling a task stops TaskBaton's tracking and further delivery; it does not stop an Agent that is already working. Deleting a task keeps the files and their ownership records so eligible TaskBaton copies can be reviewed for cleanup later.
 
-[Getting started](docs/GETTING_STARTED.md) · [Setup and receipts](docs/CONFIGURATION_ASSISTANT.md) · [Sessions](docs/SESSIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Protocol](protocol/HANDOFF.md) · [UI spec](docs/UI_SPEC.md) · [Adapters](docs/ADAPTERS.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/agent-relay/issues)
+[Getting started](docs/GETTING_STARTED.md) · [Setup and receipts](docs/CONFIGURATION_ASSISTANT.md) · [Sessions](docs/SESSIONS.md) · [Architecture](docs/ARCHITECTURE.md) · [Protocol](protocol/HANDOFF.md) · [UI spec](docs/UI_SPEC.md) · [Adapters](docs/ADAPTERS.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/jason-namehard/TaskBaton/issues)
 
 ## License
 

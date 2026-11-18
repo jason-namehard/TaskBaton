@@ -7,7 +7,7 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <Authors>TaskBaton contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/jason-namehard/agent-relay</RepositoryUrl>
-    <Version>0.4.0</Version>
+    <RepositoryUrl>https://github.com/jason-namehard/TaskBaton</RepositoryUrl>
+    <Version>0.5.0</Version>
   </PropertyGroup>
 </Project>

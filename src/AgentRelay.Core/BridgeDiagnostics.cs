@@ -56,7 +56,7 @@ public sealed partial class RelayService
             本机运行程序集：{assembly.Location}
             中转站：{Home}
             账本：{Path.Combine(Home, "relay.db")}
-            项目源码：https://github.com/jason-namehard/agent-relay
+            项目源码：https://github.com/jason-namehard/TaskBaton
             先查本机是否已有源码；不要假设安装目录就是源码目录。相关实现：src/AgentRelay.Core/CliExtensions.cs、CliHealth.cs、CliFailureDiagnostics.cs、FileDelivery.cs、DshDesktopClient.cs、AcpClient.cs、SessionRegistry.cs。
 
             以下是复制时的结构化状态，不含命令参数、环境值、原始错误或任务正文。开始工作前重新读取当前记录，区分历史阻塞和现在仍然失败：

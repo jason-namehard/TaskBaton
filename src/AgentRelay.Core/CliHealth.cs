@@ -77,6 +77,16 @@ public sealed partial class RelayService
                 ? new("host.codex.adapter", "fail", "缺少 codex-acp 适配器；请安装 @agentclientprotocol/codex-acp 后再检查。")
                 : new("host.codex.adapter", "pass", "已找到 codex-acp 适配器。");
         }
+        if (format == "acp" && Path.GetFileNameWithoutExtension(recipe.Create.Executable)
+                .Equals("claude-agent-acp", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return RelayProcess.ResolveExecutable("claude") is null
+                ? new("host.claude.cli", "fail", "Claude ACP 适配器还需要 Claude Code CLI 本体。")
+                : new("host.claude.cli", "pass", "已找到 Claude Code CLI。");
+            yield return RelayProcess.ResolveExecutable("claude-agent-acp") is null
+                ? new("host.claude.adapter", "fail", "缺少 claude-agent-acp 适配器；请安装 @agentclientprotocol/claude-agent-acp 后再检查。")
+                : new("host.claude.adapter", "pass", "已找到 claude-agent-acp 适配器。");
+        }
         if (format == "dsh-desktop")
         {
             var dshHome = recipe.Create.Environment?.GetValueOrDefault("DSH_HOME");

@@ -137,7 +137,7 @@ public sealed class CliExtensionTests
     public void PresetsAreReviewableAndCoverCodexClaudeGeminiAndOpenCode()
     {
         var presets = CliRecipePresetCatalog.All;
-        Assert.IsTrue(new[] { "codex-acp", "claude-code", "gemini-cli", "opencode" }.All(id => presets.Any(preset => preset.Id == id)));
+        Assert.IsTrue(new[] { "codex-acp", "claude-acp", "claude-code", "gemini-cli", "opencode" }.All(id => presets.Any(preset => preset.Id == id)));
         foreach (var preset in presets)
         {
             Assert.IsFalse(string.IsNullOrWhiteSpace(preset.Executable), preset.Id + " executable");

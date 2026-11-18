@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-11-18
 
 - 验收：可选择任意已登记 Agent 作为验收方；首次验收新建任务专用会话，后续复验续接同一会话，验收会话与工作会话分用途保存，不覆盖原会话。
 - 首轮提示词：原“工作要求”改为启动任务用的首轮提示词；验收标准支持手动填写或由发起方按规范格式生成。
@@ -10,7 +10,7 @@
 - 协议：新增 AgentRelay.Protocol 与 `handoff verify/lint`；修正 UTC、路径、错误码、Context 示例和 reviewer-final 映射。
 - 可靠性：回执在 Relay 关闭期间写入后，重开只推进一次；截止后迟到回执会记录，但不会自动投下一轮，需用户确认。
 - 品牌：用户可见名称改为 TaskBaton（原 Agent Relay）；程序集、路径、安装器 AppId 和旧数据字段保持不变。
-- 连接预设：提供 Codex ACP、Claude Code、Gemini CLI、OpenCode 的可审查预设和 doctor；预设不等于已验证接通。
+- 连接预设：提供 Codex ACP、Claude ACP、Claude Code CLI、Gemini CLI、OpenCode 的可审查预设和 doctor；预设不等于已验证接通。
 
 ## 0.4.0 — 2026-11-12
 

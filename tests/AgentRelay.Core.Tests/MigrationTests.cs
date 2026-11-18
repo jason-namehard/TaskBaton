@@ -10,7 +10,7 @@ public sealed class MigrationTests
     private string root = null!;
     private string target = null!;
     private RelayService service = null!;
-    private static readonly AdapterSource Source = new("relay-mcp", "0.4.0", "https://github.com/jason-namehard/agent-relay",
+    private static readonly AdapterSource Source = new("relay-mcp", "0.4.0", "https://github.com/jason-namehard/TaskBaton",
         "phase4", "MIT", ["stdio_mcp", "completion_callback"], [".NET 10"], ["Local stdio only"]);
     [TestInitialize]
     public void Setup()

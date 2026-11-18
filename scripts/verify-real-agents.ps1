@@ -100,7 +100,7 @@ if ($McpMigration) {
     $newArgs = @($mcpDll,'--home',$dataRoot,'--agent','agent-a','--route-id','{{migration_id}}') | ConvertTo-Json -Compress
     $revision = git -C $projectRoot rev-parse HEAD
     if (git -C $projectRoot status --porcelain) { $revision += '+working-tree' }
-    $source = @{adapter_id='relay-mcp';version='0.4.0';repository='https://github.com/jason-namehard/agent-relay';
+    $source = @{adapter_id='relay-mcp';version='0.4.0';repository='https://github.com/jason-namehard/TaskBaton';
         revision=$revision;license='MIT';capabilities=@('stdio_mcp','completion_callback','session_resume');dependencies=@('.NET 10');limitations=@('Local stdio')}
     $manifest = Join-Path $WorkDirectory 'migration.json'
     $proposal = @{source=$source;target_path=$hostConfig;format='toml';before='';
